@@ -1,0 +1,11 @@
+Route::group(
+    [
+        'middleware' => GP247_FRONT_MIDDLEWARE,
+        'prefix'    => 'plugin/ExtensionUrlKey',
+        'namespace' => 'App\GP247\Plugins\Extension_Key\Controllers',
+    ],
+    function () {
+        Route::get('index', 'FrontController@index')
+        ->name('ExtensionUrlKey.index');
+    }
+);
