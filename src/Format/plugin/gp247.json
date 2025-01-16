@@ -1,0 +1,11 @@
+{
+    "name": "Extension_Key module",
+    "image": "images/logo.jpg",
+    "auth": "GP247",
+    "email": "support@gp247.net",
+    "link": "https://GP247.net",
+    "configGroup": "Plugins",
+    "configKey": "Extension_Key",
+    "version": "1.0",
+    "gp247Version": "1.0"
+}
