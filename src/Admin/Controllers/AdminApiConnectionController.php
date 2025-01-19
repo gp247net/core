@@ -231,7 +231,7 @@ class AdminApiConnectionController extends RootAdminController
             $ids = request('ids');
             $arrID = explode(',', $ids);
             AdminApiConnection::destroy($arrID);
-            return response()->json(['error' => 0, 'msg' => gp247_language_render('action.update_success')]);
+            return response()->json(['error' => 0, 'msg' => gp247_language_render('action.delete_success')]);
         }
     }
 

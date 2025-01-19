@@ -129,7 +129,7 @@ class AdminMenuController extends RootAdminController
             } else {
                 AdminMenu::destroy($id);
             }
-            return response()->json(['error' => 0, 'msg' => gp247_language_render('action.update_success')]);
+            return response()->json(['error' => 0, 'msg' => gp247_language_render('action.delete_success')]);
         }
     }
 

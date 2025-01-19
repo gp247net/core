@@ -1,13 +1,63 @@
 <?php
 use GP247\Core\Admin\Models\AdminCustomField;
 use GP247\Core\Admin\Models\AdminCustomFieldDetail;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+if (!function_exists('gp247_custom_field_get_tables') && !in_array('gp247_custom_field_get_tables', config('gp247_functions_except', []))) {
+    /**
+     * Get list of tables with prefix GP247_DB_PREFIX
+     * @return array
+     */
+    function gp247_custom_field_get_tables(): array
+    {
+        if (config('gp247-config.admin.schema_customize')) {
+            return config('gp247-config.admin.schema_customize');
+        }
+        try {
+            $connection = GP247_DB_CONNECTION;
+            $prefix = GP247_DB_PREFIX;
+            
+            switch(config("database.connections.$connection.driver")) {
+                case 'mysql':
+                    $query = "SHOW TABLES LIKE '$prefix%'";
+                    break;
+                case 'sqlite':
+                    $query = "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '$prefix%'";
+                    break;
+                case 'pgsql':
+                    $schema = config("database.connections.$connection.schema", 'public');
+                    $query = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='$schema' AND tablename LIKE '$prefix%'";
+                    break;
+                case 'sqlsrv':
+                    $query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '$prefix%'";
+                    break;
+                default:
+                    return [];
+            }
+
+            $tables = DB::connection($connection)->select($query);
+            return array_map(function($table) {
+                $array = (array)$table;
+                return array_shift($array);
+            }, $tables);
+            
+        } catch (\Throwable $e) {
+            gp247_handle_exception($e);
+            return [];
+        }
+    }
+}
+
+
 /**
  * Update custom field
  */
 if (!function_exists('gp247_custom_field_update') && !in_array('gp247_custom_field_update', config('gp247_functions_except', []))) {
     function gp247_custom_field_update(array $fields, string $itemId, string $type)
     {
-        $arrFields = gp247_get_tables();
+        $arrFields = gp247_custom_field_get_tables();
         if (in_array($type, $arrFields) && !empty($fields)) {
             (new AdminCustomFieldDetail)
                 ->join(GP247_DB_PREFIX.'admin_custom_field', GP247_DB_PREFIX.'admin_custom_field.id', GP247_DB_PREFIX.'admin_custom_field_detail.custom_field_id')

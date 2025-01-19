@@ -47,7 +47,7 @@ class AdminCustomFieldController extends RootAdminController
             $action = $this->procesListAction($arrAction);
 
             $dataTr[$row['id']] = [
-                'type' => gp247_get_tables()[$row['type']] ?? $row['type'],
+                'type' => gp247_custom_field_get_tables()[$row['type']] ?? $row['type'],
                 'code' => $row['code'],
                 'name' => $row['name'],
                 'required' => $row['required'],
@@ -64,7 +64,7 @@ class AdminCustomFieldController extends RootAdminController
         $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
 
         $data['layout'] = 'index';
-        $data['fieldTypes'] = gp247_get_tables();
+        $data['fieldTypes'] = gp247_custom_field_get_tables();
         $data['selectTypes'] = $this->selectTypes();
         return view('gp247-core::screen.custom_field')
             ->with($data);
@@ -90,6 +90,9 @@ class AdminCustomFieldController extends RootAdminController
                 ->withErrors($validator)
                 ->withInput($data);
         }
+        
+        $data['code'] = gp247_word_format_url($data['code']);
+        $data['code'] = gp247_word_limit($data['code'], 100);
         $dataCreate = [
             'type' => $data['type'],
             'name' => $data['name'],
@@ -150,7 +153,7 @@ class AdminCustomFieldController extends RootAdminController
             $action = $this->procesListAction($arrAction);
 
             $dataTr[$row['id']] = [
-                'type' => gp247_get_tables()[$row['type']] ?? $row['type'],
+                'type' => gp247_custom_field_get_tables()[$row['type']] ?? $row['type'],
                 'code' => $row['code'],
                 'name' => $row['name'],
                 'required' => $row['required'],
@@ -165,7 +168,7 @@ class AdminCustomFieldController extends RootAdminController
         $data['dataTr'] = $dataTr;
         $data['pagination'] = $dataTmp->appends(request()->except(['_token', '_pjax']))->links('gp247-core::component.pagination');
         $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
-        $data['fieldTypes'] = gp247_get_tables();
+        $data['fieldTypes'] = gp247_custom_field_get_tables();
         $data['selectTypes'] = $this->selectTypes();
         $data['layout'] = 'edit';
         return view('gp247-core::screen.custom_field')
@@ -192,7 +195,8 @@ class AdminCustomFieldController extends RootAdminController
                 ->withInput($data);
         }
         //Edit
-
+        $data['code'] = gp247_word_format_url($data['code']);
+        $data['code'] = gp247_word_limit($data['code'], 100);
         $dataUpdate = [
             'type' => $data['type'],
             'name' => $data['name'],
@@ -221,7 +225,7 @@ class AdminCustomFieldController extends RootAdminController
             $ids = request('ids');
             $arrID = explode(',', $ids);
             AdminCustomField::destroy($arrID);
-            return response()->json(['error' => 0, 'msg' => gp247_language_render('action.update_success')]);
+            return response()->json(['error' => 0, 'msg' => gp247_language_render('action.delete_success')]);
         }
     }
 

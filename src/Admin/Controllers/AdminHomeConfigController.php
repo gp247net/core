@@ -216,7 +216,7 @@ class AdminHomeConfigController extends RootAdminController
             $ids = request('ids');
             $arrID = explode(',', $ids);
             AdminHome::destroy($arrID);
-            return response()->json(['error' => 0, 'msg' => gp247_language_render('action.update_success')]);
+            return response()->json(['error' => 0, 'msg' => gp247_language_render('action.delete_success')]);
         }
     }
 }

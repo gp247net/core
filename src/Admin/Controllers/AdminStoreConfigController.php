@@ -230,6 +230,6 @@ class AdminStoreConfigController extends RootAdminController
             return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.remove_dont_permisison') . ': storeId#' . $storeId]);
         }
         AdminConfig::where('key', $key)->where('store_id', $storeId)->delete();
-        return response()->json(['error' => 0, 'msg' => gp247_language_render('action.update_success')]);
+        return response()->json(['error' => 0, 'msg' => gp247_language_render('action.delete_success')]);
     }
 }
