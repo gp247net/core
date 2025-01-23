@@ -209,3 +209,32 @@ if (!function_exists('gp247_store_process_domain') && !in_array('gp247_store_pro
     }
 }
 
+
+/**
+ * Get store list of links
+ */
+if (!function_exists('gp247_store_get_list_domain_of_array_link') && !in_array('gp247_store_get_list_domain_of_array_link', config('gp247_functions_except', []))) {
+    function gp247_store_get_list_domain_of_array_link($arrLinkId)
+    {
+        $tableStore = (new \GP247\Core\Admin\Models\AdminStore)->getTable();
+        $tableLinkStore = (new \GP247\Front\Models\FrontLinkStore)->getTable();
+        return \GP247\Front\Models\FrontLinkStore::select($tableStore.'.code', $tableStore.'.id', 'link_id')
+            ->leftJoin($tableStore, $tableStore.'.id', $tableLinkStore.'.store_id')
+            ->whereIn('link_id', $arrLinkId)
+            ->get()
+            ->groupBy('link_id');
+    }
+}
+
+/**
+ * Get list store of link detail
+ */
+if (!function_exists('gp247_store_get_list_domain_of_link_detail') && !in_array('gp247_store_get_list_domain_of_link_detail', config('gp247_functions_except', []))) {
+    function gp247_store_get_list_domain_of_link_detail($cId)
+    {
+        return \GP247\Front\Models\FrontLinkStore::where('link_id', $cId)
+            ->pluck('store_id')
+            ->toArray();
+    }
+}
+
