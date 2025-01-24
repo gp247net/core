@@ -14,58 +14,12 @@ class AdminLanguageController extends RootAdminController
     
     public function index()
     {
-        $data = [
-            'title' => gp247_language_render('admin.language.list'),
-            'title_action' => '<i class="fa fa-plus" aria-hidden="true"></i> ' . gp247_language_render('admin.language.add_new_title'),
-            'subTitle' => '',
-            'urlDeleteItem' => gp247_route_admin('admin_language.delete'),
-            'removeList' => 0, // 1 - Enable function delete list item
-            'buttonRefresh' => 0, // 1 - Enable button refresh
-            'url_action' => gp247_route_admin('admin_language.create'),
-        ];
-
-        $listTh = [
-            'name' => gp247_language_render('admin.language.name'),
-            'code' => gp247_language_render('admin.language.code'),
-            'icon' => gp247_language_render('admin.language.icon'),
-            'rtl' => gp247_language_render('admin.language.layout_rtl'),
-            'sort' => gp247_language_render('admin.language.sort'),
-            'status' => gp247_language_render('admin.language.status'),
-            'action' => gp247_language_render('action.title'),
-        ];
-
-        $obj = new AdminLanguage;
-        $obj = $obj->orderBy('id', 'desc');
-        $dataTmp = $obj->paginate(20);
-
-        $dataTr = [];
-        foreach ($dataTmp as $key => $row) {
-            $arrAction = [
-            '<a href="' . gp247_route_admin('admin_language.edit', ['id' => $row['id'], 'page' => request('page')]) . '"  class="dropdown-item"><i class="fa fa-edit"></i> '.gp247_language_render('action.edit').'</a>',
-            ];
-            if (!in_array($row['id'], GP247_GUARD_LANGUAGE)) {
-                $arrAction[] = '<a href="#" onclick="deleteItem(\'' . $row['id'] . '\');"  title="' . gp247_language_render('action.delete') . '" class="dropdown-item"><i class="fas fa-trash-alt"></i> '.gp247_language_render('action.remove').'</a>';
-            }
-
-            $action = $this->procesListAction($arrAction);
-
-            $dataTr[$row['id']] = [
-                'name' => $row['name'],
-                'code' => $row['code'],
-                'icon' => gp247_image_render($row['icon'], '30px', '30px', $row['name']),
-                'rtl' => $row['rtl'],
-                'sort' => $row['sort'],
-                'status' => $row['status'] ? '<span class="badge badge-success">ON</span>' : '<span class="badge badge-danger">OFF</span>',
-                'action' => $action,
-            ];
-        }
-
-        $data['listTh'] = $listTh;
-        $data['dataTr'] = $dataTr;
-        $data['pagination'] = $dataTmp->appends(request()->except(['_token', '_pjax']))->links('gp247-core::component.pagination');
-        $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
-
+        $data = $this->processDataScreen();
+        $data['title'] = gp247_language_render('admin.language.list');
+        $data['title_action'] = '<i class="fa fa-plus" aria-hidden="true"></i> ' . gp247_language_render('admin.language.add_new_title');
+        $data['url_action'] = gp247_route_admin('admin_language.create');
         $data['layout'] = 'index';
+
         return view('gp247-core::screen.language')
             ->with($data);
     }
@@ -112,61 +66,15 @@ class AdminLanguageController extends RootAdminController
     {
         $language = AdminLanguage::find($id);
         if (!$language) {
-            return 'No data';
+            return redirect(gp247_route_admin('admin_language.index'))->with('error', gp247_language_render('admin.data_not_found'));
         }
-        $data = [
-        'title' => gp247_language_render('admin.language.list'),
-        'title_action' => '<i class="fa fa-edit" aria-hidden="true"></i> ' . gp247_language_render('action.edit'),
-        'subTitle' => '',
-        'icon' => 'fa fa-tasks',
-        'urlDeleteItem' => gp247_route_admin('admin_language.delete'),
-        'removeList' => 0, // 1 - Enable function delete list item
-        'buttonRefresh' => 0, // 1 - Enable button refresh
-        'url_action' => gp247_route_admin('admin_language.post_edit', ['id' => $language['id']]),
-        'language' => $language,
-    ];
-
-        $listTh = [
-        'name' => gp247_language_render('admin.language.name'),
-        'code' => gp247_language_render('admin.language.code'),
-        'icon' => gp247_language_render('admin.language.icon'),
-        'rtl' => gp247_language_render('admin.language.layout_rtl'),
-        'sort' => gp247_language_render('admin.language.sort'),
-        'status' => gp247_language_render('admin.language.status'),
-        'action' => gp247_language_render('action.title'),
-    ];
-        $obj = new AdminLanguage;
-        $obj = $obj->orderBy('id', 'desc');
-        $dataTmp = $obj->paginate(20);
-
-        $dataTr = [];
-        foreach ($dataTmp as $key => $row) {
-            $arrAction = [
-            '<a href="' . gp247_route_admin('admin_language.edit', ['id' => $row['id'], 'page' => request('page')]) . '"  class="dropdown-item"><i class="fa fa-edit"></i> '.gp247_language_render('action.edit').'</a>',
-            ];
-            if (!in_array($row['id'], GP247_GUARD_LANGUAGE)) {
-                $arrAction[] = '<a href="#" onclick="deleteItem(\'' . $row['id'] . '\');"  title="' . gp247_language_render('action.delete') . '" class="dropdown-item"><i class="fas fa-trash-alt"></i> '.gp247_language_render('action.remove').'</a>';
-            }
-
-            $action = $this->procesListAction($arrAction);
-
-            $dataTr[$row['id']] = [
-            'name' => $row['name'],
-            'code' => $row['code'],
-            'icon' => gp247_image_render($row['icon'], '30px', '30px', $row['name']),
-            'rtl' => $row['rtl'],
-            'sort' => $row['sort'],
-            'status' => $row['status'] ? '<span class="badge badge-success">ON</span>' : '<span class="badge badge-danger">OFF</span>',
-            'action' => $action,
-        ];
-        }
-
-        $data['listTh'] = $listTh;
-        $data['dataTr'] = $dataTr;
-        $data['pagination'] = $dataTmp->appends(request()->except(['_token', '_pjax']))->links('gp247-core::component.pagination');
-        $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
-
+        $data = $this->processDataScreen($id);
+        $data['title'] = gp247_language_render('admin.language.list');
+        $data['title_action'] = '<i class="fa fa-edit" aria-hidden="true"></i> ' . gp247_language_render('action.edit');
+        $data['url_action'] = gp247_route_admin('admin_language.post_edit', ['id' => $language['id']]);
+        $data['language'] = $language;
         $data['layout'] = 'edit';
+        
         return view('gp247-core::screen.language')
         ->with($data);
     }
@@ -214,6 +122,58 @@ class AdminLanguageController extends RootAdminController
 
         return redirect()->back()->with('success', gp247_language_render('action.edit_success'));
     }
+
+    private function processDataScreen(string $id = null) {
+        $data = [
+            'subTitle' => '',
+            'icon' => 'fa fa-tasks',
+            'urlDeleteItem' => gp247_route_admin('admin_language.delete'),
+            'removeList' => 0, // 1 - Enable function delete list item
+            'buttonRefresh' => 0, // 1 - Enable button refresh
+        ];
+    
+        $listTh = [
+            'name' => gp247_language_render('admin.language.name'),
+            'code' => gp247_language_render('admin.language.code'),
+            'icon' => gp247_language_render('admin.language.icon'),
+            'rtl' => gp247_language_render('admin.language.layout_rtl'),
+            'sort' => gp247_language_render('admin.language.sort'),
+            'status' => gp247_language_render('admin.language.status'),
+            'action' => gp247_language_render('action.title'),
+        ];
+            $obj = new AdminLanguage;
+            $obj = $obj->orderBy('id', 'desc');
+            $dataTmp = $obj->paginate(20);
+    
+            $dataTr = [];
+            foreach ($dataTmp as $key => $row) {
+                $arrAction = [
+                '<a href="' . gp247_route_admin('admin_language.edit', ['id' => $row['id'], 'page' => request('page')]) . '"  class="dropdown-item"><i class="fa fa-edit"></i> '.gp247_language_render('action.edit').'</a>',
+                ];
+                if (!in_array($row['id'], GP247_GUARD_LANGUAGE)) {
+                    $arrAction[] = '<a href="#" onclick="deleteItem(\'' . $row['id'] . '\');"  title="' . gp247_language_render('action.delete') . '" class="dropdown-item"><i class="fas fa-trash-alt"></i> '.gp247_language_render('action.remove').'</a>';
+                }
+    
+                $action = $this->procesListAction($arrAction);
+    
+                $dataTr[$row['id']] = [
+                'name' => $row['name'],
+                'code' => $row['code'],
+                'icon' => gp247_image_render($row['icon'], '30px', '30px', $row['name']),
+                'rtl' => $row['rtl'],
+                'sort' => $row['sort'],
+                'status' => $row['status'] ? '<span class="badge badge-success">ON</span>' : '<span class="badge badge-danger">OFF</span>',
+                'action' => $action,
+            ];
+            }
+    
+            $data['listTh'] = $listTh;
+            $data['dataTr'] = $dataTr;
+            $data['pagination'] = $dataTmp->appends(request()->except(['_token', '_pjax']))->links('gp247-core::component.pagination');
+            $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
+            return $data;
+    }
+
 
     /*
         Delete list item

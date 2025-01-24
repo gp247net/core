@@ -222,6 +222,7 @@ class UsersController extends RootAdminController
     {
         $user = AdminUser::find($id);
         if ($user === null) {
+            return redirect(gp247_route_admin('admin_role.index'))->with('error', gp247_language_render('admin.data_not_found'));
             return gp247_language_render('admin.data_not_found_detail');
         }
         if ($user->id == admin()->user()->id) {

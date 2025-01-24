@@ -193,7 +193,7 @@ class PermissionController extends RootAdminController
     {
         $permission = AdminPermission::find($id);
         if ($permission === null) {
-            return gp247_language_render('admin.data_not_found_detail');
+            return redirect(gp247_route_admin('admin_permission.index'))->with('error', gp247_language_render('admin.data_not_found'));
         }
         $data = [
             'title' => gp247_language_render('action.edit'),
