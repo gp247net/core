@@ -149,19 +149,23 @@ if (!function_exists('gp247_store_info') && !in_array('gp247_store_info', config
      * Get info store_id, table admin_store
      *
      * @param   [string] $key      [$key description]
-     * @param   [null|int]  $store_id    store id
+     * @param   [null|int]  $storeId    store id
      *
      * @return  [mix]
      */
-    function gp247_store_info($key = null, $default = null, $store_id = null)
+    function gp247_store_info($key = null, $default = null, $storeId = null)
     {
-        $store_id = ($store_id == null) ? config('app.storeId') : $store_id;
+        $storeId = ($storeId == null) ? config('app.storeId') : $storeId;
+
+        if ($default == null && $key == 'template') {
+            $default = GP247_TEMPLATE_FRONT_DEFAULT;
+        }
 
         //Update store info
         if (is_array($key)) {
             if (count($key) == 1) {
                 foreach ($key as $k => $v) {
-                    return AdminStore::where('id', $store_id)->update([$k => $v]);
+                    return AdminStore::where('id', $storeId)->update([$k => $v]);
                 }
             } else {
                 return false;
@@ -171,7 +175,7 @@ if (!function_exists('gp247_store_info') && !in_array('gp247_store_info', config
 
         $allStoreInfo = [];
         try {
-            $allStoreInfo = AdminStore::getListAll()[$store_id]->toArray() ?? [];
+            $allStoreInfo = AdminStore::getListAll()[$storeId]->toArray() ?? [];
         } catch (\Throwable $e) {
             //
         }
