@@ -63,15 +63,16 @@ class MakePlugin extends Command
             File::copyDirectory(base_path('vendor/gp247/core/src/'.$source), storage_path($tmp));
             File::copyDirectory(base_path('vendor/gp247/core/src/'.$sourcePublic), storage_path($tmpPublic));
 
-            if (file_exists(storage_path($tmp.'/Core/AdminController.php'))) {
-                $adminController = file_get_contents(storage_path($tmp.'/Core/AdminController.php'));
+            if (file_exists(storage_path($tmp.'/Admin/AdminController.php'))) {
+                $adminController = file_get_contents(storage_path($tmp.'/Admin/AdminController.php'));
                 $adminController      = str_replace('Extension_Key', $extensionKey, $adminController);
                 $adminController      = str_replace('ExtensionUrlKey', $extensionUrlKey, $adminController);
-                file_put_contents(storage_path($tmp.'/Core/AdminController.php'), $adminController);
+                file_put_contents(storage_path($tmp.'/Admin/AdminController.php'), $adminController);
             }
 
             if (file_exists(storage_path($tmp.'/Controllers/FrontController.php'))) {
                 // Process front controller
+                // Check gp247/front is installed
                 if (class_exists('GP247\Front\Controllers\RootFrontController')) {
                     $frontController = file_get_contents(storage_path($tmp.'/Controllers/FrontController.php'));
                     $frontController      = str_replace('Extension_Key', $extensionKey, $frontController);

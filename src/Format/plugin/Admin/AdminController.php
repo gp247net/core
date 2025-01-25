@@ -1,5 +1,5 @@
 <?php
-#App\GP247\Plugins\Extension_Key\Core\AdminController.php
+#App\GP247\Plugins\Extension_Key\Admin\AdminController.php
 
 namespace App\GP247\Plugins\Extension_Key\Admin;
 
