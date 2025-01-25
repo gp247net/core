@@ -85,7 +85,7 @@ class DataDefaultSeeder extends Seeder
 
             ['id' => 14,'parent_id' => 9,'sort' => 0,'title' => 'admin.menu_titles.menu','icon' => 'fas fa-bars','uri' => 'admin::menu','key' => null,'type' => 0],
             ['id' => 15,'parent_id' => 9,'sort' => 5,'title' => 'admin.menu_titles.cache_manager','icon' => 'fab fa-tripadvisor','uri' => 'admin::cache_config','key' => null,'type' => 0],
-            ['id' => 16,'parent_id' => 9,'sort' => 5,'title' => 'admin.menu_titles.admin_home_config','icon' => 'fas fa-grip-horizontal','uri' => 'admin::admin_home_config','key' => null,'type' => 0],
+            ['id' => 16,'parent_id' => 9,'sort' => 5,'title' => 'admin.menu_titles.admin_home_layout','icon' => 'fas fa-grip-horizontal','uri' => 'admin::admin_home_layout','key' => null,'type' => 0],
             ['id' => 26,'parent_id' => 9,'sort' => 10,'title' => 'admin.menu_titles.custom_field','icon' => 'fa fa-american-sign-language-interpreting','uri' => 'admin::custom_field','key' => null,'type' => 0],
             
             ['id' => 17,'parent_id' => 13,'sort' => 2,'title' => 'admin.menu_titles.webhook','icon' => 'fas fa-project-diagram','uri' => 'admin::config/webhook','key' => null,'type' => 0],
@@ -115,7 +115,7 @@ class DataDefaultSeeder extends Seeder
             ['id' => '1','name' => 'Dashboard','slug' => 'dashboard','http_uri' => 'GET::'.$prefix, 'created_at' => date('Y-m-d H:i:s')],
             ['id' => '2','name' => 'Store manager','slug' => 'store.full','http_uri' => 'ANY::'.$prefix.'/store_info/*,ANY::'.$prefix.'/store_maintain/*,ANY::'.$prefix.'/store_config/*', 'created_at' => date('Y-m-d H:i:s')],
             ['id' => '3','name' => 'File manager','slug' => 'file.full','http_uri' => 'ANY::'.$prefix.'/uploads/*', 'created_at' => date('Y-m-d H:i:s')],
-            ['id' => '4','name' => 'Config dashboard','slug' => 'dashboard.full','http_uri' => 'ANY::'.$prefix.'/admin_home_config/*', 'created_at' => date('Y-m-d H:i:s')],
+            ['id' => '4','name' => 'Config dashboard','slug' => 'dashboard.full','http_uri' => 'ANY::'.$prefix.'/admin_home_layout/*', 'created_at' => date('Y-m-d H:i:s')],
         ];
         return $dataAdminPermission;
     }

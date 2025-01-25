@@ -731,8 +731,8 @@ class DataLocaleSeeder extends Seeder
             ['code' => 'admin.menu_titles.store_config','text' => 'Website configuration','position' => 'admin.menu_titles','location' => 'en'],
             ['code' => 'admin.menu_titles.cache_manager','text' => 'Bộ nhớ đệm','position' => 'admin.menu_titles','location' => 'vi'],
             ['code' => 'admin.menu_titles.cache_manager','text' => 'Cache','position' => 'admin.menu_titles','location' => 'en'],
-            ['code' => 'admin.menu_titles.admin_home_config','text' => 'Bố cục trang chủ','position' => 'admin.menu_titles','location' => 'vi'],
-            ['code' => 'admin.menu_titles.admin_home_config','text' => 'Home page layout','position' => 'admin.menu_titles','location' => 'en'],
+            ['code' => 'admin.menu_titles.admin_home_layout','text' => 'Bố cục trang chủ admin','position' => 'admin.menu_titles','location' => 'vi'],
+            ['code' => 'admin.menu_titles.admin_home_layout','text' => 'Admin home layout','position' => 'admin.menu_titles','location' => 'en'],
             ['code' => 'admin.menu_titles.api_manager','text' => 'Quản lý API','position' => 'admin.menu_titles','location' => 'vi'],
             ['code' => 'admin.menu_titles.api_manager','text' => 'API manager','position' => 'admin.menu_titles','location' => 'en'],
             ['code' => 'admin.menu_titles.store_maintain','text' => 'Bảo trì website','position' => 'admin.menu_titles','location' => 'vi'],
@@ -1480,22 +1480,22 @@ class DataLocaleSeeder extends Seeder
             ['code' => 'admin_notice.created_at','text' => 'Created at','position' => 'admin_notice','location' => 'en'],
             ['code' => 'admin_notice.admin_created','text' => 'Created by','position' => 'admin_notice','location' => 'en'],
 
-            //admin_home_config
-            ['code' => 'admin.admin_home_config.view','text' => 'Đường dẫn View','position' => 'admin_home_config','location' => 'vi'],
-            ['code' => 'admin.admin_home_config.size','text' => 'Kích thước cột (1-12)','position' => 'admin_home_config','location' => 'vi'],
-            ['code' => 'admin.admin_home_config.sort','text' => 'Thứ tự','position' => 'admin_home_config','location' => 'vi'],
-            ['code' => 'admin.admin_home_config.status','text' => 'Trạng thái','position' => 'admin_home_config','location' => 'vi'],
-            ['code' => 'admin.admin_home_config.view_status','text' => 'Trạng thái view','position' => 'admin_home_config','location' => 'vi'],
-            ['code' => 'admin.admin_home_config.list','text' => 'Danh sách khối trang chủ','position' => 'admin_home_config','location' => 'vi'],
-            ['code' => 'admin.admin_home_config.add_new_title','text' => 'Thêm mới','position' => 'admin_home_config','location' => 'vi'],
+            //admin_home_layout
+            ['code' => 'admin.admin_home_layout.view','text' => 'Đường dẫn View','position' => 'admin_home_layout','location' => 'vi'],
+            ['code' => 'admin.admin_home_layout.size','text' => 'Kích thước cột (1-12)','position' => 'admin_home_layout','location' => 'vi'],
+            ['code' => 'admin.admin_home_layout.sort','text' => 'Thứ tự','position' => 'admin_home_layout','location' => 'vi'],
+            ['code' => 'admin.admin_home_layout.status','text' => 'Trạng thái','position' => 'admin_home_layout','location' => 'vi'],
+            ['code' => 'admin.admin_home_layout.view_status','text' => 'Trạng thái view','position' => 'admin_home_layout','location' => 'vi'],
+            ['code' => 'admin.admin_home_layout.list','text' => 'Các khối cho trang chủ admin','position' => 'admin_home_layout','location' => 'vi'],
+            ['code' => 'admin.admin_home_layout.add_new_title','text' => 'Thêm mới','position' => 'admin_home_layout','location' => 'vi'],
 
-            ['code' => 'admin.admin_home_config.view','text' => 'View path','position' => 'admin_home_config','location' => 'en'],
-            ['code' => 'admin.admin_home_config.size','text' => 'Column size (1-12)','position' => 'admin_home_config','location' => 'en'],
-            ['code' => 'admin.admin_home_config.sort','text' => 'Sort','position' => 'admin_home_config','location' => 'en'],
-            ['code' => 'admin.admin_home_config.status','text' => 'Status','position' => 'admin_home_config','location' => 'en'],
-            ['code' => 'admin.admin_home_config.view_status','text' => 'View status','position' => 'admin_home_config','location' => 'en'],
-            ['code' => 'admin.admin_home_config.list','text' => 'List block homepage','position' => 'admin_home_config','location' => 'en'],
-            ['code' => 'admin.admin_home_config.add_new_title','text' => 'Add new','position' => 'admin_home_config','location' => 'en'],
+            ['code' => 'admin.admin_home_layout.view','text' => 'View path','position' => 'admin_home_layout','location' => 'en'],
+            ['code' => 'admin.admin_home_layout.size','text' => 'Column size (1-12)','position' => 'admin_home_layout','location' => 'en'],
+            ['code' => 'admin.admin_home_layout.sort','text' => 'Sort','position' => 'admin_home_layout','location' => 'en'],
+            ['code' => 'admin.admin_home_layout.status','text' => 'Status','position' => 'admin_home_layout','location' => 'en'],
+            ['code' => 'admin.admin_home_layout.view_status','text' => 'View status','position' => 'admin_home_layout','location' => 'en'],
+            ['code' => 'admin.admin_home_layout.list','text' => 'Blocks for admin home page','position' => 'admin_home_layout','location' => 'en'],
+            ['code' => 'admin.admin_home_layout.add_new_title','text' => 'Add new','position' => 'admin_home_layout','location' => 'en'],
 
             
         ];

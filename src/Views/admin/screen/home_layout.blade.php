@@ -12,7 +12,7 @@
         <h3 class="card-title">{!! $title_action !!}</h3>
         @if ($layout == 'edit')
         <div class="btn-group float-right" style="margin-right: 5px">
-            <a href="{{ gp247_route_admin('admin_home_config.index') }}" class="btn btn-sm  btn-flat btn-default" title="List"><i class="fa fa-list"></i><span class="hidden-xs"> {{ gp247_language_render('admin.back_list') }}</span></a>
+            <a href="{{ gp247_route_admin('admin_home_layout.index') }}" class="btn btn-sm  btn-flat btn-default" title="List"><i class="fa fa-list"></i><span class="hidden-xs"> {{ gp247_language_render('admin.back_list') }}</span></a>
         </div>
       @endif
       </div>
@@ -23,7 +23,7 @@
 
           <div class="form-group {{ $errors->has('view') ? ' text-red' : '' }}">
             <label for="view"
-                class="col-form-label">{!! gp247_language_render('admin.admin_home_config.view') !!}
+                class="col-form-label">{!! gp247_language_render('admin.admin_home_layout.view') !!}
             </label>
             <select class="form-control form-control-sm select2" name="view" data-live-search="true"  title="Please select item..."  data-actions-box="true">
                 @foreach ($listView as $pathView)
@@ -42,7 +42,7 @@
 
           <div class="form-group {{ $errors->has('size') ? ' text-red' : '' }}">
             <label for="size"
-                class="col-form-label">{!! gp247_language_render('admin.admin_home_config.size') !!}
+                class="col-form-label">{!! gp247_language_render('admin.admin_home_layout.size') !!}
             </label>
             <select class="form-control form-control-sm select2" name="size" data-live-search="true"  title="Please select item..."  data-actions-box="true">
                 @foreach (range(1, 12) as $sizeValue)
@@ -60,7 +60,7 @@
 
 
           <div class="form-group {{ $errors->has('sort') ? ' text-red' : '' }}">
-            <label for="sort" class="col-form-label">{!! gp247_language_render('admin.admin_home_config.sort') !!}</label>
+            <label for="sort" class="col-form-label">{!! gp247_language_render('admin.admin_home_layout.sort') !!}</label>
               <div class="input-group mb-3">
                 <input type="number" id="sort" name="sort"
                     value="{{ old()?old('sort'):$block['sort']??'0' }}"
@@ -75,7 +75,7 @@
           </div>
 
           <div class="form-group row {{ $errors->has('status') ? ' text-red' : '' }}">
-            <label for="status" class="col-sm-2 col-form-label">{!! gp247_language_render('admin.admin_home_config.status') !!}</label>
+            <label for="status" class="col-sm-2 col-form-label">{!! gp247_language_render('admin.admin_home_layout.status') !!}</label>
             <div class="col-sm-10 ">
               <div class="input-group mb-3">
                 <input class="checkbox" type="checkbox" id="status" name="status"
@@ -218,7 +218,7 @@ var selectedRows = function () {
                       return;
                     }else{
                       alertMsg('success', data.msg);
-                      window.location.replace('{{ gp247_route_admin('admin_home_config.index') }}');
+                      window.location.replace('{{ gp247_route_admin('admin_home_layout.index') }}');
                     }
 
                 }

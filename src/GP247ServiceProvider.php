@@ -49,9 +49,6 @@ class GP247ServiceProvider extends ServiceProvider
                 mkdir($directory, 0777, true);
             }
 
-            if (!is_dir($directory = app_path('GP247/Blocks'))) {
-                mkdir($directory, 0777, true);
-            }
             if (!is_dir($directory = app_path('GP247/Core'))) {
                 mkdir($directory, 0777, true);
             }
@@ -192,9 +189,7 @@ class GP247ServiceProvider extends ServiceProvider
                 exit;
             }
 
-            $this->loadViewsFrom(__DIR__.'/Views/admin', 'gp247-core');
-            $this->loadViewsFrom(app_path().'/GP247/Blocks', 'GP247Block');
-    
+            $this->loadViewsFrom(__DIR__.'/Views/admin', 'gp247-core');    
             //Load Plugin Provider
             try {
                 foreach (glob(app_path().'/GP247/Plugins/*/Provider.php') as $filename) {
@@ -232,19 +227,6 @@ class GP247ServiceProvider extends ServiceProvider
                 }
             } catch (\Throwable $e) {
                 $msg = '#GP247::helper_load:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
-                gp247_report($msg);
-                echo $msg;
-                exit;
-            }
-
-            //Load block
-            try {
-                foreach (glob(app_path().'/GP247/Blocks/*.blade.php') as $filename) {
-                    $filename = str_replace('.blade.php', '', basename($filename));
-                    gp247_add_module('homepage', 'GP247Block::'.$filename);
-                }
-            } catch (\Throwable $e) {
-                $msg = '#GP247::block_load:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
                 gp247_report($msg);
                 echo $msg;
                 exit;

@@ -80,9 +80,9 @@
               <li class="breadcrumb-item active">{!! $title??'' !!}</li>
             </ol>
             @elseif (admin()->user()->checkUrlAllowAccess(url()->current()))
-              @if (admin()->user()->checkUrlAllowAccess(gp247_route_admin('admin_home_config.index')))
+              @if (admin()->user()->checkUrlAllowAccess(gp247_route_admin('admin_home_layout.index')))
               <ol class="breadcrumb float-sm-right">
-                <a href="{{ gp247_route_admin('admin_home_config.index') }}" class="btn btn-sm  btn-warning  btn-flat" title="{{ gp247_language_render('action.edit') }}">
+                <a href="{{ gp247_route_admin('admin_home_layout.index') }}" class="btn btn-sm  btn-warning  btn-flat" title="{{ gp247_language_render('action.edit') }}">
                   <i class="fa fa-edit"></i>
                 </a>
               </ol>

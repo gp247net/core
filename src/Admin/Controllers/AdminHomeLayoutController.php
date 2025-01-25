@@ -6,7 +6,7 @@ use GP247\Core\Admin\Models\AdminHome;
 use Validator;
 use Illuminate\Support\Facades\View;
 
-class AdminHomeConfigController extends RootAdminController
+class AdminHomeLayoutController extends RootAdminController
 {
     public function __construct()
     {
@@ -16,12 +16,12 @@ class AdminHomeConfigController extends RootAdminController
     public function index()
     {
         $data = $this->processDataScreen();
-        $data['title'] = gp247_language_render('admin.admin_home_config.list');
-        $data['title_action'] = '<i class="fa fa-plus" aria-hidden="true"></i> ' . gp247_language_render('admin.admin_home_config.add_new_title');
-        $data['url_action'] = gp247_route_admin('admin_home_config.create');
+        $data['title'] = gp247_language_render('admin.admin_home_layout.list');
+        $data['title_action'] = '<i class="fa fa-plus" aria-hidden="true"></i> ' . gp247_language_render('admin.admin_home_layout.add_new_title');
+        $data['url_action'] = gp247_route_admin('admin_home_layout.create');
         $data['layout'] = 'index';
 
-        return view('gp247-core::screen.home_config')
+        return view('gp247-core::screen.home_layout')
             ->with($data);
     }
 
@@ -56,7 +56,7 @@ class AdminHomeConfigController extends RootAdminController
         $dataCreate = gp247_clean($dataCreate, [], true);
         $obj = AdminHome::create($dataCreate);
 
-        return redirect()->route('admin_home_config.edit', ['id' => $obj['id']])->with('success', gp247_language_render('action.create_success'));
+        return redirect()->route('admin_home_layout.edit', ['id' => $obj['id']])->with('success', gp247_language_render('action.create_success'));
     }
 
     /**
@@ -66,16 +66,16 @@ class AdminHomeConfigController extends RootAdminController
     {
         $block = AdminHome::find($id);
         if (!$block) {
-            return redirect(gp247_route_admin('admin_home_config.index'))->with('error', gp247_language_render('admin.data_not_found'));
+            return redirect(gp247_route_admin('admin_home_layout.index'))->with('error', gp247_language_render('admin.data_not_found'));
         }
         $data = $this->processDataScreen($id);
         $data['title_action'] = '<i class="fa fa-edit" aria-hidden="true"></i> ' . gp247_language_render('action.edit');
-        $data['url_action'] = gp247_route_admin('admin_home_config.post_edit', ['id' => $block['id']]);
+        $data['url_action'] = gp247_route_admin('admin_home_layout.post_edit', ['id' => $block['id']]);
         $data['block'] = $block;
         $data['layout'] = 'edit';
 
         $data['layout'] = 'edit';
-        return view('gp247-core::screen.home_config')
+        return view('gp247-core::screen.home_layout')
         ->with($data);
     }
 
@@ -116,15 +116,15 @@ class AdminHomeConfigController extends RootAdminController
     private function processDataScreen(string $id = null) {
         $data = [
             'subTitle' => '',
-            'urlDeleteItem' => gp247_route_admin('admin_home_config.delete'),
+            'urlDeleteItem' => gp247_route_admin('admin_home_layout.delete'),
         ];
 
         $listTh = [
-            'view' => gp247_language_render('admin.admin_home_config.view'),
-            'size' => gp247_language_render('admin.admin_home_config.size'),
-            'sort' => gp247_language_render('admin.admin_home_config.sort'),
-            'status' => gp247_language_render('admin.admin_home_config.status'),
-            'view_status' => gp247_language_render('admin.admin_home_config.view_status'),
+            'view' => gp247_language_render('admin.admin_home_layout.view'),
+            'size' => gp247_language_render('admin.admin_home_layout.size'),
+            'sort' => gp247_language_render('admin.admin_home_layout.sort'),
+            'status' => gp247_language_render('admin.admin_home_layout.status'),
+            'view_status' => gp247_language_render('admin.admin_home_layout.view_status'),
             'action' => gp247_language_render('action.title'),
         ];
         $obj = new AdminHome;
@@ -134,7 +134,7 @@ class AdminHomeConfigController extends RootAdminController
         $dataTr = [];
         foreach ($dataTmp as $key => $row) {
             $arrAction = [
-            '<a href="' . gp247_route_admin('admin_home_config.edit', ['id' => $row['id'], 'page' => request('page')]) . '"  class="dropdown-item"><i class="fa fa-edit"></i> '.gp247_language_render('action.edit').'</a>',
+            '<a href="' . gp247_route_admin('admin_home_layout.edit', ['id' => $row['id'], 'page' => request('page')]) . '"  class="dropdown-item"><i class="fa fa-edit"></i> '.gp247_language_render('action.edit').'</a>',
             ];
             $arrAction[] = '<a href="#" onclick="deleteItem(\'' . $row['id'] . '\');"  title="' . gp247_language_render('action.delete') . '" class="dropdown-item"><i class="fas fa-trash-alt"></i> '.gp247_language_render('action.remove').'</a>';
 
