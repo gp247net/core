@@ -46,66 +46,62 @@
                 @else
 
                   @foreach ($extensions as $keyExtension => $extensionClassName)
+
                   @php
                   //Begin try catch error
+                  $pluginAction = '';
                   try {
-                    $classConfig = $extensionClassName.'\\AppConfig';
-                    $pluginClass = new $classConfig;
-                    //Check Plugin installed
-                    if (!array_key_exists($keyExtension, $extensionsInstalled->toArray())) {
-                      $pluginStatusTitle = gp247_language_render('admin.extension.not_install');
-                      $pluginAction = '<span onClick="installExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-sm btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
-                      //Delete all (include data and source code)
-                      $pluginAction .=' <span onClick="removeExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.remove').'" class="btn btn-sm btn-flat btn-danger"><i class="fa fa-trash"></i></span>';
+                  $classConfig = $extensionClassName.'\\AppConfig';
+                  $pluginClass = new $classConfig;
+                  if (!array_key_exists($keyExtension, $extensionsInstalled->toArray())) {
+                    $pluginAction .= '<span onClick="installExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-sm btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
+                  }
 
-                    } else {
-                      //Check plugin enable
-                      if($extensionsInstalled[$keyExtension]['value']){
-                        $pluginStatusTitle = gp247_language_render('admin.extension.actived');
-                        $pluginAction ='<span onClick="disableExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.disable').'" type="button" class="btn btn-sm btn-flat btn-warning btn-flat"><i class="fa fa-power-off"></i></span>&nbsp;';
+                if($groupType == 'Templates' && (new \GP247\Core\Admin\Models\AdminStore)->where('template', $keyExtension)->count()) {
+                  $pluginAction .= '<span class="btn btn-flat btn-success btn-sm" title="'.gp247_language_render('admin.extension.used').'"><i class="fa fa-check"></i></span>';
+                } else {
 
-                          if($pluginClass->clickApp()){
-                            $pluginAction .='<a href="'.url()->current().'?action=config&key='.$keyExtension.'"><span title="'.gp247_language_render('admin.extension.config').'" class="btn btn-sm btn-flat btn-primary"><i class="fas fa-cog"></i></span>&nbsp;</a>';
-                          }
-                          if(!in_array($keyExtension, $extensionProtected)) {
-                          //Delete data
-                            $pluginAction .='<span onClick="deleteExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.only_delete_data').'" class="btn btn-sm btn-flat btn-danger"><i class="fas fa-times"></i></span>';
-                          //Delete all (include data and source code)
-                            $pluginAction .=' <span onClick="removeExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.remove').'" class="btn btn-sm btn-flat btn-danger"><i class="fa fa-trash"></i></span>';
-                          }
-                      }else{
-                        $pluginStatusTitle = gp247_language_render('admin.extension.disabled');
-                        $pluginAction = '<span onClick="enableExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.enable').'" type="button" class="btn btn-sm btn-flat btn-primary"><i class="fa fa-paper-plane"></i></span>&nbsp;';
-                          if($pluginClass->clickApp()){
-                            $pluginAction .='<a href="'.url()->current().'?action=config&key='.$keyExtension.'"><span title="'.gp247_language_render('admin.extension.config').'" class="btn btn-sm btn-flat btn-primary"><i class="fas fa-cog"></i></span>&nbsp;</a>';
-                          }
-                          //You can not remove if plugin is default
-                          if(!in_array($keyExtension, $extensionProtected)) {
-                            //Delete data
-                            $pluginAction .='<span onClick="deleteExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.only_delete_data').'" class="btn btn-sm btn-flat btn-danger"><i class="fas fa-times"></i></span>';
-                            //Delete all (include data and source code)
-                            $pluginAction .=' <span onClick="removeExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.remove').'" class="btn btn-sm btn-flat btn-danger"><i class="fa fa-trash"></i></span>';
-                          }
-                      }
+                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 1 && !in_array($keyExtension, $extensionProtected) && $groupType != 'Templates') {
+                    // if extension enable, show action config
+                    if($pluginClass->clickApp()){
+                      $pluginAction .='<a href="'.url()->current().'?action=config&key='.$keyExtension.'"><span title="'.gp247_language_render('admin.extension.config').'" class="btn btn-sm btn-flat btn-primary"><i class="fas fa-cog"></i></span>&nbsp;</a>';
                     }
-                    @endphp
-                    
-                    <tr>
-                      <td>{!! gp247_image_render($pluginClass->image,'50px', '', $pluginClass->title) !!}</td>
-                      <td>{{ $pluginClass->title }}</td>
-                      <td>{{ $keyExtension }}</td>
-                      <td>{{ $pluginClass->version??'' }}</td>
-                      <td>{{ $pluginClass->auth??'' }}</td>
-                      <td><a href="{{ $pluginClass->link??'' }}" target=_new><i class="fa fa-link" aria-hidden="true"></i>Link</a></td>
-                      <td>{{ $extensionsInstalled[$keyExtension]['sort']??'' }}</td>
-                      <td>
-                        @if (defined('GP247_TEMPLATE_FRONT_DEFAULT') && $keyExtension == GP247_TEMPLATE_FRONT_DEFAULT)
-                          
-                        @else
+                    $pluginAction .= '<span onClick="disableExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.disable').'" type="button" class="btn btn-sm btn-flat btn-warning btn-flat"><i class="fa fa-power-off"></i></span>&nbsp;';
+                  }
+
+                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 0 && !in_array($keyExtension, $extensionProtected) && $groupType != 'Templates') {
+                    // if extension disable, show action enable
+                    $pluginAction .= '<span onClick="enableExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.enable').'" type="button" class="btn btn-sm btn-flat btn-primary"><i class="fa fa-paper-plane"></i></span>&nbsp;';
+                  }
+
+                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 1) {
+                    // if extension enable, and not protected, and not template, show action delete
+                    $pluginAction .='<span onClick="deleteExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.only_delete_data').'" class="btn btn-sm btn-flat btn-danger"><i class="fas fa-times"></i></span>';
+                  }
+
+                  if (!in_array($keyExtension, $extensionProtected)) {
+                    // if extension not protected, show action remove
+                    $pluginAction .=' <span onClick="removeExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.remove').'" class="btn btn-sm btn-flat btn-danger"><i class="fa fa-trash"></i></span>';
+                  }
+                }
+                  if (defined('GP247_TEMPLATE_FRONT_DEFAULT') && $keyExtension == GP247_TEMPLATE_FRONT_DEFAULT) {
+                    //If template default, it's protected
+                    $pluginAction = '';
+                  }
+                  @endphp
+                      
+                      <tr>
+                        <td>{!! gp247_image_render($pluginClass->image,'50px', '', $pluginClass->title) !!}</td>
+                        <td>{{ $pluginClass->title }}</td>
+                        <td>{{ $keyExtension }}</td>
+                        <td>{{ $pluginClass->version??'' }}</td>
+                        <td>{{ $pluginClass->auth??'' }}</td>
+                        <td><a href="{{ $pluginClass->link??'' }}" target=_new><i class="fa fa-link" aria-hidden="true"></i>Link</a></td>
+                        <td>{{ $extensionsInstalled[$keyExtension]['sort']??'' }}</td>
+                        <td>
                           {!! $pluginAction !!}
-                        @endif
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
 
                     @php
                     //End try cacth
