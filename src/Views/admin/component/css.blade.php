@@ -193,10 +193,6 @@
     padding: 10px 25px 10px 15px;
   }
 
-  .sidebar-lightblue .nav-item.has-treeview > a {
-    color: #3b8ab8 !important;
-  }
-
   /* dark */
   .main-sidebar .sidebar-gray-dark  li.header{
   color: #ffffff !important;

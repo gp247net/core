@@ -43,7 +43,7 @@
                             @foreach(array_chunk($extensions, 4) as $chunk)
                                 <div class="mb-2">
                                     @foreach($chunk as $extension)
-                                        <span class="badge bg-info text-white me-2 mb-2 p-2">{{ $extension }}</span>
+                                        <span class="btn btn-sm btn-outline-secondary me-2 mb-2 p-2">{{ $extension }}</span>
                                     @endforeach
                                 </div>
                             @endforeach
@@ -57,7 +57,7 @@
                             <div class="list-group">
                                 @foreach($packages as $package => $version)
                                     <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                                        <div class="text-primary fw-medium">{{ $package }}</div>
+                                        <div class="fw-medium">{{ $package }}</div>
                                         <span class="badge bg-secondary rounded-pill">{{ $version }}</span>
                                     </div>
                                 @endforeach
