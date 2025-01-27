@@ -5,10 +5,12 @@ use GP247\Core\Admin\Models\AdminPermission;
 use GP247\Core\Admin\Models\AdminRole;
 use GP247\Core\Admin\Models\AdminUser;
 use GP247\Core\Admin\Controllers\RootAdminController;
+use GP247\Core\Admin\Controllers\PasswordValidationTrait;
 use Validator;
 
 class UsersController extends RootAdminController
 {
+    use PasswordValidationTrait;
     public $permissions;
     public $roles;
     public function __construct()
@@ -167,7 +169,7 @@ class UsersController extends RootAdminController
             'name'     => 'required|string|max:100',
             'username' => 'required|regex:/(^([0-9A-Za-z@\._]+)$)/|unique:"'.AdminUser::class.'",username|string|max:100|min:3',
             'avatar'   => 'nullable|string|max:255',
-            'password' => 'required|string|max:60|min:3|confirmed',
+            'password' => $this->rulePassword(),
             'email'    => 'required|string|email|max:255|unique:"'.AdminUser::class.'",email',
         ], [
             'username.regex' => gp247_language_render('admin.user.username_validate'),
@@ -255,7 +257,7 @@ class UsersController extends RootAdminController
             'name'     => 'required|string|max:100',
             'username' => 'required|regex:/(^([0-9A-Za-z@\._]+)$)/|unique:"'.AdminUser::class.'",username,' . $user->id . '|string|max:100|min:3',
             'avatar'   => 'nullable|string|max:255',
-            'password' => 'nullable|string|max:60|min:3|confirmed',
+            'password' => $this->rulePasswordNullable(),
             'email'    => 'required|string|email|max:255|unique:"'.AdminUser::class.'",email,' . $user->id,
         ], [
             'username.regex' => gp247_language_render('admin.user.username_validate'),

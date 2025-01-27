@@ -10,9 +10,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Validator;
+use GP247\Core\Admin\Controllers\PasswordValidationTrait;
 
 class LoginController extends RootAdminController
 {
+    use PasswordValidationTrait;
     public function __construct()
     {
         parent::__construct();
@@ -113,7 +115,7 @@ class LoginController extends RootAdminController
         $validator = Validator::make($dataOrigin, [
             'name' => 'required|string|max:100',
             'avatar' => 'nullable|string|max:255',
-            'password' => 'nullable|string|max:60|min:3|confirmed',
+            'password' => $this->rulePasswordNullable(),
         ], [
             'username.regex' => gp247_language_render('admin.user.username_validate'),
         ]);

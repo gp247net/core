@@ -5,7 +5,7 @@
           <ul class="nav nav-tabs" id="custom-tabs-four-tab" role="tablist">
             @if ((admin()->user()->isAdministrator() ||  admin()->user()->isViewAll()))
             <li class="nav-item">
-              <a class="nav-link active" id="tab-password_policy_customer-tab" data-toggle="pill" href="#tab-password_policy_customer" role="tab" aria-controls="tab-password_policy_customer" aria-selected="false">{{ gp247_language_render('password_policy.customer.title') }}</a>
+              <a class="nav-link active" id="tab-password_policy_admin-tab" data-toggle="pill" href="#tab-password_policy_admin" role="tab" aria-controls="tab-password_policy_admin" aria-selected="false">{{ gp247_language_render('password_policy.admin.title') }}</a>
             </li>
             @endif
           </ul>
@@ -15,8 +15,8 @@
           <div class="tab-content" id="custom-tabs-four-tabContent">
             {{-- Tab policy --}}
             @if ((admin()->user()->isAdministrator() ||  admin()->user()->isViewAll()))
-            <div class="tab-pane fade  fade active show" id="tab-password_policy_customer" role="tabpanel" aria-labelledby="password_policy_customer">
-              @include('gp247-core::screen.password_policy_customer')
+            <div class="tab-pane fade  fade active show" id="tab-password_policy_admin" role="tabpanel" aria-labelledby="password_policy_admin">
+              @include('gp247-core::screen.password_policy_admin')
             </div>
             @endif
             {{-- //End tab policy --}}

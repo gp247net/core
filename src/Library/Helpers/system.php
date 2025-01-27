@@ -153,18 +153,18 @@ if (!function_exists('gp247_generate_id') && !in_array('gp247_generate_id', conf
      *
      * @return  [type]         [return description]
      */
-    function gp247_generate_id($type = null, $default = null)
+    function gp247_generate_id($type = null, $prefix = null)
     {
         switch ($type) {
-            case 'shop_store':
+            case 'admin_store':
                 return 'ST-'.gp247_token(5);
                 break;
             case 'admin_user':
                 return 'AU-'.gp247_token(5);
                 break;
             default:
-                if ($default) {
-                    return $default.'-'.gp247_token(8);
+                if ($prefix) {
+                    return $prefix.'-'.gp247_token(8);
                 } else {
                     return gp247_uuid();
                 }

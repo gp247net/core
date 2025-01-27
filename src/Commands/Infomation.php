@@ -33,7 +33,7 @@ class Infomation extends Command
         $this->info(config('gp247.name'));
         $this->info(config('gp247.auth').' <'.config('gp247.email').'>');
         $this->info('- Core: '.config('gp247.core'));
-        $this->info('- Core sub-version: '.(gp247_composer_get_package_installed()[0]['versions']['gp247/core']['pretty_version'] ?? ''));
+        $this->info('- Core sub-version: '.(gp247_composer_get_package_installed()['gp247/core'] ?? ''));
         $this->info('');
         $this->info('Homepage: '.config('gp247.homepage'));
         $this->info('Github: '.config('gp247.github'));
@@ -52,7 +52,7 @@ class Infomation extends Command
          \_____|_|       |____|  |_| /_/    
         ";
 
-        $text .= "\n             Welcome to GP247 ".(gp247_composer_get_package_installed()[0]['versions']['gp247/core']['pretty_version'] ?? '');
+        $text .= "\n             Welcome to GP247 ".(gp247_composer_get_package_installed()['gp247/core'] ?? '');
         $text .= "\n";
 
         $lines = explode("\n", $text);

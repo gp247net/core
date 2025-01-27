@@ -91,7 +91,7 @@
                   @endphp
                       
                       <tr>
-                        <td>{!! gp247_image_render($pluginClass->image,'50px', '', $pluginClass->title) !!}</td>
+                        <td>{!! gp247_image_render('GP247/'.$pluginClass->image,'50px', '', $pluginClass->title) !!}</td>
                         <td>{{ $pluginClass->title }}</td>
                         <td>{{ $keyExtension }}</td>
                         <td>{{ $pluginClass->version??'' }}</td>

@@ -59,6 +59,6 @@ class Update extends Command
         }
         $this->info('---------------------');
         $this->info('Core: '.config('gp247.core'));
-        $this->info('Core sub-version: '.(gp247_composer_get_package_installed()[0]['versions']['gp247/core']['pretty_version'] ?? ''));
+        $this->info('Core sub-version: '.(gp247_composer_get_package_installed()['gp247/core'] ?? ''));
     }
 }

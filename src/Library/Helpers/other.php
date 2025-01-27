@@ -299,7 +299,13 @@ if (!function_exists('gp247_request') && !in_array('gp247_request', config('gp24
 if (!function_exists('gp247_composer_get_package_installed') && !in_array('gp247_composer_get_package_installed', config('gp247_functions_except', []))) {
     function gp247_composer_get_package_installed()
     {
-        $installed = \Composer\InstalledVersions::getAllRawData();
-        return $installed;
+        // $installed = \Composer\InstalledVersions::getAllRawData();
+        // return $installed;
+        $installedPackages = \Composer\InstalledVersions::getInstalledPackages();
+        foreach ($installedPackages as $package) {
+            $packages[$package] = \Composer\InstalledVersions::getVersion($package);
+        }
+        ksort($packages);
+        return $packages;
     }
 }
