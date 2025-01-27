@@ -15,7 +15,7 @@
             <a class="nav-link active" href="#" >{{ gp247_language_render('admin.extension.online') }}</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" target=_new  href="{{ $urlAction['urlImport'] }}" ><span><i class="fas fa-save"></i> {{ gp247_language_render('admin.extension.import') }}</span></a>
+            <a class="nav-link" href="{{ $urlAction['urlImport'] }}" ><span><i class="fas fa-save"></i> {{ gp247_language_render('admin.extension.import') }}</span></a>
           </li>
         </ul>
       </div>

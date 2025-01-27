@@ -60,7 +60,7 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
      * @return  [array]
      */
     if (!function_exists('gp247_extension_get_class_config') && !in_array('gp247_extension_get_class_config', config('gp247_functions_except', []))) {
-        function gp247_extension_get_class_config(string $type="Plugin", string $key = "")
+        function gp247_extension_get_class_config(string $type="Plugin", $key = null)
         {
             $key = gp247_word_format_class($key);
 
@@ -74,13 +74,13 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
     /**
      * Get namespace module
      *
-     * @param   [string]  $code  Block, Cms, Payment, shipping..
+     * @param   [string]  $type  Plugin, Template..
      * @param   [string]  $key  Content,Paypal, Cash..
      *
      * @return  [array]
      */
     if (!function_exists('gp247_extension_get_namespace') && !in_array('gp247_extension_get_namespace', config('gp247_functions_except', []))) {
-        function gp247_extension_get_namespace(string $type="Plugin", string $key = "")
+        function gp247_extension_get_namespace(string $type="Plugin", $key = null)
         {
             $key = gp247_word_format_class($key);
             switch ($type) {

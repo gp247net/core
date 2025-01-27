@@ -104,7 +104,7 @@ if (!function_exists('gp247_word_format_class') && !in_array('gp247_word_format_
     /*
     Format class name
      */
-    function gp247_word_format_class($word = "")
+    function gp247_word_format_class($word = null)
     {
         if(!is_string($word)) {
             return $word;

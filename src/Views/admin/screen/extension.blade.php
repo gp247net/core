@@ -11,11 +11,11 @@
             </li>
             @if ($configExtension)
             <li class="nav-item">
-              <a class="nav-link" href="{{ $urlAction['urlOnline'] }}" >{{ gp247_language_render('admin.extension.online') }}</a>
+              <a class="nav-link" href="{{ $listUrlAction['urlOnline'] }}" >{{ gp247_language_render('admin.extension.online') }}</a>
             </li>
             @endif
             <li class="nav-item">
-              <a class="nav-link" target=_new  href="{{ $urlAction['urlImport'] }}" ><span><i class="fas fa-save"></i> {{ gp247_language_render('admin.extension.import') }}</span></a>
+              <a class="nav-link"  href="{{ $listUrlAction['urlImport'] }}" ><span><i class="fas fa-save"></i> {{ gp247_language_render('admin.extension.import') }}</span></a>
             </li>
           </ul>
         </div>
@@ -46,7 +46,6 @@
                 @else
 
                   @foreach ($extensions as $keyExtension => $extensionClassName)
-
                   @php
                   //Begin try catch error
                   try {
@@ -56,6 +55,8 @@
                     if (!array_key_exists($keyExtension, $extensionsInstalled->toArray())) {
                       $pluginStatusTitle = gp247_language_render('admin.extension.not_install');
                       $pluginAction = '<span onClick="installExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-sm btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
+                      //Delete all (include data and source code)
+                      $pluginAction .=' <span onClick="removeExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.remove').'" class="btn btn-sm btn-flat btn-danger"><i class="fa fa-trash"></i></span>';
 
                     } else {
                       //Check plugin enable
@@ -98,7 +99,11 @@
                       <td><a href="{{ $pluginClass->link??'' }}" target=_new><i class="fa fa-link" aria-hidden="true"></i>Link</a></td>
                       <td>{{ $extensionsInstalled[$keyExtension]['sort']??'' }}</td>
                       <td>
-                        {!! $pluginAction !!}
+                        @if ($keyExtension == GP247_TEMPLATE_FRONT_DEFAULT)
+                          
+                        @else
+                          {!! $pluginAction !!}
+                        @endif
                       </td>
                     </tr>
 
@@ -141,7 +146,7 @@
       $.ajax({
         type: 'POST',
         dataType:'json',
-        url: '{{ $urlAction['enable'] }}',
+        url: '{{ $listUrlAction['enable'] }}',
         data: {
           "_token": "{{ csrf_token() }}",
           "key":key
@@ -166,7 +171,7 @@
       $.ajax({
         type: 'POST',
         dataType:'json',
-        url: '{{ $urlAction['disable'] }}',
+        url: '{{ $listUrlAction['disable'] }}',
         data: {
           "_token": "{{ csrf_token() }}",
           "key":key
@@ -190,7 +195,7 @@
       $.ajax({
         type: 'POST',
         dataType:'json',
-        url: '{{ $urlAction['install'] }}',
+        url: '{{ $listUrlAction['install'] }}',
         data: {
           "_token": "{{ csrf_token() }}",
           "key":key
@@ -233,7 +238,7 @@
             $.ajax({
               type: 'POST',
               dataType:'json',
-              url: '{{ $urlAction['uninstall'] }}',
+              url: '{{ $listUrlAction['uninstall'] }}',
               data: {
                 "_token": "{{ csrf_token() }}",
                 "key":key,

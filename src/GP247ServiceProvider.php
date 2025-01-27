@@ -189,7 +189,7 @@ class GP247ServiceProvider extends ServiceProvider
                 exit;
             }
 
-            $this->loadViewsFrom(__DIR__.'/Views/admin', 'gp247-core');    
+            $this->loadViewsFrom(__DIR__.'/Views/admin', 'gp247-core');
             //Load Plugin Provider
             try {
                 foreach (glob(app_path().'/GP247/Plugins/*/Provider.php') as $filename) {
@@ -200,21 +200,6 @@ class GP247ServiceProvider extends ServiceProvider
                 }
             } catch (\Throwable $e) {
                 $msg = '#GP247::plugin_load:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
-                gp247_report($msg);
-                echo $msg;
-                exit;
-            }
-
-            //Load Template Provider
-            try {
-                foreach (glob(app_path().'/GP247/Templates/*/Provider.php') as $filename) {
-                    require_once $filename;
-                }
-                foreach (glob(app_path().'/GP247/Templates/*/Route.php') as $filename) {
-                    $this->loadRoutesFrom($filename);
-                }
-            } catch (\Throwable $e) {
-                $msg = '#GP247::template_load:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
                 gp247_report($msg);
                 echo $msg;
                 exit;

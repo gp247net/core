@@ -13,7 +13,12 @@ class AdminStoreInfoController extends RootAdminController
     public function __construct()
     {
         parent::__construct();
-        $this->templates = gp247_extension_get_installed(type: 'Template', active: true);
+        // Check function exist
+        if (!function_exists('gp247_front_get_all_template_installed')) {
+            $this->templates = [];
+        } else {
+            $this->templates = gp247_front_get_all_template_installed();
+        }
         $this->languages = AdminLanguage::getListActive();
     }
 
@@ -78,13 +83,15 @@ class AdminStoreInfoController extends RootAdminController
                     
                     $classTemplate = gp247_extension_get_class_config(type:'Template', key:$templateKey);
                     $oldClassTemplate = gp247_extension_get_class_config(type:'Template', key:$oldTepmlateKey);
-
-                    (new $oldClassTemplate)->removeStore($storeId);
+                    // Check class exist
+                    if (class_exists($oldClassTemplate)) {
+                        (new $oldClassTemplate)->removeStore($storeId);
+                    }
                     (new $classTemplate)->setupStore($storeId);
 
                     AdminStore::where('id', $storeId)->update([$name => $templateKey]);
 
-                    gp247_notice_add(type:'template', typeId: $templateKey, content:'admin_notice.gp247_template_change::old__'.$oldTepmlateKey.'__new__'.$templateKey);
+                    gp247_notice_add(type:'template', typeId: $templateKey, content:'admin_notice.gp247_template_change::old__'.$oldTepmlateKey.'::new__'.$templateKey);
                     gp247_extension_update();
 
                     $error = 0;

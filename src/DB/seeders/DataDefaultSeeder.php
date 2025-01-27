@@ -103,7 +103,6 @@ class DataDefaultSeeder extends Seeder
 
 
             //Extension
-            ['id' => 4,'parent_id' => 3,'sort' => 1,'title' => 'admin.menu_titles.template_layout','icon' => 'fab fa-windows','uri' => 'admin::template','key' => 'TEMPLATE','type' => 0],
             ['id' => 5,'parent_id' => 3,'sort' => 2,'title' => 'admin.menu_titles.plugin','icon' => 'fas fa-puzzle-piece','uri' => 'admin::plugin','key' => 'PLUGIN','type' => 0],
 
         ];
@@ -182,7 +181,19 @@ class DataDefaultSeeder extends Seeder
 
     public function dataAdminStore($email, $language, $domain) {
         $dataAdminStore = [
-            ['id' => 1,'logo' => '/GP247/Core/logo/logo.png', 'icon' => '/GP247/Core/logo/icon.png', 'og_image' => '/GP247/Core/images/org.jpg', 'phone' => '0123456789','long_phone' => 'Support: 0987654321','email' => $email,'time_active' =>'','address' => '123st - abc - xyz','language' => $language,'currency' => 'USD','code' => 'gp247','domain' => $domain]
+            ['id' => 1,
+            'logo' => '/GP247/Core/logo/logo.png',
+            'icon' => '/GP247/Core/logo/icon.png',
+            'og_image' => '/GP247/Core/images/org.jpg',
+            'phone' => '0123456789',
+            'long_phone' => 'Support: 0987654321',
+            'email' => $email,
+            'time_active' =>'',
+            'address' => '123st - abc - xyz',
+            'language' => $language,
+            'currency' => 'USD',
+            'code' => 'gp247',
+            'domain' => $domain]
         ];
         return $dataAdminStore;
     }

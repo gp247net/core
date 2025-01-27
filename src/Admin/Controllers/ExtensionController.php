@@ -19,35 +19,14 @@ trait  ExtensionController
         return $body;
     }
 
-    public function render()
+    protected function render()
     {
         $extensionProtected = config('gp247-config.admin.extension.extension_protected')[$this->groupType] ?? [];
         $extensionsInstalled = gp247_extension_get_installed(type:$this->type, active: false);
         $extensions = gp247_extension_get_all_local(type: $this->type);
 
-        switch ($this->type) {
-            case 'Template':
-                $urlAction = [
-                    'install' => gp247_route_admin('admin_template.install'),
-                    'uninstall' => gp247_route_admin('admin_template.uninstall'),
-                    'enable' => gp247_route_admin('admin_template.enable'),
-                    'disable' => gp247_route_admin('admin_template.disable'),
-                    'urlOnline' => gp247_route_admin('admin_template_online.index'),
-                    'urlImport' => gp247_route_admin('admin_template.import'),
-                ];
-                break;
-            
-            default:
-                $urlAction = [
-                    'install' => gp247_route_admin('admin_plugin.install'),
-                    'uninstall' => gp247_route_admin('admin_plugin.uninstall'),
-                    'enable' => gp247_route_admin('admin_plugin.enable'),
-                    'disable' => gp247_route_admin('admin_plugin.disable'),
-                    'urlOnline' => gp247_route_admin('admin_plugin_online.index'),
-                    'urlImport' => gp247_route_admin('admin_plugin.import'),
-                ];
-                break;
-        }
+        $listUrlAction = $this->listUrlAction;
+
         return view('gp247-core::screen.extension')->with(
             [
                 "title"               => gp247_language_render('admin.extension.management', ['extension' => $this->type]),
@@ -56,7 +35,7 @@ trait  ExtensionController
                 "extensionsInstalled" => $extensionsInstalled,
                 "extensions"          => $extensions,
                 "extensionProtected"  => $extensionProtected,
-                "urlAction"           => $urlAction,
+                "listUrlAction"       => $listUrlAction,
             ]
         );
     }
@@ -84,27 +63,28 @@ trait  ExtensionController
     public function uninstall()
     {
         $key = request('key');
-        
-        if ($this->type == 'Template') {
-            $checkTemplateUse = (new AdminStore)->where('template', $key)->count();
-            if ($checkTemplateUse) {
-                $msg = gp247_language_render('admin.extension.error_template_use');
-                gp247_report(msg:$msg, channel:null);
-                return response()->json(['error' => 1, 'msg' => $msg]);
-            }
-        }
-
         $onlyRemoveData = request('onlyRemoveData');
+
+        $this->processUninstall($key);
+
         $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
-        $response = (new $namespace)->uninstall();
-        $appPath = 'GP247/'.$this->groupType.'/'.$key;
+        $extensionsInstalled = gp247_extension_get_installed(type:$this->type, active: false);
+        // Check class exist and extension installed
+        if (class_exists($namespace) && array_key_exists($key, $extensionsInstalled->toArray())) {
+            $response = (new $namespace)->uninstall();
+            if (is_array($response) && $response['error'] == 0) {
+                gp247_notice_add(type:$this->type, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->type).'_uninstall::name__'.$key);
+                gp247_extension_update();
+            }
+        } else {
+            // If extension not yet installed
+            $response = ['error' => 0, 'msg' => 'Class not found'];
+        }
         if (!$onlyRemoveData) {
+            $appPath = 'GP247/'.$this->groupType.'/'.$key;
+            // Delete all (include data and source code)
             File::deleteDirectory(app_path($appPath));
             File::deleteDirectory(public_path($appPath));
-        }
-        if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type:$this->type, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->type).'_uninstall::name__'.$key);
-            gp247_extension_update();
         }
         return response()->json($response);
     }
@@ -135,12 +115,7 @@ trait  ExtensionController
     {
         $key = request('key');
 
-        if ($this->type == 'Template') {
-            $checkTemplateUse = (new AdminStore)->where('template', $key)->count();
-            if ($checkTemplateUse) {
-                return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.error_template_use')]);
-            }
-        }
+        $this->processDisable($key);
 
         $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
         $response = (new $namespace)->disable();
