@@ -99,7 +99,7 @@
                       <td><a href="{{ $pluginClass->link??'' }}" target=_new><i class="fa fa-link" aria-hidden="true"></i>Link</a></td>
                       <td>{{ $extensionsInstalled[$keyExtension]['sort']??'' }}</td>
                       <td>
-                        @if ($keyExtension == GP247_TEMPLATE_FRONT_DEFAULT)
+                        @if (defined('GP247_TEMPLATE_FRONT_DEFAULT') && $keyExtension == GP247_TEMPLATE_FRONT_DEFAULT)
                           
                         @else
                           {!! $pluginAction !!}

@@ -22,6 +22,34 @@ class AdminStoreInfoController extends RootAdminController
         $this->languages = AdminLanguage::getListActive();
     }
 
+    public function index()
+    {
+        $id = session('adminStoreId');
+        $store = AdminStore::find($id);
+        if (!$store) {
+            $data = [
+                'title' => gp247_language_render('store.admin.title'),
+                'subTitle' => '',
+                'dataNotFound' => 1
+            ];
+            return view('gp247-core::screen.store_info')
+            ->with($data);
+        }
+        $data = [
+            'title' => gp247_language_render('store.admin.title'),
+            'subTitle' => '',
+        ];
+        $data['store'] = $store;
+        $data['templates'] = $this->templates;
+        $data['languages'] = $this->languages;
+        $data['storeId'] = $id;
+
+        return view('gp247-core::screen.store_info')
+        ->with($data);
+    }
+
+
+
     /*
     Update value config
     */
@@ -123,29 +151,4 @@ class AdminStoreInfoController extends RootAdminController
         return response()->json(['error' => $error, 'msg' => $msg]);
     }
 
-    public function index()
-    {
-        $id = session('adminStoreId');
-        $store = AdminStore::find($id);
-        if (!$store) {
-            $data = [
-                'title' => gp247_language_render('store.admin.title'),
-                'subTitle' => '',
-                'dataNotFound' => 1
-            ];
-            return view('gp247-core::screen.store_info')
-            ->with($data);
-        }
-        $data = [
-            'title' => gp247_language_render('store.admin.title'),
-            'subTitle' => '',
-        ];
-        $data['store'] = $store;
-        $data['templates'] = $this->templates;
-        $data['languages'] = $this->languages;
-        $data['storeId'] = $id;
-
-        return view('gp247-core::screen.store_info')
-        ->with($data);
-    }
 }

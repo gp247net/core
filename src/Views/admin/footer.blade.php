@@ -5,7 +5,7 @@
       {{ config('app.env') }}
       &nbsp;&nbsp;
       <strong>Version</strong> 
-      {{ config('gp247.sub-version') }} ({{ (gp247_composer_get_package_installed()[0]['versions']['gp247/core']['pretty_version'] ?? '') }})
+      {{ config('gp247.sub-version') }} ({{ (config('gp247.core') ?? '') }})
     </div>
     <strong>
       Copyright &copy; {{ date('Y') }} 

@@ -131,12 +131,15 @@
                     </tr>
                 @endif
 
+                {{-- Check gp247/front installed --}}
+                @if (gp247_composer_get_package_installed()[0]['versions']['gp247/front'] ?? '')
                     <tr>
                       <td><i class="nav-icon  fas fa-object-ungroup "></i>{{ gp247_language_render('store.admin.template') }}</td>
                       <td>
                         <a href="#" class="editable-required editable editable-click" data-name="template" data-type="select" data-pk="" data-source="{{ json_encode($templates) }}" data-url="{{ gp247_route_admin('admin_store.update') }}" data-title="{{ gp247_language_render('store.admin.template') }}" data-value="{{ $store->template }}" data-original-title="" title=""></a>
                        </td>
                     </tr>
+                @endif
 
                   </td>
                 </tr>

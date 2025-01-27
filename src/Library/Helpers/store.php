@@ -158,7 +158,9 @@ if (!function_exists('gp247_store_info') && !in_array('gp247_store_info', config
         $storeId = ($storeId == null) ? config('app.storeId') : $storeId;
 
         if ($default == null && $key == 'template') {
-            $default = GP247_TEMPLATE_FRONT_DEFAULT;
+            if (defined('GP247_TEMPLATE_FRONT_DEFAULT')) {
+                $default = GP247_TEMPLATE_FRONT_DEFAULT;
+            }
         }
 
         //Update store info
