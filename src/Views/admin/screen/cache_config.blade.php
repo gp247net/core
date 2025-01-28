@@ -123,6 +123,7 @@ $(document).ready(function() {
 
 $('.clear-cache').click(function() {
   $(this).button('loading');
+   $(".clear-cache").prop('disabled', true);
   $.ajax({
     url: '{{ gp247_route_admin('admin_cache_config.clear_cache') }}',
     type: 'POST',
@@ -133,21 +134,9 @@ $('.clear-cache').click(function() {
     },
   })
   .done(function(data) {
-    var obj = 'data-clear="'+data.action+'"';
-    $("["+obj+"]").button('reset');
-    if( data.action == 'cache_all') {
-      setTimeout(function () {
-        $(".clear-cache").prop('disabled', true);
-      }, 100);
-    } else {
-      setTimeout(function () {
-        $("["+obj+"]").prop('disabled', true);
-      }, 100);
-    }
-
-    
     if(data.error == 0){
       alertJs('success', '{{ gp247_language_render('admin.cache.cache_clear_success') }}');
+      $(".clear-cache").prop('disabled', false);
     } else {
       alertJs('error', data.msg);
     }

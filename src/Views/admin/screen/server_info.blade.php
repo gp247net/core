@@ -56,10 +56,21 @@
                         <div class="p-3">
                             <div class="list-group">
                                 @foreach($packages as $package => $version)
-                                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                                        <div class="fw-medium">{{ $package }}</div>
-                                        <span class="badge bg-secondary rounded-pill">{{ $version }}</span>
-                                    </div>
+                                    @if(strpos($package, 'gp247/') === 0)
+                                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                            <div class="fw-medium text-primary">{{ $package }}</div>
+                                            <span class="btn btn-sm btn-outline-primary">{{ $version }}</span>
+                                        </div>
+                                    @else
+                                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                            <div class="fw-medium">{{ $package }}</div>
+                                            @if($version)
+                                                <span class="btn btn-sm btn-outline-secondary">{{ $version }}</span>
+                                            @else
+                                                
+                                            @endif
+                                        </div>
+                                    @endif
                                 @endforeach
                             </div>
                         </div>

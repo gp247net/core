@@ -12,12 +12,13 @@ if (!function_exists('gp247_cache_clear') && !in_array('gp247_cache_clear', conf
      */
     function gp247_cache_clear($typeCache = 'cache_all', $storeId = null)
     {
+
+        $storeI = $storeId ?? session('adminStoreId');
         try {
-            $storeI = $storeId ?? session('adminStoreId');
             if ($typeCache == 'cache_all') {
-                Cache::flush();
+                defer(fn () => Cache::flush());
             } else {
-                Cache::forget($typeCache);
+                defer(fn () => Cache::forget($typeCache));
             }
             $response = ['error' => 0, 'msg' => 'Clear success!', 'action' => $typeCache];
         } catch (\Throwable $e) {
