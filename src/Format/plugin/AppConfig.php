@@ -9,6 +9,7 @@ use App\GP247\Plugins\Extension_Key\Models\ExtensionModel;
 use GP247\Core\Admin\Models\AdminConfig;
 use GP247\Core\Admin\Models\AdminHome;
 use GP247\Core\ExtensionConfigDefault;
+use Illuminate\Support\Facades\DB;
 class AppConfig extends ExtensionConfigDefault
 {
     public function __construct()
@@ -52,13 +53,17 @@ class AppConfig extends ExtensionConfigDefault
                     'detail' => $this->appPath.'::lang.title',
                 ],
             ];
-            $process = AdminConfig::insert(
-                $dataInsert
-            );
-            if (!$process) {
-                $return = ['error' => 1, 'msg' => gp247_language_render('admin.extension.install_faild')];
-            } else {
-                $return = (new ExtensionModel)->installExtension();
+            DB::connection(GP247_DB_CONNECTION)->beginTransaction();
+            try {
+                AdminConfig::insert(
+                    $dataInsert
+                );
+                (new ExtensionModel)->installExtension();
+                DB::connection(GP247_DB_CONNECTION)->commit();
+                $return = ['error' => 0, 'msg' => 'Install success'];
+            } catch (\Throwable $e) {
+                DB::connection(GP247_DB_CONNECTION)->rollBack();
+                $return = ['error' => 1, 'msg' => $e->getMessage()];
             }
         }
 
@@ -69,18 +74,24 @@ class AppConfig extends ExtensionConfigDefault
     {
         $return = ['error' => 0, 'msg' => ''];
         //Please delete all values inserted in the installation step
-        $process = (new AdminConfig)
+        DB::connection(GP247_DB_CONNECTION)->beginTransaction();
+        try {
+            (new AdminConfig)
             ->where('key', $this->configKey)
             ->orWhere('code', $this->configKey.'_config')
             ->delete();
-        if (!$process) {
-            $return = ['error' => 1, 'msg' => gp247_language_render('admin.extension.action_error', ['action' => 'Uninstall'])];
-        } else {
+
+            //Admin config home
+            AdminHome::where('extension', $this->appPath)->delete();
+
             (new ExtensionModel)->uninstallExtension();
+
+            DB::connection(GP247_DB_CONNECTION)->commit();
+            $return = ['error' => 0, 'msg' => 'Uninstall success'];
+        } catch (\Throwable $e) {
+            DB::connection(GP247_DB_CONNECTION)->rollBack();
+            $return = ['error' => 1, 'msg' => $e->getMessage()];
         }
-        
-        //Admin config home
-        AdminHome::where('extension', $this->appPath)->delete();
 
         return $return;
     }
@@ -92,6 +103,9 @@ class AppConfig extends ExtensionConfigDefault
             ->where('group', $this->configGroup)
             ->where('key', $this->configKey)
             ->update(['value' => self::ON]);
+        //Admin config home
+        AdminHome::where('extension', $this->appPath)->update(['status' => 1]);
+
         if (!$process) {
             $return = ['error' => 1, 'msg' => 'Error enable'];
         }

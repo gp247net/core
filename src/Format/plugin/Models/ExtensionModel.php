@@ -6,12 +6,12 @@ class ExtensionModel
 {
     public function uninstallExtension()
     {
-        return ['error' => 0, 'msg' => 'uninstall success'];
+        // Code here
     }
 
     public function installExtension()
     {
-        return ['error' => 0, 'msg' => 'install success'];
+        // Code here
     }
     
 }
