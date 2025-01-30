@@ -33,7 +33,7 @@ class RoleController extends RootAdminController
             'updated_at' => gp247_language_render('admin.updated_at'),
             'action' => gp247_language_render('action.title'),
         ];
-        $sort_order = gp247_clean(request('sort_order') ?? 'id_desc');
+        $sort = gp247_clean(request('sort') ?? 'id_desc');
         $arrSort = [
             'id__desc' => gp247_language_render('filter_sort.id_desc'),
             'id__asc' => gp247_language_render('filter_sort.id_asc'),
@@ -41,9 +41,9 @@ class RoleController extends RootAdminController
             'name__asc' => gp247_language_render('filter_sort.name_asc'),
         ];
         $obj = new AdminRole;
-        if ($sort_order && array_key_exists($sort_order, $arrSort)) {
-            $field = explode('__', $sort_order)[0];
-            $sort_field = explode('__', $sort_order)[1];
+        if ($sort && array_key_exists($sort, $arrSort)) {
+            $field = explode('__', $sort)[0];
+            $sort_field = explode('__', $sort)[1];
             $obj = $obj->orderBy($field, $sort_field);
         } else {
             $obj = $obj->orderBy('id', 'desc');
@@ -93,8 +93,8 @@ class RoleController extends RootAdminController
 
         //menuSort
         $optionSort = '';
-        foreach ($arrSort as $key => $status) {
-            $optionSort .= '<option  ' . (($sort_order == $key) ? "selected" : "") . ' value="' . $key . '">' . $status . '</option>';
+        foreach ($arrSort as $kSort => $vSort) {
+            $optionSort .= '<option  ' . (($sort == $kSort) ? "selected" : "") . ' value="' . $kSort . '">' . $vSort . '</option>';
         }
         //=menuSort
 
@@ -103,7 +103,7 @@ class RoleController extends RootAdminController
         $data['topMenuRight'][] ='
                 <form action="' . gp247_route_admin('admin_role.index') . '" id="button_search">
                 <div class="input-group input-group float-left">
-                    <select class="form-control form-control-sm rounded-0 select2" name="sort_order" id="sort_order">
+                    <select class="form-control form-control-sm rounded-0 select2" name="sort" id="sort">
                     '.$optionSort.'
                     </select>
                     <div class="input-group-append">

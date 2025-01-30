@@ -7,7 +7,7 @@ namespace GP247\Core\Admin\Models;
  */
 trait ModelTrait
 {
-    protected $gp247_limit = 'all'; // all or interger
+    protected $gp247_limit = 0; // 0 is all
     protected $gp247_paginate = 0; // 0: dont paginate,
     protected $gp247_sort = [];
     protected $gp247_moreQuery = []; // more query
@@ -18,15 +18,11 @@ trait ModelTrait
     
     /**
      * Set value limit
-     * @param   [string]  $limit
+     * @param   [int]  $limit
      */
     public function setLimit($limit)
     {
-        if ($limit === 'all') {
-            $this->gp247_limit = $limit;
-        } else {
-            $this->gp247_limit = (int)$limit;
-        }
+        $this->gp247_limit = (int)$limit;
         return $this;
     }
 
@@ -128,7 +124,7 @@ trait ModelTrait
     {
         $query = $this->buildQuery();
         if (!$this->gp247_paginate) {
-            if ($this->gp247_limit !== 'all') {
+            if ($this->gp247_limit) {
                 $query = $query->limit($this->gp247_limit);
             }
         }
@@ -146,9 +142,9 @@ trait ModelTrait
             return $query;
         }
         if ($this->gp247_paginate) {
-            $data =  $query->paginate(($this->gp247_limit === 'all') ? 20 : $this->gp247_limit);
+            $data =  $query->paginate((!$this->gp247_limit) ? 20 : $this->gp247_limit);
         } else {
-            if ($this->gp247_limit !== 'all') {
+            if ($this->gp247_limit) {
                 $query = $query->limit($this->gp247_limit);
             }
             $data = $query->get();

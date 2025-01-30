@@ -60,7 +60,7 @@ class PermissionController extends RootAdminController
             'updated_at' => gp247_language_render('admin.updated_at'),
             'action' => gp247_language_render('action.title'),
         ];
-        $sort_order = gp247_clean(request('sort_order') ?? 'id_desc');
+        $sort = gp247_clean(request('sort') ?? 'id_desc');
         $arrSort = [
             'id__desc' => gp247_language_render('filter_sort.id_desc'),
             'id__asc' => gp247_language_render('filter_sort.id_asc'),
@@ -68,9 +68,9 @@ class PermissionController extends RootAdminController
             'name__asc' => gp247_language_render('filter_sort.name_asc'),
         ];
         $obj = new AdminPermission;
-        if ($sort_order && array_key_exists($sort_order, $arrSort)) {
-            $field = explode('__', $sort_order)[0];
-            $sort_field = explode('__', $sort_order)[1];
+        if ($sort && array_key_exists($sort, $arrSort)) {
+            $field = explode('__', $sort)[0];
+            $sort_field = explode('__', $sort)[1];
             $obj = $obj->orderBy($field, $sort_field);
         } else {
             $obj = $obj->orderBy('id', 'desc');
@@ -124,8 +124,8 @@ class PermissionController extends RootAdminController
 
         //menuSort
         $optionSort = '';
-        foreach ($arrSort as $key => $status) {
-            $optionSort .= '<option  ' . (($sort_order == $key) ? "selected" : "") . ' value="' . $key . '">' . $status . '</option>';
+        foreach ($arrSort as $kSort => $vSort) {
+            $optionSort .= '<option  ' . (($sort == $kSort) ? "selected" : "") . ' value="' . $kSort . '">' . $vSort . '</option>';
         }
         $data['optionSort'] = $optionSort;
         //=menuSort
