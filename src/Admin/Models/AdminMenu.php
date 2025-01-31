@@ -126,15 +126,17 @@ class AdminMenu extends Model
      */
     public function reSort(array $data)
     {
+        DB::connection(GP247_DB_CONNECTION)->beginTransaction();
         try {
-            DB::connection(GP247_DB_CONNECTION)->beginTransaction();
             foreach ($data as $key => $menu) {
                 $this->where('id', $key)->update($menu);
             }
             DB::connection(GP247_DB_CONNECTION)->commit();
             $return = ['error' => 0, 'msg' => ""];
         } catch (\Throwable $e) {
-            DB::connection(GP247_DB_CONNECTION)->rollBack();
+            if (DB::connection(GP247_DB_CONNECTION)->transactionLevel() > 0) {
+                DB::connection(GP247_DB_CONNECTION)->rollBack();
+            }
             $return = ['error' => 1, 'msg' => $e->getMessage()];
         }
         return $return;
