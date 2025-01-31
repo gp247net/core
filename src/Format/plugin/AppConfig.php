@@ -53,16 +53,13 @@ class AppConfig extends ExtensionConfigDefault
                     'detail' => $this->appPath.'::lang.title',
                 ],
             ];
-            DB::connection(GP247_DB_CONNECTION)->beginTransaction();
             try {
                 AdminConfig::insert(
                     $dataInsert
                 );
                 (new ExtensionModel)->installExtension();
-                DB::connection(GP247_DB_CONNECTION)->commit();
-                $return = ['error' => 0, 'msg' => 'Install success'];
+                $return = ['error' => 0, 'msg' => gp247_language_render('admin.extension.install_success')];
             } catch (\Throwable $e) {
-                DB::connection(GP247_DB_CONNECTION)->rollBack();
                 $return = ['error' => 1, 'msg' => $e->getMessage()];
             }
         }
@@ -74,7 +71,6 @@ class AppConfig extends ExtensionConfigDefault
     {
         $return = ['error' => 0, 'msg' => ''];
         //Please delete all values inserted in the installation step
-        DB::connection(GP247_DB_CONNECTION)->beginTransaction();
         try {
             (new AdminConfig)
             ->where('key', $this->configKey)
@@ -86,10 +82,8 @@ class AppConfig extends ExtensionConfigDefault
 
             (new ExtensionModel)->uninstallExtension();
 
-            DB::connection(GP247_DB_CONNECTION)->commit();
-            $return = ['error' => 0, 'msg' => 'Uninstall success'];
+            $return = ['error' => 0, 'msg' => gp247_language_render('admin.extension.uninstall_success')];
         } catch (\Throwable $e) {
-            DB::connection(GP247_DB_CONNECTION)->rollBack();
             $return = ['error' => 1, 'msg' => $e->getMessage()];
         }
 
