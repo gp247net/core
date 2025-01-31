@@ -148,7 +148,6 @@
           "key":key
         },
         success: function (response) {
-          console.log(response);
               if(parseInt(response.error) ==0){
                   $.pjax.reload({container:'#pjax-container'});
                   alertMsg('success', '{{ gp247_language_render('admin.msg_change_success') }}');
@@ -173,7 +172,6 @@
           "key":key
         },
         success: function (response) {
-          console.log(response);
               if(parseInt(response.error) ==0){
                   $.pjax.reload({container:'#pjax-container'});
                   alertMsg('success', '{{ gp247_language_render('admin.msg_change_success') }}');
@@ -197,9 +195,9 @@
           "key":key
         },
         success: function (response) {
-          console.log(response);
               if(parseInt(response.error) ==0){
-              location.reload();
+                alertMsg('success', response.msg);
+                location.reload();
               }else{
                 alertMsg('error', response.msg);
               }
@@ -241,14 +239,14 @@
                 "onlyRemoveData": onlyRemoveData,
               },
               success: function (response) {
-                console.log(response);
-              if(parseInt(response.error) ==0){
-              location.reload();
-              }else{
-                alertMsg('error', response.msg);
-              }
-              $('#loading').hide();
-              obj.button('reset');
+                if(parseInt(response.error) ==0){
+                  alertMsg('success', response.msg);
+                  location.reload();
+                }else{
+                  alertMsg('error', response.msg);
+                }
+                $('#loading').hide();
+                obj.button('reset');
               }
             });
         }
