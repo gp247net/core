@@ -66,7 +66,7 @@ class AdminLanguageController extends RootAdminController
     {
         $language = AdminLanguage::find($id);
         if (!$language) {
-            return redirect(gp247_route_admin('admin_language.index'))->with('error', gp247_language_render('admin.data_not_found'));
+            return redirect(gp247_route_admin('admin_language.index'))->with('error', gp247_language_render('display.data_not_found'));
         }
         $data = $this->processDataScreen($id);
         $data['title'] = gp247_language_render('admin.language.list');

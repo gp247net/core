@@ -92,7 +92,7 @@ class LoginController extends RootAdminController
     {
         $user = admin()->user();
         if ($user === null) {
-            return redirect(gp247_route_admin('admin.home'))->with('error', gp247_language_render('admin.data_not_found'));
+            return redirect(gp247_route_admin('admin.home'))->with('error', gp247_language_render('display.data_not_found'));
         }
         $data = [
             'title' => gp247_language_render('admin.setting_account'),

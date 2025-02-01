@@ -21,7 +21,7 @@
           </div>
       </div>
         <div class="card-body table-responsivep-0">
-          {{ gp247_language_render('admin.data_not_found') }}
+          {{ gp247_language_render('display.data_not_found') }}
         </div>
       </div>
   @endsection

@@ -68,7 +68,7 @@ class AdminApiConnectionController extends RootAdminController
     {
         $api_connection = AdminApiConnection::find($id);
         if ($api_connection === null) {
-            return redirect(gp247_route_admin('admin_api_connection.index'))->with('error', gp247_language_render('admin.data_not_found'));
+            return redirect(gp247_route_admin('admin_api_connection.index'))->with('error', gp247_language_render('display.data_not_found'));
         }
         $data = $this->processDataScreen($id);
         $data['title'] = gp247_language_render('admin.api_connection.list');

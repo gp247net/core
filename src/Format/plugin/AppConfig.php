@@ -34,7 +34,6 @@ class AppConfig extends ExtensionConfigDefault
 
     public function install()
     {
-        $return = ['error' => 0, 'msg' => ''];
         $check = AdminConfig::where('key', $this->configKey)
             ->where('group', $this->configGroup)->first();
         if ($check) {
@@ -69,7 +68,6 @@ class AppConfig extends ExtensionConfigDefault
 
     public function uninstall()
     {
-        $return = ['error' => 0, 'msg' => ''];
         //Please delete all values inserted in the installation step
         try {
             (new AdminConfig)
@@ -92,7 +90,6 @@ class AppConfig extends ExtensionConfigDefault
     
     public function enable()
     {
-        $return = ['error' => 0, 'msg' => ''];
         $process = (new AdminConfig)
             ->where('group', $this->configGroup)
             ->where('key', $this->configKey)
@@ -101,8 +98,9 @@ class AppConfig extends ExtensionConfigDefault
         AdminHome::where('extension', $this->appPath)->update(['status' => 1]);
 
         if (!$process) {
-            $return = ['error' => 1, 'msg' => 'Error enable'];
+            $return = ['error' => 1, 'msg' => gp247_language_render('admin.extension.action_error', ['action' => 'Enable'])];
         }
+        $return = ['error' => 0, 'msg' => gp247_language_render('admin.extension.enable_success')];
         return $return;
     }
 

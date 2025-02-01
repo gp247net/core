@@ -185,7 +185,7 @@ class RoleController extends RootAdminController
     {
         $role = AdminRole::find($id);
         if ($role === null) {
-            return redirect(gp247_route_admin('admin_role.index'))->with('error', gp247_language_render('admin.data_not_found'));
+            return redirect(gp247_route_admin('admin_role.index'))->with('error', gp247_language_render('display.data_not_found'));
         }
         $data = [
             'title' => gp247_language_render('action.edit'),

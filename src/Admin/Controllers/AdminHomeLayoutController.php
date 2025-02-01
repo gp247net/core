@@ -66,7 +66,7 @@ class AdminHomeLayoutController extends RootAdminController
     {
         $block = AdminHome::find($id);
         if (!$block) {
-            return redirect(gp247_route_admin('admin_home_layout.index'))->with('error', gp247_language_render('admin.data_not_found'));
+            return redirect(gp247_route_admin('admin_home_layout.index'))->with('error', gp247_language_render('display.data_not_found'));
         }
         $data = $this->processDataScreen($id);
         $data['title_action'] = '<i class="fa fa-edit" aria-hidden="true"></i> ' . gp247_language_render('action.edit');
@@ -150,7 +150,7 @@ class AdminHomeLayoutController extends RootAdminController
                 'size' => $row['size'],
                 'sort' => $row['sort'],
                 'status' => $row['status'] ? '<span class="badge badge-success">ON</span>' : '<span class="badge badge-danger">OFF</span>',
-                'view_status' => $view_status ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-danger">'.gp247_language_render('admin.data_not_found').'</span>',
+                'view_status' => $view_status ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-danger">'.gp247_language_render('display.data_not_found').'</span>',
                 'action' => $action,
             ];
         }

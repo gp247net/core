@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 class DataStoreSeeder extends Seeder
 {
     public function getTemplateDefault() {
-        return  empty(session('lastStoreTemplate')) ? 'gp247-light' : session('lastStoreTemplate');
+        return  empty(session('lastStoreTemplate')) ? (defined('GP247_TEMPLATE_FRONT_DEFAULT') ? GP247_TEMPLATE_FRONT_DEFAULT : 'Default') : session('lastStoreTemplate');
     }
     /**
      * Run the database seeds.
@@ -103,28 +103,6 @@ class DataStoreSeeder extends Seeder
             ['group' => '','code' => 'smtp_config','key' => 'smtp_port','value' => '','sort' => '5','detail' => 'email.config_smtp.smtp_port','store_id' => $storeId],
             ['group' => '','code' => 'smtp_config','key' => 'smtp_name','value' => '','sort' => '6','detail' => 'email.config_smtp.smtp_name','store_id' => $storeId],
             ['group' => '','code' => 'smtp_config','key' => 'smtp_from','value' => '','sort' => '7','detail' => 'email.config_smtp.smtp_from','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'SUFFIX_URL','value' => '.html','sort' => '0','detail' => 'admin.env.SUFFIX_URL','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_SHOP','value' => 'shop','sort' => '0','detail' => 'admin.env.PREFIX_SHOP','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_BRAND','value' => 'brand','sort' => '0','detail' => 'admin.env.PREFIX_BRAND','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CATEGORY','value' => 'category','sort' => '0','detail' => 'admin.env.PREFIX_CATEGORY','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_SUB_CATEGORY','value' => 'sub-category','sort' => '0','detail' => 'admin.env.PREFIX_SUB_CATEGORY','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_PRODUCT','value' => 'product','sort' => '0','detail' => 'admin.env.PREFIX_PRODUCT','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_SEARCH','value' => 'search','sort' => '0','detail' => 'admin.env.PREFIX_SEARCH','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CONTACT','value' => 'contact','sort' => '0','detail' => 'admin.env.PREFIX_CONTACT','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_ABOUT','value' => 'about','sort' => '0','detail' => 'admin.env.PREFIX_ABOUT','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_NEWS','value' => 'news','sort' => '0','detail' => 'admin.env.PREFIX_NEWS','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_MEMBER','value' => 'customer','sort' => '0','detail' => 'admin.env.PREFIX_MEMBER','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_MEMBER_ORDER_LIST','value' => 'order-list','sort' => '0','detail' => 'admin.env.PREFIX_MEMBER_ORDER_LIST','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_MEMBER_CHANGE_PWD','value' => 'change-password','sort' => '0','detail' => 'admin.env.PREFIX_MEMBER_CHANGE_PWD','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_MEMBER_CHANGE_INFO','value' => 'change-info','sort' => '0','detail' => 'admin.env.PREFIX_MEMBER_CHANGE_INFO','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CMS_CATEGORY','value' => 'cms-category','sort' => '0','detail' => 'admin.env.PREFIX_CMS_CATEGORY','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CMS_ENTRY','value' => 'entry','sort' => '0','detail' => 'admin.env.PREFIX_CMS_ENTRY','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CART_WISHLIST','value' => 'wishlst','sort' => '0','detail' => 'admin.env.PREFIX_CART_WISHLIST','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CART_COMPARE','value' => 'compare','sort' => '0','detail' => 'admin.env.PREFIX_CART_COMPARE','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CART_DEFAULT','value' => 'cart','sort' => '0','detail' => 'admin.env.PREFIX_CART_DEFAULT','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CART_CHECKOUT','value' => 'checkout','sort' => '0','detail' => 'admin.env.PREFIX_CART_CHECKOUT','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_CART_CHECKOUT_CONFIRM','value' => 'checkout-confirm','sort' => '0','detail' => 'admin.env.PREFIX_CART_CHECKOUT_CONFIRM','store_id' => $storeId],
-            ['group' => '','code' => 'url_config','key' => 'PREFIX_ORDER_SUCCESS','value' => 'order-success','sort' => '0','detail' => 'admin.env.PREFIX_ORDER_SUCCESS','store_id' => $storeId],
             ['group' => '','code' => 'captcha_config','key' => 'captcha_mode','value' => '0','sort' => '20','detail' => 'admin.captcha.captcha_mode','store_id' => $storeId],
             ['group' => '','code' => 'captcha_config','key' => 'captcha_page','value' => '[]','sort' => '10','detail' => 'captcha.captcha_page','store_id' => $storeId],
             ['group' => '','code' => 'captcha_config','key' => 'captcha_method','value' => '','sort' => '0','detail' => 'admin.captcha.captcha_method','store_id' => $storeId],

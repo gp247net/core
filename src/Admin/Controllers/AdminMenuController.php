@@ -65,7 +65,7 @@ class AdminMenuController extends RootAdminController
     {
         $menu = AdminMenu::find($id);
         if ($menu === null) {
-            return redirect(gp247_route_admin('admin_menu.index'))->with('error', gp247_language_render('admin.data_not_found'));
+            return redirect(gp247_route_admin('admin_menu.index'))->with('error', gp247_language_render('display.data_not_found'));
         }
         $data = [
             'title' => gp247_language_render('admin.menu.list'),

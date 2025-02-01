@@ -36,7 +36,7 @@ class HomeController extends RootAdminController
     public function dataNotFound()
     {
         $data = [
-            'title' => gp247_language_render('admin.data_not_found'),
+            'title' => gp247_language_render('display.data_not_found'),
             'url' => session('url'),
         ];
         return view('gp247-core::data_not_found', $data);

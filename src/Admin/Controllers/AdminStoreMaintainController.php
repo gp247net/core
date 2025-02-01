@@ -24,8 +24,8 @@ class AdminStoreMaintainController extends RootAdminController
         $id = session('adminStoreId');
         $maintain = AdminStore::find($id);
         if ($maintain === null) {
-            return redirect(gp247_route_admin('admin_store_maintain.index'))->with('error', gp247_language_render('admin.data_not_found'));
-            return gp247_language_render('admin.data_not_found_detail');
+            return redirect(gp247_route_admin('admin_store_maintain.index'))->with('error', gp247_language_render('display.data_not_found'));
+            return gp247_language_render('display.data_not_found_detail');
         }
         $data = [
             'title' => gp247_language_render('admin.maintain.title'),
