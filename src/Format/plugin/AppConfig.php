@@ -123,6 +123,22 @@ class AppConfig extends ExtensionConfigDefault
         return $return;
     }
 
+
+    // Remove setup for store
+
+    public function removeStore($storeId = null)
+    {
+        // code here
+    }
+
+    // Setup for store
+
+    public function setupStore($storeId = null)
+    {
+       // code here
+    }
+
+
     // Process when click button plugin in admin    
     
     public function clickApp()

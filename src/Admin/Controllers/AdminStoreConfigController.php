@@ -18,7 +18,7 @@ class AdminStoreConfigController extends RootAdminController
         foreach (timezone_identifiers_list() as $key => $value) {
             $timezones[$value] = $value;
         }
-        $this->templates = gp247_extension_get_installed(type: 'Template', active: true);
+        $this->templates = gp247_extension_get_installed(type: 'Templates', active: true);
         $this->languages = AdminLanguage::getListActive();
         $this->timezones = $timezones;
     }

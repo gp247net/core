@@ -109,8 +109,8 @@ class AdminStoreInfoController extends RootAdminController
                     $templateKey = $value;
                     $oldTepmlateKey = $store->template;
                     
-                    $classTemplate = gp247_extension_get_class_config(type:'Template', key:$templateKey);
-                    $oldClassTemplate = gp247_extension_get_class_config(type:'Template', key:$oldTepmlateKey);
+                    $classTemplate = gp247_extension_get_class_config(type:'Templates', key:$templateKey);
+                    $oldClassTemplate = gp247_extension_get_class_config(type:'Templates', key:$oldTepmlateKey);
                     // Check class exist
                     if (class_exists($oldClassTemplate)) {
                         (new $oldClassTemplate)->removeStore($storeId);

@@ -43,7 +43,18 @@ abstract class  ExtensionConfigDefault
      * Get info app
      */
     abstract public function getInfo();
-        
+
+
+    /**
+     * Apply for store
+     */
+    abstract public function setupStore($storeId = null);
+       
+    /**
+     * Remove for store
+     */
+    abstract function removeStore($storeId = null);
+    
     /**
      * Process when click button plugin in admin
      */
