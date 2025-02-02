@@ -76,10 +76,10 @@ trait ExtensionOnlineController
         }
     
     
-        $title = gp247_language_render('admin.extension.management', ['extension' => $this->type]);
+        $title = gp247_language_render('admin.extension.management', ['extension' => $this->groupType]);
 
-        switch ($this->type) {
-            case 'Template':
+        switch ($this->groupType) {
+            case 'Templates':
                 $urlAction = [
                     'install' => gp247_route_admin('admin_template_online.install'),
                     'local' => gp247_route_admin('admin_template.index'),
@@ -100,7 +100,7 @@ trait ExtensionOnlineController
         return view('gp247-core::screen.extension_online')->with(
             [
                     "title"              => $title,
-                    "arrExtensionsLocal" => gp247_extension_get_all_local(type: $this->type),
+                    "arrExtensionsLocal" => gp247_extension_get_all_local(type: $this->groupType),
                     "arrExtensions"      => $arrExtensions,
                     "filter_keyword"     => $filter_keyword ?? '',
                     "filter_type"        => $filter_type ?? '',
@@ -165,7 +165,7 @@ trait ExtensionOnlineController
                     File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName.'/public'), public_path($appPath));
                     File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName), app_path($appPath));
                     File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                    $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
+                    $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
                     $response = (new $namespace)->install();
                 }
 
@@ -180,7 +180,7 @@ trait ExtensionOnlineController
             $response = ['error' => 1, 'msg' => $msg];
         }
         if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type: $this->type, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->type).'_install::name__'.$key);
+            gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
             gp247_extension_update();
         }
         

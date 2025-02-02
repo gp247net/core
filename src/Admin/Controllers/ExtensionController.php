@@ -11,7 +11,7 @@ trait  ExtensionController
         $action = request('action');
         $key = request('key');
         if ($action == 'config' && $key != '') {
-            $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
+            $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
             $body = (new $namespace)->clickApp();
         } else {
             $body = $this->render();
@@ -22,16 +22,16 @@ trait  ExtensionController
     protected function render()
     {
         $extensionProtected = config('gp247-config.admin.extension.extension_protected')[$this->groupType] ?? [];
-        $extensionsInstalled = gp247_extension_get_installed(type:$this->type, active: false);
-        $extensions = gp247_extension_get_all_local(type: $this->type);
+        $extensionsInstalled = gp247_extension_get_installed(type:$this->groupType, active: false);
+        $extensions = gp247_extension_get_all_local(type: $this->groupType);
 
         $listUrlAction = $this->listUrlAction;
 
         return view('gp247-core::screen.extension')->with(
             [
-                "title"               => gp247_language_render('admin.extension.management', ['extension' => $this->type]),
+                "title"               => gp247_language_render('admin.extension.management', ['extension' => $this->groupType]),
                 "groupType"           => $this->groupType,
-                "configExtension"     => config('gp247-config.admin.api_'.strtolower($this->type)),
+                "configExtension"     => config('gp247-config.admin.api_'.strtolower($this->groupType)),
                 "extensionsInstalled" => $extensionsInstalled,
                 "extensions"          => $extensions,
                 "extensionProtected"  => $extensionProtected,
@@ -46,7 +46,7 @@ trait  ExtensionController
     public function install()
     {
         $key = request('key');
-        $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
+        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
         $config = json_decode(file_get_contents(app_path('GP247/'.$this->groupType.'/'.$key.'/gp247.json')), true);
         $requireFaild = gp247_extension_check_compatibility($config);
         if($requireFaild) {
@@ -54,7 +54,7 @@ trait  ExtensionController
         }
         $response = (new $namespace)->install();
         if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type:$this->type, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->type).'_install::name__'.$key);
+            gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
             gp247_extension_update();
         }
         return response()->json($response);
@@ -72,13 +72,13 @@ trait  ExtensionController
 
         $this->processUninstall($key);
 
-        $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
-        $extensionsInstalled = gp247_extension_get_installed(type:$this->type, active: false);
+        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
+        $extensionsInstalled = gp247_extension_get_installed(type:$this->groupType, active: false);
         // Check class exist and extension installed
         if (class_exists($namespace) && array_key_exists($key, $extensionsInstalled->toArray())) {
             $response = (new $namespace)->uninstall();
             if (is_array($response) && $response['error'] == 0) {
-                gp247_notice_add(type:$this->type, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->type).'_uninstall::name__'.$key);
+                gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_uninstall::name__'.$key);
                 gp247_extension_update();
             }
         } else {
@@ -102,10 +102,10 @@ trait  ExtensionController
     public function enable()
     {
         $key = request('key');
-        $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
+        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
         $response = (new $namespace)->enable();
         if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type:$this->type, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->type).'_enable::name__'.$key);
+            gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
             gp247_extension_update();
         }
         return response()->json($response);
@@ -122,10 +122,10 @@ trait  ExtensionController
 
         $this->processDisable($key);
 
-        $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
+        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
         $response = (new $namespace)->disable();
         if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type: $this->type, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->type).'_disable::name__'.$key);
+            gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_disable::name__'.$key);
             gp247_extension_update();
         }
         return response()->json($response);
@@ -138,7 +138,7 @@ trait  ExtensionController
     {
         $data =  [
             'title' => gp247_language_render('admin.extension.import'),
-            'urlAction' => gp247_route_admin('admin_'.strtolower($this->type).'.process_import')
+            'urlAction' => gp247_route_admin('admin_'.strtolower($this->groupType).'.process_import')
         ];
         return view('gp247-core::screen.extension_upload')
         ->with($data);
@@ -200,7 +200,7 @@ trait  ExtensionController
                         return redirect()->back()->with('error', gp247_language_render('admin.extension.error_config_format'));
                     }
                     //Check extension exist
-                    $arrPluginLocal = gp247_extension_get_all_local(type: $this->type);
+                    $arrPluginLocal = gp247_extension_get_all_local(type: $this->groupType);
                     if (array_key_exists($configKey, $arrPluginLocal)) {
                         $msg = gp247_language_render('admin.extension.error_exist');
                         gp247_report(msg:$msg, channel:null);
@@ -228,7 +228,7 @@ trait  ExtensionController
                         File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName.'/public'), public_path($appPath));
                         File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName), app_path($appPath));
                         File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        $namespace = gp247_extension_get_class_config(type:$this->type, key:$configKey);
+                        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$configKey);
                         $response = (new $namespace)->install();
                         if (!is_array($response) || $response['error'] == 1) {
                             $msg = $response['msg'];
@@ -259,7 +259,7 @@ trait  ExtensionController
             return redirect()->back()->with('error', $msg);
         }
 
-        gp247_notice_add(type:$this->type, typeId: $configKey, content:'admin_notice.gp247_'.strtolower($this->type).'_import::name__'.$configKey);
+        gp247_notice_add(type:$this->groupType, typeId: $configKey, content:'admin_notice.gp247_'.strtolower($this->groupType).'_import::name__'.$configKey);
         gp247_extension_update();
 
         if ($linkRedirect) {

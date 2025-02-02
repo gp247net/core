@@ -8,7 +8,6 @@ class AdminPluginsController extends RootAdminController
 {
     use ExtensionController;
 
-    public $type = 'Plugin';
     public $groupType = 'Plugins';
     public $listUrlAction = [];
 

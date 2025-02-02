@@ -2,8 +2,8 @@
 return [
     'admin' => [
         //Enable, disable page libary online
-        'api_plugin'      => env('GP247_ADMIN_API_PLUGIN', 1),
-        'api_template'    => env('GP247_ADMIN_API_TEMPLATE', 1),
+        'api_plugins'      => env('GP247_ADMIN_API_PLUGIN', 1),
+        'api_templates'    => env('GP247_ADMIN_API_TEMPLATE', 1),
 
         //Config log access admin
         'admin_log_except'    => env('GP247_ADMIN_LOG_EXCEPT', 'password,password_confirmation'), //Except log

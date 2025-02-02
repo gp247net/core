@@ -7,7 +7,6 @@ class AdminPluginsOnlineController extends RootAdminController
 {
     use ExtensionOnlineController;
 
-    public $type = 'Plugin';
     public $groupType = 'Plugins';
     public $urlOnline = '';
     public $listUrlAction = [];
