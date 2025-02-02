@@ -111,10 +111,6 @@ class Install extends Command
         $this->call('db:seed', ['--class' => '\GP247\Core\DB\seeders\DataLocaleSeeder', '--force' => true]);
         $this->info('---------------> Seeding database GP247 local done!');
 
-        if (class_exists('\GP247\Front\Commands\FrontInstall')) {
-            $this->call('gp247:front-install');
-        }
-
         $this->call('vendor:publish', ['--tag' => 'gp247:public-static']);
         $this->call('vendor:publish', ['--tag' => 'gp247:public-vendor']);
         $this->call('vendor:publish', ['--tag' => 'gp247:functions-except']);
@@ -122,6 +118,10 @@ class Install extends Command
         $this->call('storage:link');
 
         Storage::disk('local')->put('gp247-installed.txt', date('Y-m-d H:i:s'));
+
+        if (class_exists('\GP247\Front\Commands\FrontInstall')) {
+            $this->call('gp247:front-install');
+        }
 
         $this->welcome();
     }

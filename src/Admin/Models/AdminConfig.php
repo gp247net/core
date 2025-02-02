@@ -23,7 +23,7 @@ class AdminConfig extends Model
         if ($onlyActive) {
             $query = $query->where('value', 1);
         }
-        $data = $query->orderBy('sort', 'asc')
+        $data = $query->orderBy('sort', 'desc')
             ->get()->keyBy('key');
         return $data;
     }
@@ -39,7 +39,7 @@ class AdminConfig extends Model
         if ($onlyActive) {
             $query = $query->where('value', 1);
         }
-        $data = $query->orderBy('sort', 'asc')
+        $data = $query->orderBy('sort', 'desc')
             ->get()->keyBy('key');
         return $data;
     }
@@ -55,7 +55,7 @@ class AdminConfig extends Model
         if ($onlyActive) {
             $query = $query->where('value', 1);
         }
-        return $query->orderBy('sort', 'asc')->get()->keyBy('key');
+        return $query->orderBy('sort', 'desc')->get()->keyBy('key');
     }
 
     /**
@@ -71,7 +71,7 @@ class AdminConfig extends Model
         if ($onlyActive) {
             $query = $query->where('value', 1);
         }
-        $data = $query->orderBy('sort', 'asc')
+        $data = $query->orderBy('sort', 'desc')
             ->get()->keyBy('key');
         return $data;
     }

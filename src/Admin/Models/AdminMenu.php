@@ -15,7 +15,7 @@ class AdminMenu extends Model
     public static function getListAll()
     {
         if (self::$getList == null) {
-            self::$getList = self::orderBy('sort', 'asc')
+            self::$getList = self::orderBy('sort', 'desc')
             ->get();
         }
         return self::$getList;
@@ -24,7 +24,7 @@ class AdminMenu extends Model
     public static function getListAllDisplay()
     {
         if (self::$getListDisplay == null) {
-            self::$getListDisplay = self::orderBy('sort', 'asc')
+            self::$getListDisplay = self::orderBy('sort', 'desc')
             ->where('hidden', 0)
             ->get();
         }

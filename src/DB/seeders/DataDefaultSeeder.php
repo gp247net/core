@@ -66,14 +66,14 @@ class DataDefaultSeeder extends Seeder
     public function dataMenu() {
         $dataMenu = [
             //Root (level1)
-            ['id' => 1,'parent_id' => 0,'sort' => 10,'title' => 'admin.menu_titles.ADMIN_WEBSITE','icon' => 'fas fa-store-alt','uri' => '','key' => 'ADMIN_WEBSITE','type' => 0],
-            ['id' => 2,'parent_id' => 0,'sort' => 20,'title' => 'admin.menu_titles.ADMIN_SYSTEM','icon' => 'fas fa-cogs','uri' => '','key' => 'ADMIN_SYSTEM','type' => 0],
-            ['id' => 3,'parent_id' => 0,'sort' => 30,'title' => 'admin.menu_titles.ADMIN_EXTENSION','icon' => 'fas fa-th','uri' => '','key' => 'ADMIN_EXTENSION','type' => 0],
+            ['id' => 1,'parent_id' => 0,'sort' => 30,'title' => 'admin.menu_titles.ADMIN_WEBSITE','icon' => 'fas fa-store-alt','uri' => '','key' => 'ADMIN_WEBSITE','type' => 0],
+            ['id' => 2,'parent_id' => 0,'sort' => 10,'title' => 'admin.menu_titles.ADMIN_SYSTEM','icon' => 'fas fa-cogs','uri' => '','key' => 'ADMIN_SYSTEM','type' => 0],
+            ['id' => 3,'parent_id' => 0,'sort' => 20,'title' => 'admin.menu_titles.ADMIN_EXTENSION','icon' => 'fas fa-th','uri' => '','key' => 'ADMIN_EXTENSION','type' => 0],
 
             //Management system (level2)
-            ['id' => 6,'parent_id' => 1,'sort' => 1,'title' => 'admin.menu_titles.store_info','icon' => 'fab fa-shirtsinbulk','uri' => 'admin::store_info','key' => null,'type' => 0],
+            ['id' => 6,'parent_id' => 1,'sort' => 3,'title' => 'admin.menu_titles.store_info','icon' => 'fab fa-shirtsinbulk','uri' => 'admin::store_info','key' => null,'type' => 0],
             ['id' => 7,'parent_id' => 1,'sort' => 2,'title' => 'admin.menu_titles.store_config','icon' => 'fas fa-cog','uri' => 'admin::store_config','key' => null,'type' => 0],
-            ['id' => 8,'parent_id' => 1,'sort' => 3,'title' => 'admin.menu_titles.store_maintain','icon' => 'fas fa-wrench','uri' => 'admin::store_maintain','key' => null,'type' => 0],
+            ['id' => 8,'parent_id' => 1,'sort' => 1,'title' => 'admin.menu_titles.store_maintain','icon' => 'fas fa-wrench','uri' => 'admin::store_maintain','key' => null,'type' => 0],
 
 
             //Config system (level2)
