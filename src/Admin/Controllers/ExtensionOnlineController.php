@@ -154,10 +154,10 @@ trait ExtensionOnlineController
 
                 //Check compatibility 
                 $config = json_decode(file_get_contents($checkConfig[0]), true);
-                $gp247Version = $config['gp247Version'] ?? '';
-                if (!gp247_extension_check_compatibility($gp247Version)) {
+                $requireCore = $config['requireCore'] ?? [];
+                if (!gp247_extension_check_compatibility($config)) {
                     File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                    $response = ['error' => 1, 'msg' => gp247_language_render('admin.extension.not_compatible', ['version' => $gp247Version, 'gp247_version' => config('gp247.core')])];
+                    $response = ['error' => 1, 'msg' => gp247_language_render('admin.extension.not_compatible', ['version' => $requireCore, 'gp247_version' => config('gp247.core')])];
                 } else {
                     $folderName = explode('/gp247.json', $checkConfig[0]);
                     $folderName = explode('/', $folderName[0]);

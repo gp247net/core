@@ -46,7 +46,7 @@ class MakePlugin extends Command
     protected function extension($name = '', $download = 0)
     {
         $error = 0;
-        $msg = '';
+        $msg = 'Success';
 
         $extensionKey = gp247_word_format_class($name);
         $extensionUrlKey = gp247_word_format_url($name);

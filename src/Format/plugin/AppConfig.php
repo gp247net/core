@@ -19,7 +19,9 @@ class AppConfig extends ExtensionConfigDefault
         $config = json_decode($config, true);
     	$this->configGroup = $config['configGroup'];
         $this->configKey = $config['configKey'];
-        $this->gp247Version = $config['gp247Version'];
+        $this->requireCore = $config['requireCore'] ?? [];
+        $this->requirePackages = $config['requirePackages'] ?? [];
+        $this->requireExtensions = $config['requireExtensions'] ?? [];
         //Path
         $this->appPath = $this->configGroup . '/' . $this->configKey;
         //Language

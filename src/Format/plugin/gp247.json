@@ -7,5 +7,7 @@
     "configGroup": "Plugins",
     "configKey": "Extension_Key",
     "version": "1.0",
-    "gp247Version": "1.0"
+    "requireCore": ["1.0"],
+    "requirePackages": [],
+    "requireExtensions": []
 }

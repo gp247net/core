@@ -45,6 +45,20 @@ class AdminConfig extends Model
     }
 
     /**
+     * get Extension Code
+     * @param  boolean $onlyActive
+     * @return [type]              [description]
+     */
+    public static function getExtensionCode($onlyActive = true)
+    {
+        $query =  self::whereIn('group', ['Plugins', 'Templates']);
+        if ($onlyActive) {
+            $query = $query->where('value', 1);
+        }
+        return $query->orderBy('sort', 'asc')->get()->keyBy('key');
+    }
+
+    /**
      * get Plugin Captcha installed
      * @param  boolean $onlyActive
      * @return [type]              [description]

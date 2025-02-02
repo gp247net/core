@@ -47,6 +47,11 @@ trait  ExtensionController
     {
         $key = request('key');
         $namespace = gp247_extension_get_class_config(type:$this->type, key:$key);
+        $config = json_decode(file_get_contents(app_path('GP247/'.$this->groupType.'/'.$key.'/gp247.json')), true);
+        $requireFaild = gp247_extension_check_compatibility($config);
+        if($requireFaild) {
+            return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.not_compatible', ['msg' => json_encode($requireFaild)])]);
+        }
         $response = (new $namespace)->install();
         if (is_array($response) && $response['error'] == 0) {
             gp247_notice_add(type:$this->type, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->type).'_install::name__'.$key);
@@ -180,10 +185,10 @@ trait  ExtensionController
                     
                     //Check compatibility 
                     $config = json_decode(file_get_contents($checkConfig[0]), true);
-                    $gp247Version = $config['gp247Version'] ?? '';
-                    if (!gp247_extension_check_compatibility($gp247Version)) {
+                    $requireCore = $config['requireCore'] ?? [];
+                    if (!gp247_extension_check_compatibility($config)) {
                         File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        return redirect()->back()->with('error', gp247_language_render('admin.extension.not_compatible', ['version' => $gp247Version, 'gp247_version' => config('gp247.core')]));
+                        return redirect()->back()->with('error', gp247_language_render('admin.extension.not_compatible', ['version' => $requireCore, 'gp247_version' => config('gp247.core')]));
                     }
 
                     $configGroup = $config['configGroup'] ?? '';

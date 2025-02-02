@@ -7,7 +7,9 @@ abstract class  ExtensionConfigDefault
     public $configKey;
     public $title;
     public $version;
-    public $gp247Version;
+    public $requireCore;
+    public $requirePackages;
+    public $requireExtensions;
     public $auth;
     public $link;
     public $image;

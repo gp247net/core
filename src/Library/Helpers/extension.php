@@ -11,9 +11,9 @@ if (!function_exists('gp247_extension_get_all_local') && !in_array('gp247_extens
      *
      * @return  [array]
      */
-    function gp247_extension_get_all_local($type = 'Plugin')
+    function gp247_extension_get_all_local($type = 'Plugins')
     {
-        if ($type == 'Template') {
+        if ($type == 'Templates') {
             $typeTmp = 'Templates';
         } else {
             $typeTmp = 'Plugins';
@@ -39,14 +39,17 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
      *
      *
      */
-    function gp247_extension_get_installed($type = "Plugin", $active = true)
+    function gp247_extension_get_installed($type = "Plugins", $active = true)
     {
         switch ($type) {
-            case 'Template':
+            case 'Templates':
                 return \GP247\Core\Admin\Models\AdminConfig::getTemplateCode($active);
                 break;
+            case 'Plugins':
+                return \GP247\Core\Admin\Models\AdminConfig::getPluginCode($active);
+                break;
             default:
-            return \GP247\Core\Admin\Models\AdminConfig::getPluginCode($active);
+                return \GP247\Core\Admin\Models\AdminConfig::getExtensionCode($active);
                 break;
         }
     }
@@ -98,14 +101,42 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
     /**
      * Check plugin and template compatibility with GP247 version
      *
-     * @param   string  $versionsConfig  [$versionsConfig description]
+     * @param   array  $config  [$versionsConfig description]
      *
      * @return  [type]                   [return description]
      */
     if (!function_exists('gp247_extension_check_compatibility') && !in_array('gp247_extension_check_compatibility', config('gp247_functions_except', []))) {
-        function gp247_extension_check_compatibility(string $versionsConfig) {
-            $arrVersionGP247 = explode('|', $versionsConfig);
-            return in_array(config('gp247.core'), $arrVersionGP247);
+        function gp247_extension_check_compatibility(array $config) {
+            $arrRequireFaild = [];
+            
+            $requireCore = $config['requireCore'] ?? [];
+            $requirePackages = $config['requirePackages'] ?? [];
+            $requireExtensions = $config['requireExtensions'] ?? [];
+            if($requireCore) {
+                if(!in_array(config('gp247.core'), $requireCore)) {
+                    $arrRequireFaild['requireCore'] = $requireCore;
+                }
+            }
+
+            if($requirePackages) {
+                $listPackages = gp247_composer_get_package_installed();
+                foreach($requirePackages as $package) {
+                    if(!in_array($package, array_keys($listPackages))) {
+                        $arrRequireFaild['requirePackages'][] = $package;
+                    }
+                }
+            }
+
+            if($requireExtensions) {
+                $listExtensionsInstalled = gp247_extension_get_installed(type: 'Extension');
+                foreach($requireExtensions as $extension) {
+                    if(!in_array($extension, $listExtensionsInstalled)) {
+                        $arrRequireFaild['requireExtensions'][] = $extension;
+                    }
+                }
+            }
+
+            return $arrRequireFaild;
         }
     }
 
