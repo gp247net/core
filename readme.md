@@ -96,24 +96,27 @@ Support this project :stuck_out_tongue_winking_eye: :pray:
   >`php artisan key:generate`
 
 - **Step 4**: Configure database
-Default, gp247 uses mysql. The configuration will be saved in the .env file as follows:
-
-  >DB_CONNECTION=`mysql`
-  >DB_HOST=127.0.0.1
-  >DB_PORT=3306
-  >DB_DATABASE=gp247
-  >DB_USERNAME=root
-  >DB_PASSWORD=
+  
+Default, GP247 uses mysql. The configuration will be saved in the .env file as follows:
+```
+  DB_CONNECTION=mysql
+  DB_HOST=127.0.0.1
+  DB_PORT=3306
+  DB_DATABASE=gp247
+  DB_USERNAME=root
+  DB_PASSWORD=
+```
 
   If you want to use sqlite for quick testing, please change the connection in the .env file to sqlite, and comment out the DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD lines.
-
-    >DB_CONNECTION=`sqlite`
-    >#DB_HOST=127.0.0.1
-    >#DB_PORT=3306
-    >#DB_DATABASE=gp247
-    >#DB_USERNAME=root
-    >#DB_PASSWORD=
-
+  
+```
+    DB_CONNECTION=sqlite
+    #DB_HOST=127.0.0.1
+    #DB_PORT=3306
+    #DB_DATABASE=gp247
+    #DB_USERNAME=root
+    #DB_PASSWORD=
+```
 - **Step 5**: Initialize gp247
 
   Run the command: 
