@@ -45,45 +45,53 @@ if (!function_exists('gp247_url_render') && !in_array('gp247_url_render', config
     /*
     url render
      */
-    function gp247_url_render($string = ""):string
+    function gp247_url_render($string = ""): string
     {
-        $arrCheckRoute = explode('route::', $string);
-        $arrCheckUrl = explode('admin::', $string);
+        if (empty($string)) {
+            return url('/');
+        }
+        if ($string == "#") {
+            return "#";
+        }
 
-        if (count($arrCheckRoute) == 2) {
-            $arrRoute = explode('::', $string);
-            if (Str::startsWith($string, 'route::admin')) {
-                if (isset($arrRoute[2])) {
-                    return gp247_route_admin($arrRoute[1], explode(',', $arrRoute[2]));
+        // Handle front:: or admin::
+        if (Str::startsWith($string, ['front::', 'admin::'])) {
+            $parts = explode('::', $string, 2);
+            $prefix = $parts[0]; // 'front' or 'admin'
+            $remaining = $parts[1];
+            
+            // Split route name and parameters
+            $segments = explode(':', $remaining);
+            $routeName = array_shift($segments);
+            
+            // Handle parameters if any
+            $params = [];
+            foreach ($segments as $segment) {
+                $paramParts = explode('__', $segment, 2);
+                if (count($paramParts) === 2) {
+                    $params[$paramParts[0]] = $paramParts[1];
+                }
+            }
+            
+            // Call function based on prefix
+            if ($prefix === 'front') {
+                if (function_exists('gp247_route_front')) {
+                    return gp247_route_front($routeName, $params);
                 } else {
-                    return gp247_route_admin($arrRoute[1]);
+                    return url($routeName, $params);
                 }
             } else {
-                if (function_exists('gp247_route_front')) {
-                    if (isset($arrRoute[2])) {
-                        return gp247_route_front($arrRoute[1], explode(',', $arrRoute[2]));
-                    } else {
-                        return gp247_route_front($arrRoute[1]);
-                    }
-                } else {
-                    if (isset($arrRoute[2])) {
-                        return route($arrRoute[1], explode(',', $arrRoute[2]));
-                    } else {
-                        return route($arrRoute[1]);
-                    }
-                }
-
+                return gp247_route_admin($routeName, $params);
             }
         }
 
-        if (count($arrCheckUrl) == 2) {
-            $string = Str::start($arrCheckUrl[1], '/');
-            $string = GP247_ADMIN_PREFIX . $string;
-            return url($string);
-        }
+        // Other
         return url($string);
     }
 }
+
+
+
 
 
 if (!function_exists('gp247_html_render') && !in_array('gp247_html_render', config('gp247_functions_except', []))) {
