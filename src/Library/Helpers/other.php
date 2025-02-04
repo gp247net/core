@@ -55,7 +55,7 @@ if (!function_exists('gp247_url_render') && !in_array('gp247_url_render', config
         }
 
         // Handle front:: or admin::
-        if (Str::startsWith($string, ['front::', 'admin::'])) {
+        if (Str::startsWith($string, ['route::'])) {
             $parts = explode('::', $string, 2);
             $prefix = $parts[0]; // 'front' or 'admin'
             $remaining = $parts[1];
@@ -83,6 +83,14 @@ if (!function_exists('gp247_url_render') && !in_array('gp247_url_render', config
             } else {
                 return gp247_route_admin($routeName, $params);
             }
+        }
+        
+        if (Str::startsWith($string, 'admin::')) {
+            // Remove prefix admin::
+            $string = Str::after($string, 'admin::');
+            $string = Str::start($string, '/');
+            $string = GP247_ADMIN_PREFIX . $string;
+            return url($string);
         }
 
         // Other
