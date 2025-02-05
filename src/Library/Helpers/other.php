@@ -73,15 +73,10 @@ if (!function_exists('gp247_url_render') && !in_array('gp247_url_render', config
                 }
             }
             
-            // Call function based on prefix
-            if ($prefix === 'front') {
-                if (function_exists('gp247_route_front')) {
-                    return gp247_route_front($routeName, $params);
-                } else {
-                    return url($routeName, $params);
-                }
+            if (function_exists('gp247_route_front')) {
+                return gp247_route_front($routeName, $params);
             } else {
-                return gp247_route_admin($routeName, $params);
+                return url($routeName, $params);
             }
         }
         
