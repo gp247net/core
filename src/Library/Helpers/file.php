@@ -162,9 +162,9 @@ if (!function_exists('gp247_image_generate_thumb') && !in_array('gp247_image_gen
  * Function rener image
  */
 if (!function_exists('gp247_image_render') && !in_array('gp247_image_render', config('gp247_functions_except', []))) {
-    function gp247_image_render($path, $width = null, $height = null, $alt = null, $title = null, $urlDefault = null, $options = '')
+    function gp247_image_render($path, $width = null, $height = null, $alt = null, $title = null, $default = null, $options = '')
     {
-        $image = gp247_image_get_path($path, $urlDefault);
+        $image = gp247_image_get_path($path, $default);
         $style = '';
         $style .= ($width) ? ' width:' . $width . ';' : '';
         $style .= ($height) ? ' height:' . $height . ';' : '';
@@ -175,9 +175,9 @@ if (!function_exists('gp247_image_render') && !in_array('gp247_image_render', co
 Return path image
  */
 if (!function_exists('gp247_image_get_path') && !in_array('gp247_image_get_path', config('gp247_functions_except', []))) {
-    function gp247_image_get_path($path, $urlDefault = null)
+    function gp247_image_get_path($path, $default = null)
     {
-        $image = $urlDefault ?? 'GP247/Core/images/no-image.jpg';
+        $image = $default ?? 'GP247/Core/images/no-image.jpg';
         if ($path) {
             if (file_exists(public_path($path)) || filter_var(str_replace(' ', '%20', $path), FILTER_VALIDATE_URL)) {
                 $image = $path;
@@ -194,18 +194,19 @@ Function get path thumb of image if saved in storage
 if (!function_exists('gp247_image_get_path_thumb') && !in_array('gp247_image_get_path_thumb', config('gp247_functions_except', []))) {
     function gp247_image_get_path_thumb($pathFile)
     {
-        if (strpos($pathFile, "/storage/") === 0) {
-            $arrPath = explode('/', $pathFile);
-            $fileName = end($arrPath);
-            $pathThumb = substr($pathFile, 0, -strlen($fileName)) . 'thumbs/' . $fileName;
-            if (file_exists(public_path($pathThumb))) {
-                return $pathThumb;
-            } else {
-                return gp247_image_get_path($pathFile);
-            }
-        } else {
-            return gp247_image_get_path($pathFile);
+        if (!$pathFile) {
+            return gp247_image_get_path(null);
         }
+        
+        $arrPath = explode('/', $pathFile);
+        $fileName = array_pop($arrPath);
+        $pathThumb = implode('/', $arrPath) . '/thumb/' . $fileName;
+        
+        if (file_exists(public_path($pathThumb))) {
+            return $pathThumb;
+        }
+        
+        return gp247_image_get_path($pathFile);
     }
 }
 
