@@ -282,29 +282,6 @@ if (!function_exists('gp247_time_now') && !in_array('gp247_time_now', config('gp
     }
 }
 
-if (!function_exists('gp247_request') && !in_array('gp247_request', config('gp247_functions_except', []))) {
-    /**
-     * Return value request
-     */
-    function gp247_request($key = "", $default = "", string $type = "")
-    {
-
-        if ($type == 'string') {
-            if (is_array(request($key, $default))) {
-                return 'array';
-            }
-        }
-
-        if ($type == 'array') {
-            if (is_string(request($key, $default))) {
-                return [request($key, $default)];
-            }
-        }
-
-        return request($key, $default);
-    }
-}
-
 
 // Function get all package installed in composer.json
 if (!function_exists('gp247_composer_get_package_installed') && !in_array('gp247_composer_get_package_installed', config('gp247_functions_except', []))) {

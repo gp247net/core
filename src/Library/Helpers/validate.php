@@ -23,18 +23,18 @@ if (!function_exists('gp247_clean') && !in_array('gp247_clean', config('gp247_fu
     /**
      * Clear data
      */
-    function gp247_clean($data = null, $exclude = [], $level_high = false)
+    function gp247_clean($data = null, $exclude = [], $hight = false)
     {
         if (is_array($data)) {
-            array_walk($data, function (&$v, $k) use ($exclude, $level_high) {
+            array_walk($data, function (&$v, $k) use ($exclude, $hight) {
                 if (is_array($v)) {
-                    $v = gp247_clean($v, $exclude, $level_high);
+                    $v = gp247_clean($v, $exclude, $hight);
                 } 
                 if (is_string($v)) {
                     if (in_array($k, $exclude)) {
                         $v = $v;
                     } else {
-                        if ($level_high) {
+                        if ($hight) {
                             $v = strip_tags($v);
                         }
                         $v = htmlspecialchars_decode($v);
@@ -44,7 +44,7 @@ if (!function_exists('gp247_clean') && !in_array('gp247_clean', config('gp247_fu
             });
         }
         if (is_string($data)) {
-            if ($level_high) {
+            if ($hight) {
                 $data = strip_tags($data);
             }
             $data = htmlspecialchars_decode($data);
