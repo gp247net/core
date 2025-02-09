@@ -70,11 +70,6 @@ GP247 1.x
     │     └── GP247_ACTIVE=1 //ON|OFF gp247
     └──...
 
-## Support the project
-Support this project :stuck_out_tongue_winking_eye: :pray:
-<p align="center">
-    <a href="https://www.paypal.me/LeLanh" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" data-origin="https://img.shields.io/badge/Donate-PayPal-green.svg" alt="PayPal Me"></a>
-</p>
 
 ## Quick Installation Guide
 - **Step 1**: Prepare the Laravel source
