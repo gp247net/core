@@ -23,7 +23,7 @@ Route::group(['prefix' => 'plugin'], function () use ($nameSpaceAdminPlugin) {
     Route::post('/disable', $nameSpaceAdminPlugin.'\AdminPluginsController@disable')
         ->name('admin_plugin.disable');
 
-    if (config('gp247-config.admin.api_plugin')) {
+    if (config('gp247-config.admin.api_plugins')) {
         Route::get('/online', $nameSpaceAdminPlugin.'\AdminPluginsOnlineController@index')
         ->name('admin_plugin_online.index');
         Route::post('/install/online', $nameSpaceAdminPlugin.'\AdminPluginsOnlineController@install')
