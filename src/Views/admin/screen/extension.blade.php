@@ -61,7 +61,7 @@
                   $pluginAction .= '<span class="btn btn-flat btn-success btn-sm" title="'.gp247_language_render('admin.extension.used').'"><i class="fa fa-check"></i></span>';
                 } else {
 
-                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 1 && !in_array($keyExtension, $extensionProtected) && $groupType != 'Templates') {
+                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 1 && $groupType != 'Templates') {
                     // if extension enable, show action config
                     if($pluginClass->clickApp()){
                       $pluginAction .='<a href="'.url()->current().'?action=config&key='.$keyExtension.'"><span title="'.gp247_language_render('admin.extension.config').'" class="btn btn-sm btn-flat btn-primary"><i class="fas fa-cog"></i></span>&nbsp;</a>';
@@ -69,12 +69,12 @@
                     $pluginAction .= '<span onClick="disableExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.disable').'" type="button" class="btn btn-sm btn-flat btn-warning btn-flat"><i class="fa fa-power-off"></i></span>&nbsp;';
                   }
 
-                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 0 && !in_array($keyExtension, $extensionProtected) && $groupType != 'Templates') {
+                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 0 && $groupType != 'Templates') {
                     // if extension disable, show action enable
                     $pluginAction .= '<span onClick="enableExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.enable').'" type="button" class="btn btn-sm btn-flat btn-primary"><i class="fa fa-paper-plane"></i></span>&nbsp;';
                   }
 
-                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 1) {
+                  if (array_key_exists($keyExtension, $extensionsInstalled->toArray()) && $extensionsInstalled[$keyExtension]['value'] == 1 && !in_array($keyExtension, $extensionProtected)) {
                     // if extension enable, and not protected, and not template, show action delete
                     $pluginAction .='<span onClick="deleteExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.only_delete_data').'" class="btn btn-sm btn-flat btn-danger"><i class="fas fa-times"></i></span>';
                   }
