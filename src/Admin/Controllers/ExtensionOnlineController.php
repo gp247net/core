@@ -8,29 +8,84 @@ trait ExtensionOnlineController
 {
     public function index()
     {
-        $arrExtensions = [];
-        $resultItems = '';
-        $htmlPaging = '';
-        $gp247_version = config('gp247.core');
-        $filter_free = request('filter_free', 0);
-        $filter_type = request('filter_type', '');
-        $filter_keyword = request('filter_keyword', '');
-
+        // Khởi tạo các biến cần thiết
+        $arrExtensions = [];  // Mảng chứa danh sách extensions
+        $resultItems = '';    // Chuỗi hiển thị kết quả tìm kiếm
+        $htmlPaging = '';     // HTML phân trang
+        
+        // Lấy các tham số từ request
+        $gp247_version = config('gp247.core');  // Version của core
+        $filter_free = request('filter_free', 0);  // Lọc extension miễn phí
+        $filter_type = request('filter_type', ''); // Lọc theo loại
+        $filter_keyword = request('filter_keyword', ''); // Từ khóa tìm kiếm
+        
+        // Xây dựng URL API với các tham số
         $page = request('page') ?? 1;
         $url = config('gp247-config.env.GP247_LIBRARY_API').'/'.strtolower($this->groupType).'/?page[size]=20&page[number]='.$page;
         $url .='&version='.$gp247_version;
         $url .='&filter_free='.$filter_free;
         $url .='&filter_type='.$filter_type;
         $url .='&filter_keyword='.$filter_keyword;
-        $ch            = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        $dataApi   = curl_exec($ch);
-        curl_close($ch);
-        $dataApi = json_decode($dataApi, true);
+
+        // Gọi API lấy danh sách extensions
+        try {
+            // Khởi tạo CURL
+            $ch = curl_init($url);
+            if ($ch === false) {
+                throw new \Exception('Failed to initialize CURL');
+            }
+            
+            // Cấu hình các options cho CURL
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Trả về kết quả thay vì in ra
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // Timeout sau 10s
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0); // Bỏ qua verify SSL
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0); // Bỏ qua verify host
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Cho phép redirect
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 5); // Số lần redirect tối đa
+            
+            // Thực thi CURL
+            $dataApi = curl_exec($ch);
+            
+            // Kiểm tra lỗi CURL
+            if ($dataApi === false) {
+                $error = curl_error($ch);
+                curl_close($ch);
+                throw new \Exception('CURL Error: ' . $error);
+            }
+            
+            // Get response information
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $finalUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+            
+            // Only log URLs if there is a redirect (final URL is different from original URL)
+            if ($finalUrl !== $url) {
+                gp247_report(msg: 'Redirect detected:', channel: null);
+                gp247_report(msg: '- Original URL: ' . $url, channel: null);
+                gp247_report(msg: '- Final URL: ' . $finalUrl, channel: null);
+            }
+            
+            curl_close($ch);
+            
+            // Check HTTP status code
+            if ($httpCode !== 200) {
+                throw new \Exception('HTTP Error: ' . $httpCode . ' for URL: ' . $finalUrl);
+            }
+            
+            // Parse JSON response
+            $dataApi = json_decode($dataApi, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception('JSON decode error: ' . json_last_error_msg());
+            }
+
+        } catch (\Exception $e) {
+            // Log lỗi và set data mặc định nếu có lỗi
+            gp247_report(msg: 'API Error: ' . $e->getMessage(), channel: null);
+            $dataApi = ['data' => [], 'error' => $e->getMessage()];
+        }
+
+        // Xử lý dữ liệu trả về từ API
         if (!empty($dataApi['data'])) {
+            // Map dữ liệu vào mảng extensions
             foreach ($dataApi['data'] as $key => $data) {
                 $arrExtensions[] = [
                     'sku'             => $data['sku'] ?? '',
@@ -42,7 +97,7 @@ trait ExtensionOnlineController
                     'path'            => $data['path'] ?? '',
                     'file'            => $data['file'] ?? '',
                     'version'         => $data['version'] ?? '',
-                    'gp247_version'  => $data['gp247_version'] ?? '',
+                    'gp247_version'   => $data['gp247_version'] ?? '',
                     'price'           => $data['price'] ?? 0,
                     'price_final'     => $data['price_final'] ?? 0,
                     'price_promotion' => $data['price_promotion'] ?? 0,
@@ -56,7 +111,15 @@ trait ExtensionOnlineController
                     'link'            => $data['link'] ?? '',
                 ];
             }
-            $resultItems = gp247_language_render('product.admin.result_item', ['item_from' => $dataApi['from'] ?? 0, 'item_to' => $dataApi['to']??0, 'total' =>  $dataApi['total'] ?? 0]);
+            
+            // Tạo HTML phân trang
+            $resultItems = gp247_language_render('product.admin.result_item', [
+                'item_from' => $dataApi['from'] ?? 0, 
+                'item_to' => $dataApi['to']??0, 
+                'total' =>  $dataApi['total'] ?? 0
+            ]);
+            
+            // Xây dựng HTML phân trang
             $htmlPaging .= '<ul class="pagination pagination-sm no-margin pull-right">';
             if ($dataApi['current_page'] > 1) {
                 $htmlPaging .= '<li class="page-item"><a class="page-link" href="'.$this->urlOnline.'?page='.($dataApi['current_page'] - 1).'" rel="prev">«</a></li>';
@@ -96,7 +159,6 @@ trait ExtensionOnlineController
                 break;
         }
 
-    
         return view('gp247-core::screen.extension_online')->with(
             [
                     "title"              => $title,
@@ -117,7 +179,6 @@ trait ExtensionOnlineController
     {
         $key = request('key');
         $path = request('path');
-
         $appPath = 'GP247/'.$this->groupType.'/'.$key;
 
         if (!is_writable(public_path('GP247/'.$this->groupType))) {

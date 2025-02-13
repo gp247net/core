@@ -51,7 +51,7 @@
             <thead class="thead-light text-nowrap">
               <tr>
                 <th>{{ gp247_language_render('admin.extension.image') }}</th>
-                <th>{{ gp247_language_render('admin.extension.code') }}</th>
+                <th>{{ gp247_language_render('admin.extension.key') }}</th>
                 <th>{{ gp247_language_render('admin.extension.name') }}</th>
                 <th>{{ gp247_language_render('admin.extension.version') }}</th>
                 <th>{{ gp247_language_render('admin.extension.compatible') }}</th>
@@ -72,53 +72,53 @@
                   </td>
                 </tr>
               @else
-                @foreach ($arrExtensions as  $template)
+                @foreach ($arrExtensions as  $extension)
   @php
-  $scVersion = explode(',', $template['gp247_version']);
-  $scRenderVersion = implode(' ',array_map(
+  $gp247Version = explode(',', $extension['gp247_version']);
+  $gp247RenderVersion = implode(' ',array_map(
   function($version){
   return '<span title="GP247 version '.$version.'" class="badge badge-primary">'.$version.'</span>';
-  },$scVersion)
+  },$gp247Version)
   );
   
-  if (array_key_exists($template['key'], $arrExtensionsLocal)) 
+  if (array_key_exists($extension['key'], $arrExtensionsLocal)) 
   {
-  $templateAction = '<span title="'.gp247_language_render('admin.extension.located').'" class="btn btn-flat btn-default"><i class="fa fa-check" aria-hidden="true"></i></span>';
-  } elseif(!in_array(config('gp247.core'), $scVersion)) {
-  $templateAction = '';
+  $extensionAction = '<span title="'.gp247_language_render('admin.extension.located').'" class="btn btn-flat btn-default"><i class="fa fa-check" aria-hidden="true"></i></span>';
+  } elseif(!in_array(config('gp247.core'), $gp247Version)) {
+  $extensionAction = '';
   } else {
-  if(($template['is_free'] || $template['price_final'] == 0)) {
-  $templateAction = '<span onClick="installTemplate($(this),\''.$template['key'].'\', \''.$template['file'].'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
+  if(($extension['is_free'] || $extension['price_final'] == 0)) {
+  $extensionAction = '<span onClick="installExtension($(this),\''.$extension['key'].'\', \''.$extension['file'].'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
   } else {
-  $templateAction = '';
+  $extensionAction = '';
   }
   }
   @endphp
                   <tr>
-                    <td>{!! gp247_image_render($template['image'],'50px', '', $template['name']) !!}</td>
-                    <td>{{ $template['key'] }}</td>
-                    <td>{{ $template['name'] }} <span data-toggle="tooltip" title="{!! $template['description'] !!}"><i class="fa fa-info-circle" aria-hidden="true"></i></span></td>
-                    <td>{{ $template['version']??'' }}</td>
-                    <td><b>SC:</b> {!! $scRenderVersion !!}</td>
-                    <td>{{ $template['username']??'' }}</td>
-                    <td class="pointer" onclick="imagedemo('{{ $template['image_demo']??'' }}')"><a>{{ gp247_language_render('admin.extension.click_here') }}</a></td>
+                    <td>{!! gp247_image_render($extension['image'],'50px', '', $extension['name']) !!}</td>
+                    <td>{{ $extension['key'] }}</td>
+                    <td>{{ $extension['name'] }} <span data-toggle="tooltip" title="{!! $extension['description'] !!}"><i class="fa fa-info-circle" aria-hidden="true"></i></span></td>
+                    <td>{{ $extension['version']??'' }}</td>
+                    <td><b>GP247:</b> {!! $gp247RenderVersion !!}</td>
+                    <td>{{ $extension['username']??'' }}</td>
+                    <td class="pointer" onclick="imagedemo('{{ $extension['image_demo']??'' }}')"><a>{{ gp247_language_render('admin.extension.click_here') }}</a></td>
                     <td>
-                      @if ($template['is_free'] || $template['price_final'] == 0)
+                      @if ($extension['is_free'] || $extension['price_final'] == 0)
                         <span class="badge badge-success">{{ gp247_language_render('admin.extension.free') }}</span>
                       @else
-                          @if ($template['price_final'] != $template['price'])
-                              <span class="sc-old-price">{{ number_format($template['price']) }}</span><br>
-                              <span class="sc-new-price">${{ number_format($template['price_final']) }}</span>
+                          @if ($extension['price_final'] != $extension['price'])
+                              <span class="sc-old-price">{{ number_format($extension['price']) }}</span><br>
+                              <span class="sc-new-price">${{ number_format($extension['price_final']) }}</span>
                           @else
-                            <span class="sc-new-price">${{ number_format($template['price_final']) }}</span>
+                            <span class="sc-new-price">${{ number_format($extension['price_final']) }}</span>
                           @endif
                       @endif
                     </td>
                     <td>
                       @php
-                      $vote = $template['points'];
-                      $vote_times = $template['times'];
-                      $cal_vote = number_format($template['rated'], 1);
+                      $vote = $extension['points'];
+                      $vote_times = $extension['times'];
+                      $cal_vote = number_format($extension['rated'], 1);
                       @endphp
                       <span title="{{ $cal_vote }}" style="color:#e66c16">
                         @for ($i = 1; $i <= $cal_vote; $i++) 
@@ -140,11 +140,11 @@
                     </span>
   
                     </td>
-                    <td>{{ $template['download']??'' }}</td>
-                    <td>{{ $template['date']??'' }}</td>
+                    <td>{{ $extension['download']??'' }}</td>
+                    <td>{{ $extension['date']??'' }}</td>
                     <td>
-                      {!! $templateAction ?? '' !!}
-                      <a href="{{ $template['link'] }}" title="Link home">
+                      {!! $extensionAction ?? '' !!}
+                      <a href="{{ $extension['link'] }}" title="Link home">
                         <span class="btn btn-flat btn-primary" type="button">
                         <i class="fa fa-chain-broken" aria-hidden="true"></i> {!! gp247_language_render('admin.extension.link') !!}
                         </span>
@@ -176,7 +176,7 @@
 
 
 <script type="text/javascript">
-  function installTemplate(obj,key, path) {
+  function installExtension(obj,key, path) {
       $('#loading').show()
       obj.button('loading');
       $.ajax({
