@@ -41,6 +41,7 @@ trait ExtensionOnlineController
             curl_setopt($ch, CURLOPT_MAXREDIRS, 5); // Maximum number of redirects
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 'GP247-API-License: ' . $license,
+                'GP247-API-Domain: ' . url('/'),
                 'Content-Type: application/json',
                 'Accept: application/json'
             ]); // Add license to request headers
@@ -267,6 +268,11 @@ trait ExtensionOnlineController
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0); // Ignore SSL verify host
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Allow redirect
             curl_setopt($ch, CURLOPT_MAXREDIRS, 5); // Maximum number of redirects
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'GP247-API-Domain: ' . url('/'),
+                'Content-Type: application/json',
+                'Accept: application/json'
+            ]); 
             
             // Execute CURL
             $dataApi = curl_exec($ch);
