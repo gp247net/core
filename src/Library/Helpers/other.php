@@ -55,9 +55,9 @@ if (!function_exists('gp247_url_render') && !in_array('gp247_url_render', config
         }
 
         // Handle front:: or admin::
-        if (Str::startsWith($string, ['route::'])) {
+        if (Str::startsWith($string, ['route_front::','route_admin::'])) {
             $parts = explode('::', $string, 2);
-            $prefix = $parts[0]; // 'front' or 'admin'
+            $prefix = $parts[0]; // 'route_front' or 'route_admin'
             $remaining = $parts[1];
             
             // Split route name and parameters
@@ -73,10 +73,18 @@ if (!function_exists('gp247_url_render') && !in_array('gp247_url_render', config
                 }
             }
             
-            if (function_exists('gp247_route_front')) {
-                return gp247_route_front($routeName, $params);
+            if ($prefix == 'route_front') {
+                if (function_exists('gp247_route_front')) {
+                    return gp247_route_front($routeName, $params);
+                } else {
+                    return url($routeName, $params);
+                }
             } else {
-                return url($routeName, $params);
+                if (function_exists('gp247_route_admin')) {
+                    return gp247_route_admin($routeName, $params);
+                } else {
+                    return url($routeName, $params);
+                }
             }
         }
         
