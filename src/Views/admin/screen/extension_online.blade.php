@@ -4,6 +4,18 @@
 
 <div class="row">
   <div class="col-md-12">
+    @if ($errorCode)
+      <div class="alert alert-warning">
+        <h5><i class="icon fas fa-ban"></i> {{ gp247_language_render('admin.extension.api_error') }}</h5>
+        <p><strong>{{ gp247_language_render('admin.extension.api_error_code') }}:</strong> {{ $errorCode }}</p>
+        <p><strong>{{ gp247_language_render('admin.extension.api_error_content') }}:</strong> {{ $errorMessage }}</p>
+        <p class="mt-2">
+          <i class="fas fa-info-circle"></i> 
+          {{ gp247_language_render('admin.extension.api_error_register_hint') }}  
+          <a href="#" onclick="registerLicense(event)" class="alert-link">{{ gp247_language_render('admin.extension.api_error_register_hint_link') }}</a>.
+        </p>
+      </div>
+    @endif
 
     <div class="card card-primary card-outline card-outline-tabs">
       <div class="card-header p-0 border-bottom-0">
@@ -24,18 +36,18 @@
         <div class="float-right" >
           <div class="form-group">
                 <div class="input-group input-group-sm">
-                  <select class="form-control form-control-sm select2" name="filter_free" data-live-search="true"  title="Select item..."  data-actions-box="true">
-                      <option value="">All items</option>
-                    <option value="1" {{ ($filter_free == 1) ? 'selected':''  }}>{{ gp247_language_render('admin.extension.only_free') }}</option>
+                  <select class="form-control form-control-sm select2" name="is_free" data-live-search="true"  title="Select item..."  data-actions-box="true">
+                      <option value="">{{ gp247_language_render('admin.extension.all_items') }}</option>
+                    <option value="1" {{ ($is_free == 1) ? 'selected':''  }}>{{ gp247_language_render('admin.extension.only_free') }}</option>
                   </select>
-                  <select class="form-control form-control-sm select2" name="filter_type" data-live-search="true"  title="Choose filter"  data-actions-box="true">
-                    <option value=""> </option>
-                    <option value="download" {{ ($filter_type == 'download') ? 'selected':''  }}>{{ gp247_language_render('admin.extension.sort_download') }}</option>
-                    <option value="rating" {{ ($filter_type == 'rating') ? 'selected':''  }}>{{ gp247_language_render('admin.extension.sort_rating') }}</option>
-                    <option value="sort_price_asc" {{ ($filter_type == 'sort_price_asc') ? 'selected':''  }}>{{ gp247_language_render('admin.extension.sort_price_asc') }}</option>
-                    <option value="sort_price_desc" {{ ($filter_type == 'sort_price_desc') ? 'selected':''  }}>{{ gp247_language_render('admin.extension.sort_price_desc') }}</option>
+                  <select class="form-control form-control-sm select2" name="type_sort" data-live-search="true"  title="{{ gp247_language_render('admin.extension.sort') }}"  data-actions-box="true">
+                    <option value="">{{ gp247_language_render('admin.extension.sort_default') }}</option>
+                    <option value="download" {{ ($type_sort == 'download') ? 'selected':''  }}>{{ gp247_language_render('admin.extension.sort_download') }}</option>
+                    <option value="rating" {{ ($type_sort == 'rating') ? 'selected':''  }}>{{ gp247_language_render('admin.extension.sort_rating') }}</option>
+                    <option value="sort_price_asc" {{ ($type_sort == 'sort_price_asc') ? 'selected':''  }}>{{ gp247_language_render('admin.extension.sort_price_asc') }}</option>
+                    <option value="sort_price_desc" {{ ($type_sort == 'sort_price_desc') ? 'selected':''  }}>{{ gp247_language_render('admin.extension.sort_price_desc') }}</option>
                   </select>
-                  <input type="text" name="filter_keyword" class="form-control float-right" placeholder="{{ gp247_language_render('admin.extension.enter_search_keyword') }}" value="{{ $filter_keyword ?? '' }}">
+                  <input type="text" name="keyword" class="form-control float-right" placeholder="{{ gp247_language_render('admin.extension.enter_search_keyword') }}" value="{{ $keyword ?? '' }}">
                   <div class="input-group-sm input-group-append">
                       <button id="filter-button" class="btn btn-primary btn-flat"><i class="fas fa-filter"></i></button>
                   </div>
@@ -46,6 +58,7 @@
 
       <div class="card-body" id="pjax-container">
         <div class="tab-content" id="custom-tabs-four-tabContent">
+          <a href="" style="display:none" id="link-filter" class="link-filter"></a>
           <div class="table-responsive">
           <table class="table table-hover text-nowrap table-bordered">
             <thead class="thead-light text-nowrap">
@@ -74,25 +87,25 @@
               @else
                 @foreach ($arrExtensions as  $extension)
   @php
-  $gp247Version = explode(',', $extension['gp247_version']);
-  $gp247RenderVersion = implode(' ',array_map(
-  function($version){
-  return '<span title="GP247 version '.$version.'" class="badge badge-primary">'.$version.'</span>';
-  },$gp247Version)
-  );
-  
-  if (array_key_exists($extension['key'], $arrExtensionsLocal)) 
-  {
-  $extensionAction = '<span title="'.gp247_language_render('admin.extension.located').'" class="btn btn-flat btn-default"><i class="fa fa-check" aria-hidden="true"></i></span>';
-  } elseif(!in_array(config('gp247.core'), $gp247Version)) {
-  $extensionAction = '';
-  } else {
-  if(($extension['is_free'] || $extension['price_final'] == 0)) {
-  $extensionAction = '<span onClick="installExtension($(this),\''.$extension['key'].'\', \''.$extension['file'].'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
-  } else {
-  $extensionAction = '';
-  }
-  }
+    $gp247Version = explode(',', $extension['gp247_version']);
+    $gp247RenderVersion = implode(' ',array_map(
+      function($version){
+      return '<span title="GP247 version '.$version.'" class="badge badge-primary">'.$version.'</span>';
+      },$gp247Version)
+    );
+    
+    if (array_key_exists($extension['key'], $arrExtensionsLocal)) 
+    {
+      $extensionAction = '<span title="'.gp247_language_render('admin.extension.located').'" class="btn btn-flat btn-default"><i class="fa fa-check" aria-hidden="true"></i></span>';
+    } elseif(!in_array(config('gp247.core'), $gp247Version)) {
+      $extensionAction = '';
+    } else {
+      if(($extension['is_free'] || $extension['price_final'] == 0)) {
+       $extensionAction = '<span onClick="installExtension($(this),\''.$extension['key'].'\', \''.$extension['file'].'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
+      } else {
+        $extensionAction = '';
+      }
+    }
   @endphp
                   <tr>
                     <td>{!! gp247_image_render($extension['image'],'50px', '', $extension['name']) !!}</td>
@@ -216,25 +229,50 @@
 
 <script>
   $('#filter-button').click(function(){
-    var urlNext = '{{ url()->current() }}';
-    var filter_free = $('[name="filter_free"] option:selected').val();
-    var filter_type = $('[name="filter_type"] option:selected').val();
-    var filter_keyword = $('[name="filter_keyword"]').val();
-    var urlString = "";
-    if(filter_free) {
-      urlString +="&filter_free=1";
+    let urlNext = '{{ url()->current() }}';
+    let is_free = $('[name="is_free"] option:selected').val();
+    let type_sort = $('[name="type_sort"] option:selected').val();
+    let keyword = $('[name="keyword"]').val();
+    let urlString = "";
+    if(is_free) {
+      urlString +="&is_free=1";
     }
-    if(filter_type) {
-      urlString +="&filter_type="+filter_type;
+    if(type_sort) {
+      urlString +="&type_sort="+type_sort;
     }
-    if(filter_keyword){
-      urlString +="&filter_keyword="+filter_keyword;
+    if(keyword){
+      urlString +="&keyword="+keyword;
     }
       urlString = urlString.substr(1);
       urlNext = urlNext+"?"+urlString;
-      $('.link-filter').attr('href', urlNext);
-      $('.link-filter').trigger('click');
+      $('#link-filter').attr('href', urlNext);
+      $('#link-filter').trigger('click');
   });
+</script>
+
+<script>
+function registerLicense(e) {
+    e.preventDefault();
+    
+    $.ajax({
+        url: '{{ gp247_route_admin('admin_plugin_online.register-license') }}',
+        type: 'POST',
+        data: {
+            _token: '{{ csrf_token() }}'
+        },
+        success: function(response) {
+            if (response.status === 'success') {
+                alertMsg('success', response.message);
+                window.location.reload();
+            } else {
+              alertMsg('error', '', response.message);
+            }
+        },
+        error: function(xhr) {
+            alertMsg('error', 'Error: ' + xhr.responseText);
+        }
+    });
+}
 </script>
 
 @endpush

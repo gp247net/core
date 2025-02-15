@@ -28,5 +28,8 @@ Route::group(['prefix' => 'plugin'], function () use ($nameSpaceAdminPlugin) {
         ->name('admin_plugin_online.index');
         Route::post('/install/online', $nameSpaceAdminPlugin.'\AdminPluginsOnlineController@install')
             ->name('admin_plugin_online.install');
+        // Route register api license
+        Route::post('/register-license', $nameSpaceAdminPlugin.'\AdminPluginsOnlineController@registerLicense')
+            ->name('admin_plugin_online.register-license');
     }
 });

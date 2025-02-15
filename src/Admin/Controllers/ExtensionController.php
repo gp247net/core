@@ -136,9 +136,14 @@ trait  ExtensionController
      */
     public function importExtension()
     {
+        if (strtolower($this->groupType) == 'templates') {
+            $urlAction = gp247_route_admin('admin_template.process_import');
+        } else {
+            $urlAction = gp247_route_admin('admin_plugin.process_import');
+        }
         $data =  [
-            'title' => gp247_language_render('admin.extension.import'),
-            'urlAction' => gp247_route_admin('admin_'.strtolower($this->groupType).'.process_import')
+            'title' => gp247_language_render('admin.extension.import').': '.$this->groupType,
+            'urlAction' => $urlAction
         ];
         return view('gp247-core::screen.extension_upload')
         ->with($data);
@@ -166,15 +171,17 @@ trait  ExtensionController
         }
         $pathTmp = time();
         $linkRedirect = '';
-        $pathFile = gp247_file_upload($data['file'], $disk = 'tmp', $pathFolder = $pathTmp)['pathFile'] ?? '';
 
         if (!is_writable(storage_path('tmp'))) {
             $msg = 'No write permission '.storage_path('tmp');
             gp247_report(msg:$msg, channel:null);
             return response()->json(['error' => 1, 'msg' => $msg]);
         }
+
+        $dataFile = gp247_file_upload($data['file'], $disk = 'tmp', $pathFolder = $pathTmp);
         
-        if ($pathFile) {
+        if ($dataFile['error'] == 0) {
+            $pathFile = $dataFile['data']['pathFile'] ?? '';
             $unzip = gp247_unzip(storage_path('tmp/'.$pathFile), storage_path('tmp/'.$pathTmp));
             if ($unzip) {
                 $checkConfig = glob(storage_path('tmp/'.$pathTmp) . '/*/gp247.json');
@@ -186,9 +193,10 @@ trait  ExtensionController
                     //Check compatibility 
                     $config = json_decode(file_get_contents($checkConfig[0]), true);
                     $requireCore = $config['requireCore'] ?? [];
-                    if (!gp247_extension_check_compatibility($config)) {
+                    $requireFaild = gp247_extension_check_compatibility($config);
+                    if ($requireFaild) {
                         File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        return redirect()->back()->with('error', gp247_language_render('admin.extension.not_compatible', ['version' => $requireCore, 'gp247_version' => config('gp247.core')]));
+                        return redirect()->back()->with('error', gp247_language_render('admin.extension.not_compatible', ['msg' => json_encode($requireFaild)]));
                     }
 
                     $configGroup = $config['configGroup'] ?? '';
@@ -211,14 +219,14 @@ trait  ExtensionController
                     $appPath = 'GP247/'.$configGroup.'/'.$configKey;
 
                     if (!is_writable($checkPubPath = public_path('GP247/'.$configGroup))) {
-                        $msg = 'No write permission '.$checkPubPath;
+                        $msg = 'Import extension error: No write permission '.$checkPubPath;
                         gp247_report(msg:$msg, channel:null);
                         File::deleteDirectory(storage_path('tmp/'.$pathTmp));
                         return redirect()->back()->with('error', $msg);
                     }
             
                     if (!is_writable($checkAppPath = app_path('GP247/'.$configGroup))) {
-                        $msg = 'No write permission '.$checkAppPath;
+                        $msg = 'Import extension error: No write permission '.$checkAppPath;
                         gp247_report(msg:$msg, channel:null);
                         File::deleteDirectory(storage_path('tmp/'.$pathTmp));
                         return redirect()->back()->with('error', $msg);
@@ -238,24 +246,23 @@ trait  ExtensionController
                         $linkRedirect = route('admin_plugin.index');
                     } catch (\Throwable $e) {
                         File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        $msg = $e->getMessage();
+                        $msg = 'Import extension error: '.$e->getMessage();
                         gp247_report(msg:$msg, channel:null);
                         return redirect()->back()->with('error', $msg);
                     }
                 } else {
                     File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                    $msg = gp247_language_render('admin.extension.error_check_config');
+                    $msg = 'Import extension error: '.gp247_language_render('admin.extension.error_check_config');
                     gp247_report(msg:$msg, channel:null);
                     return redirect()->back()->with('error', $msg);
                 }
             } else {
-                $msg = gp247_language_render('admin.extension.error_unzip');
+                $msg = 'Import extension error: '.gp247_language_render('admin.extension.error_unzip');
                 gp247_report(msg:$msg, channel:null);
                 return redirect()->back()->with('error', $msg);
             }
         } else {
-            $msg = gp247_language_render('admin.extension.error_upload');
-            gp247_report(msg:$msg, channel:null);
+            $msg = 'Import extension error: '.$dataFile['msg'];
             return redirect()->back()->with('error', $msg);
         }
 

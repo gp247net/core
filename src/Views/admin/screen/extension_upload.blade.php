@@ -5,7 +5,7 @@
     <div class="col-md-12">
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">{!! $title!!}</h3>
+                <h3 class="card-title text-primary"><i class="fas fa-exclamation-triangle"></i> {!! gp247_language_render('admin.extension.import_warning') !!}</h3>
             </div>
 
             <form action="{{ $urlAction }}" method="post" accept-charset="UTF-8" class="form-horizontal" id="import-product" enctype="multipart/form-data">

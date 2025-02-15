@@ -59,11 +59,12 @@ return [
 
     'env' => [
         'GP247_ACTIVE'        => env('GP247_ACTIVE', 1), // 1: active, 0: deactive - prevent load vencore package
-        'GP247_LIBRARY_API'   => env('GP247_LIBRARY_API', 'https://api.gp247.net/v1'),
+        'GP247_LIBRARY_API'   => env('GP247_LIBRARY_API', 'https://api.gp247.net/api/v1'),
         'GP247_API_MODE'      => env('GP247_API_MODE', 1), // 1: active, 0: deactive - prevent provide api service, as your-domain/api/service...
         'GP247_DB_PREFIX'     => env('GP247_DB_PREFIX', 'gp247_'), //Cannot change after install gp247
         'GP247_DB_CONNECTION' => env('DB_CONNECTION', 'mysql'), 
         'GP247_ADMIN_PREFIX'  => env('GP247_ADMIN_PREFIX', 'gp247_admin'), //Prefix url admin, ex: domain.com/gp247_admin
+        'GP247_API_LISENCE'   => env('GP247_API_LISENCE', ''), //License key use connect to API
     ]
 
 ];

@@ -6,64 +6,16 @@ use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
 
 /**
- * Function upload image
- */
-if (!function_exists('gp247_image_upload') && !in_array('gp247_image_upload', config('gp247_functions_except', []))) {
-    function gp247_image_upload($fileContent, $disk = 'public', $path = null, $name = null, $options = ['unique_name' => true, 'thumb' => false, 'watermark' => false])
-    {
-        $pathFile = null;
-        try {
-            $fileName = false;
-            if ($name) {
-                $fileName = $name . '.' . $fileContent->getClientOriginalExtension();
-            } elseif (empty($options['unique_name'])) {
-                $fileName = $fileContent->getClientOriginalName();
-            }
-
-            //Save as file
-            if ($fileName) {
-                $pathFile = Storage::disk($disk)->putFileAs(($path ?? ''), $fileContent, $fileName);
-            }
-            //Save file id unique
-            else {
-                $pathFile = Storage::disk($disk)->putFile(($path ?? ''), $fileContent);
-            }
-        } catch (\Throwable $e) {
-            gp247_report($e->getMessage());
-            return null;
-        }
-
-        if ($pathFile && $disk == 'public') {
-            //generate thumb
-            if (!empty($options['thumb']) && gp247_config('upload_image_thumb_status')) {
-                gp247_image_generate_thumb($pathFile, $widthThumb = 250, $heightThumb = null, $disk);
-            }
-
-            //insert watermark
-            if (!empty($options['watermark']) && gp247_config('upload_watermark_status')) {
-                gp247_image_insert_watermark($pathFile);
-            }
-        }
-        if ($disk == 'public') {
-            $url =  'storage/' . $pathFile;
-        } else {
-            $url =  Storage::disk($disk)->url($pathFile);
-        }
-
-        return  [
-            'fileName' => $fileName,
-            'pathFile' => $pathFile,
-            'url' => $url,
-        ];
-    }
-}
-/**
  * Function upload file
  */
 if (!function_exists('gp247_file_upload') && !in_array('gp247_file_upload', config('gp247_functions_except', []))) {
     function gp247_file_upload($fileContent, $disk = 'public', $path = null, $name = null)
     {
-        $pathFile = null;
+        $dataReturn = [
+            'error' => 0,
+            'msg' => '',
+            'data' => [],
+        ];
         try {
             $fileName = false;
             if ($name) {
@@ -81,18 +33,23 @@ if (!function_exists('gp247_file_upload') && !in_array('gp247_file_upload', conf
                 $pathFile = Storage::disk($disk)->putFile(($path ?? ''), $fileContent);
             }
         } catch (\Throwable $e) {
-            return null;
+            $dataReturn['error'] = 1;
+            $dataReturn['msg'] = $e->getMessage();
+            gp247_report($e->getMessage());
+            return $dataReturn;
         }
         if ($disk == 'public') {
             $url =  'storage/' . $pathFile;
         } else {
             $url =  Storage::disk($disk)->url($pathFile);
         }
-        return  [
+
+        $dataReturn['data'] = [
             'fileName' => $fileName,
             'pathFile' => $pathFile,
             'url' => $url,
         ];
+        return $dataReturn;
     }
 }
 /**
@@ -106,58 +63,19 @@ if (!function_exists('gp247_file_upload') && !in_array('gp247_file_upload', conf
 if (!function_exists('gp247_remove_file') && !in_array('gp247_remove_file', config('gp247_functions_except', []))) {
     function gp247_remove_file($pathFile, $disk = null)
     {
-        if ($disk) {
-            return Storage::disk($disk)->delete($pathFile);
-        } else {
-            return Storage::delete($pathFile);
-        }
-    }
-}
-
-/**
- * Function insert watermark
- */
-if (!function_exists('gp247_image_insert_watermark') && !in_array('gp247_image_insert_watermark', config('gp247_functions_except', []))) {
-    function gp247_image_insert_watermark($pathFile, $pathWatermark = null)
-    {
-        if (!$pathWatermark) {
-            $pathWatermark = gp247_config('upload_watermark_path');
-        }
-        if (empty($pathWatermark)) {
+        try {
+            if ($disk) {
+                return Storage::disk($disk)->delete($pathFile);
+            } else {
+                return Storage::delete($pathFile);
+            }
+        } catch (\Throwable $e) {
+            gp247_report($e->getMessage());
             return false;
         }
-        $pathReal = config('filesystems.disks.public.root') . '/' . $pathFile;
-        Image::make($pathReal)
-            ->insert(public_path($pathWatermark), 'bottom-right', 10, 10)
-            ->save($pathReal);
-        return true;
     }
 }
-/**
- * Function generate thumb
- */
-if (!function_exists('gp247_image_generate_thumb') && !in_array('gp247_image_generate_thumb', config('gp247_functions_except', []))) {
-    function gp247_image_generate_thumb($pathFile, $widthThumb = null, $heightThumb = null, $disk = 'public')
-    {
-        $widthThumb = $widthThumb ?? gp247_config('upload_image_thumb_width');
-        if (!Storage::disk($disk)->has('tmp')) {
-            Storage::disk($disk)->makeDirectory('tmp');
-        }
 
-        $pathReal = config('filesystems.disks.public.root') . '/' . $pathFile;
-        $image_thumb = Image::make($pathReal);
-        $image_thumb->resize($widthThumb, $heightThumb, function ($constraint) {
-            $constraint->aspectRatio();
-        });
-        $tmp = '/tmp/' . time() . rand(10, 100);
-
-        $image_thumb->save(config('filesystems.disks.public.root') . $tmp);
-        if (Storage::disk($disk)->exists('/thumb/' . $pathFile)) {
-            Storage::disk($disk)->delete('/thumb/' . $pathFile);
-        }
-        Storage::disk($disk)->move($tmp, '/thumb/' . $pathFile);
-    }
-}
 /**
  * Function rener image
  */
@@ -223,27 +141,32 @@ if (!function_exists('gp247_zip') && !in_array('gp247_zip', config('gp247_functi
         }
         if (extension_loaded('zip')) {
             if (file_exists($pathToSource)) {
-                $zip = new \ZipArchive();
-                if ($zip->open($pathSaveTo, \ZIPARCHIVE::CREATE)) {
-                    $pathToSource = str_replace('\\', '/', realpath($pathToSource));
-                    if (is_dir($pathToSource)) {
-                        $iterator = new \RecursiveDirectoryIterator($pathToSource);
-                        // skip dot files while iterating
-                        $iterator->setFlags(\RecursiveDirectoryIterator::SKIP_DOTS);
-                        $files = new \RecursiveIteratorIterator($iterator, \RecursiveIteratorIterator::SELF_FIRST);
-                        foreach ($files as $file) {
-                            $file = str_replace('\\', '/', realpath($file));
-                            if (is_dir($file)) {
-                                $zip->addEmptyDir(str_replace($pathToSource . '/', '', $file . '/'));
-                            } elseif (is_file($file)) {
-                                $zip->addFromString(str_replace($pathToSource . '/', '', $file), file_get_contents($file));
+                try {
+                    $zip = new \ZipArchive();
+                    if ($zip->open($pathSaveTo, \ZIPARCHIVE::CREATE)) {
+                        $pathToSource = str_replace('\\', '/', realpath($pathToSource));
+                        if (is_dir($pathToSource)) {
+                            $iterator = new \RecursiveDirectoryIterator($pathToSource);
+                            // skip dot files while iterating
+                            $iterator->setFlags(\RecursiveDirectoryIterator::SKIP_DOTS);
+                            $files = new \RecursiveIteratorIterator($iterator, \RecursiveIteratorIterator::SELF_FIRST);
+                            foreach ($files as $file) {
+                                $file = str_replace('\\', '/', realpath($file));
+                                if (is_dir($file)) {
+                                    $zip->addEmptyDir(str_replace($pathToSource . '/', '', $file . '/'));
+                                } elseif (is_file($file)) {
+                                    $zip->addFromString(str_replace($pathToSource . '/', '', $file), file_get_contents($file));
+                                }
                             }
+                        } elseif (is_file($pathToSource)) {
+                            $zip->addFromString(basename($pathToSource), file_get_contents($pathToSource));
                         }
-                    } elseif (is_file($pathToSource)) {
-                        $zip->addFromString(basename($pathToSource), file_get_contents($pathToSource));
                     }
+                    return $zip->close();
+                } catch (\Throwable $e) {
+                    gp247_report($e->getMessage());
+                    return false;
                 }
-                return $zip->close();
             }
         }
         return false;
@@ -262,12 +185,16 @@ if (!function_exists('gp247_unzip') && !in_array('gp247_unzip', config('gp247_fu
         if (!is_string($pathToSource) || !is_string($pathSaveTo)) {
             return false;
         }
-        $zip = new \ZipArchive();
-        if ($zip->open(str_replace("//", "/", $pathToSource)) === true) {
-            $zip->extractTo($pathSaveTo);
-            return $zip->close();
+        try {
+            $zip = new \ZipArchive();
+            if ($zip->open(str_replace("//", "/", $pathToSource)) === true) {
+                $zip->extractTo($pathSaveTo);
+                return $zip->close();
+            }
+        } catch (\Throwable $e) {
+            gp247_report($e->getMessage());
+            return false;
         }
-        return false;
     }
 }
 
@@ -285,19 +212,6 @@ if (!function_exists('gp247_file') && !in_array('gp247_file', config('gp247_func
     }
 }
 
-if (!function_exists('gp247_path_download_render') && !in_array('gp247_path_download_render', config('gp247_functions_except', []))) {
-    /*
-    Render path download
-     */
-    function gp247_path_download_render(string $string):string
-    {
-        if (filter_var($string, FILTER_VALIDATE_URL)) {
-            return $string;
-        } else {
-            return \Storage::disk('path_download')->url($string);
-        }
-    }
-}
 
 if (!function_exists('gp247_convertPHPSizeToBytes') && !in_array('gp247_convertPHPSizeToBytes', config('gp247_functions_except', []))) {
     /**
