@@ -153,7 +153,7 @@ if (!function_exists('gp247_store_info') && !in_array('gp247_store_info', config
      *
      * @return  [mix]
      */
-    function gp247_store_info($key = null, $default = null, $storeId = null)
+    function gp247_store_info(string $key = null, $default = null, $storeId = null)
     {
         $storeId = ($storeId == null) ? config('app.storeId') : $storeId;
 
@@ -163,23 +163,11 @@ if (!function_exists('gp247_store_info') && !in_array('gp247_store_info', config
             }
         }
 
-        //Update store info
-        if (is_array($key)) {
-            if (count($key) == 1) {
-                foreach ($key as $k => $v) {
-                    return AdminStore::where('id', $storeId)->update([$k => $v]);
-                }
-            } else {
-                return false;
-            }
-        }
-        //End update
-
         $allStoreInfo = [];
         try {
             $allStoreInfo = AdminStore::getListAll()[$storeId]->toArray() ?? [];
         } catch (\Throwable $e) {
-            //
+            gp247_report($e->getMessage());
         }
 
         $lang = app()->getLocale();
