@@ -24,7 +24,7 @@ class ApiConnection
         if (!$apiconnection || !$apikey) {
             return  response()->json(['error' => 1, 'msg' => 'apiconnection or apikey not found']);
         }
-        $check = \GP247\Core\Admin\Models\AdminApiConnection::check($apiconnection, $apikey);
+        $check = \GP247\Core\Models\AdminApiConnection::check($apiconnection, $apikey);
         if ($check) {
             $check->update(['last_active' => gp247_time_now()]);
             return $next($request);

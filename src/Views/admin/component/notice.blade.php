@@ -1,12 +1,12 @@
 
 @php
-    $countNotice = \GP247\Core\Admin\Models\AdminNotice::getCountNoticeNew();
+    $countNotice = \GP247\Core\Models\AdminNotice::getCountNoticeNew();
     if ($countNotice) {
       $badgeStatus = 'badge-warning';
     } else {
       $badgeStatus = 'badge-secondary';
     }
-    $topNotice = \GP247\Core\Admin\Models\AdminNotice::getTopNotice();
+    $topNotice = \GP247\Core\Models\AdminNotice::getTopNotice();
 @endphp
 <li class="nav-item dropdown">
     <a class="nav-link" data-toggle="dropdown" href="#">

@@ -1,6 +1,6 @@
 <?php
-use GP247\Core\Admin\Models\AdminConfig;
-use GP247\Core\Admin\Models\AdminHome;
+use GP247\Core\Models\AdminConfig;
+use GP247\Core\Models\AdminHome;
 use Illuminate\Support\Facades\Artisan;
 
 if (!function_exists('gp247_extension_get_all_local') && !in_array('gp247_extension_get_all_local', config('gp247_functions_except', []))) {
@@ -43,13 +43,13 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
     {
         switch ($type) {
             case 'Templates':
-                return \GP247\Core\Admin\Models\AdminConfig::getTemplateCode($active);
+                return \GP247\Core\Models\AdminConfig::getTemplateCode($active);
                 break;
             case 'Plugins':
-                return \GP247\Core\Admin\Models\AdminConfig::getPluginCode($active);
+                return \GP247\Core\Models\AdminConfig::getPluginCode($active);
                 break;
             default:
-                return \GP247\Core\Admin\Models\AdminConfig::getExtensionCode($active);
+                return \GP247\Core\Models\AdminConfig::getExtensionCode($active);
                 break;
         }
     }

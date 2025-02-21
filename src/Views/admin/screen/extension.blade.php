@@ -57,7 +57,7 @@
                     $pluginAction .= '<span onClick="installExtension($(this),\''.$keyExtension.'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-sm btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
                   }
 
-                if($groupType == 'Templates' && (new \GP247\Core\Admin\Models\AdminStore)->where('template', $keyExtension)->count()) {
+                if($groupType == 'Templates' && (new \GP247\Core\Models\AdminStore)->where('template', $keyExtension)->count()) {
                   $pluginAction .= '<span class="btn btn-flat btn-success btn-sm" title="'.gp247_language_render('admin.extension.used').'"><i class="fa fa-check"></i></span>';
                 } else {
 

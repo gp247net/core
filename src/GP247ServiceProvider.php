@@ -13,18 +13,18 @@ use GP247\Core\Commands\MakePlugin;
 use GP247\Core\Commands\Infomation;
 use GP247\Core\Commands\Update;
 use GP247\Core\Commands\Install;
-use GP247\Core\Admin\Middleware\Localization;
+use GP247\Core\Middleware\Localization;
 use GP247\Core\Api\Middleware\ApiConnection;
 use GP247\Core\Api\Middleware\ForceJsonResponse;
-use GP247\Core\Admin\Middleware\Authenticate;
-use GP247\Core\Admin\Middleware\LogOperation;
-use GP247\Core\Admin\Middleware\Session;
-use GP247\Core\Admin\Middleware\PermissionMiddleware;
-use GP247\Core\Admin\Middleware\AdminStoreId;
+use GP247\Core\Middleware\Authenticate;
+use GP247\Core\Middleware\LogOperation;
+use GP247\Core\Middleware\Session;
+use GP247\Core\Middleware\PermissionMiddleware;
+use GP247\Core\Middleware\AdminStoreId;
 use Spatie\Pjax\Middleware\FilterIfPjax;
 
-use GP247\Core\Admin\Models\PersonalAccessToken;
-use GP247\Core\Admin\Models\AdminStore;
+use GP247\Core\Models\PersonalAccessToken;
+use GP247\Core\Models\AdminStore;
 
 class GP247ServiceProvider extends ServiceProvider
 {
@@ -138,7 +138,7 @@ class GP247ServiceProvider extends ServiceProvider
 
             //Route Admin
             try {
-                if (file_exists($routes = __DIR__.'/Admin/routes.php')) {
+                if (file_exists($routes = __DIR__.'/routes.php')) {
                     $this->loadRoutesFrom($routes);
                 }
             } catch (\Throwable $e) {

@@ -7,7 +7,7 @@ if (!function_exists('gp247_event_admin_login') && !in_array('gp247_event_admin_
      *
      * @return  [type]        [return description]
      */
-    function gp247_event_admin_login(\GP247\Core\Admin\Models\AdminUser $user)
+    function gp247_event_admin_login(\GP247\Core\Models\AdminUser $user)
     {
         if (function_exists('partner_event_admin_login')) {
             partner_event_admin_login($user);
@@ -22,7 +22,7 @@ if (!function_exists('gp247_event_admin_created') && !in_array('gp247_event_admi
      *
      * @return  [type]        [return description]
      */
-    function gp247_event_admin_created(\GP247\Core\Admin\Models\AdminUser $user)
+    function gp247_event_admin_created(\GP247\Core\Models\AdminUser $user)
     {
         if (function_exists('partner_event_admin_add')) {
             partner_event_admin_add($user);
@@ -38,7 +38,7 @@ if (!function_exists('gp247_event_admin_deleting') && !in_array('gp247_event_adm
      *
      * @return  [type]        [return description]
      */
-    function gp247_event_admin_deleting(\GP247\Core\Admin\Models\AdminUser $user)
+    function gp247_event_admin_deleting(\GP247\Core\Models\AdminUser $user)
     {
         if (function_exists('partner_event_admin_delete')) {
             partner_event_admin_delete($user);

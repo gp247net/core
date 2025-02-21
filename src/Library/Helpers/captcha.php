@@ -48,7 +48,7 @@ if (!function_exists('gp247_captcha_get_plugin_installed') && !in_array('gp247_c
      */
     function gp247_captcha_get_plugin_installed($onlyActive = true)
     {
-        $listPluginInstalled =  \GP247\Core\Admin\Models\AdminConfig::getPluginCaptchaCode($onlyActive);
+        $listPluginInstalled =  \GP247\Core\Models\AdminConfig::getPluginCaptchaCode($onlyActive);
         $arrPlugin = [];
         if ($listPluginInstalled) {
             foreach ($listPluginInstalled as $key => $plugin) {

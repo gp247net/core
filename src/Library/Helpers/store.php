@@ -1,6 +1,6 @@
 <?php
 use Illuminate\Support\Str;
-use GP247\Core\Admin\Models\AdminStore;
+use GP247\Core\Models\AdminStore;
 
 /**
  * Get list store
@@ -8,7 +8,7 @@ use GP247\Core\Admin\Models\AdminStore;
 if (!function_exists('gp247_store_get_list_code') && !in_array('gp247_store_get_list_code', config('gp247_functions_except', []))) {
     function gp247_store_get_list_code()
     {
-        return \GP247\Core\Admin\Models\AdminStore::getListStoreCode();
+        return \GP247\Core\Models\AdminStore::getListStoreCode();
     }
 }
 
@@ -19,7 +19,7 @@ if (!function_exists('gp247_store_get_list_code') && !in_array('gp247_store_get_
 if (!function_exists('gp247_store_get_domain_from_code') && !in_array('gp247_store_get_domain_from_code', config('gp247_functions_except', []))) {
     function gp247_store_get_domain_from_code(string $code = ""):string
     {
-        $domainList = \GP247\Core\Admin\Models\AdminStore::getStoreDomainByCode();
+        $domainList = \GP247\Core\Models\AdminStore::getStoreDomainByCode();
         if (!empty($domainList[$code])) {
             return 'http://'.$domainList[$code];
         } else {
@@ -34,7 +34,7 @@ if (!function_exists('gp247_store_get_domain_from_code') && !in_array('gp247_sto
 if (!function_exists('gp247_store_get_domain_root') && !in_array('gp247_store_get_domain_root', config('gp247_functions_except', []))) {
     function gp247_store_get_domain_root():string
     {
-        $store = \GP247\Core\Admin\Models\AdminStore::find(GP247_STORE_ID_ROOT);
+        $store = \GP247\Core\Models\AdminStore::find(GP247_STORE_ID_ROOT);
         return $store->domain;
     }
 }
@@ -45,7 +45,7 @@ if (!function_exists('gp247_store_get_domain_root') && !in_array('gp247_store_ge
 if (!function_exists('gp247_store_is_partner') && !in_array('gp247_store_is_partner', config('gp247_functions_except', []))) {
     function gp247_store_is_partner(string $storeId):bool
     {
-        $store = \GP247\Core\Admin\Models\AdminStore::find($storeId);
+        $store = \GP247\Core\Models\AdminStore::find($storeId);
         if (!$store) {
             return false;
         }
@@ -210,7 +210,7 @@ if (!function_exists('gp247_store_process_domain') && !in_array('gp247_store_pro
 if (!function_exists('gp247_store_get_list_domain_of_array_link') && !in_array('gp247_store_get_list_domain_of_array_link', config('gp247_functions_except', []))) {
     function gp247_store_get_list_domain_of_array_link($arrLinkId)
     {
-        $tableStore = (new \GP247\Core\Admin\Models\AdminStore)->getTable();
+        $tableStore = (new \GP247\Core\Models\AdminStore)->getTable();
         $tableLinkStore = (new \GP247\Front\Models\FrontLinkStore)->getTable();
         return \GP247\Front\Models\FrontLinkStore::select($tableStore.'.code', $tableStore.'.id', 'link_id')
             ->leftJoin($tableStore, $tableStore.'.id', $tableLinkStore.'.store_id')

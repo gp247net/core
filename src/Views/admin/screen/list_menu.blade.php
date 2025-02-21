@@ -23,7 +23,7 @@
   <div class="dd" id="menu-sort">
       <ol class="dd-list">
 @php
-  $menus = \GP247\Core\Admin\Models\AdminMenu::getMenuGroupByParentId();
+  $menus = \GP247\Core\Models\AdminMenu::getMenuGroupByParentId();
 @endphp
 {{-- Level 0 --}}
         @foreach ($menus[0] as $level0)

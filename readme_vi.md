@@ -170,9 +170,9 @@ Sau đó, chạy lệnh:
 
 **Ghi đè các file controller gp247**
 
->Bước 1: Copy các file controller muốn ghi đè trong vendor/gp247/core/src/Core/Controllers -> app/GP247/Core/Admin/Controllers
+>Bước 1: Copy các file controller muốn ghi đè trong vendor/gp247/core/src/Core/Controllers -> app/GP247/Core/Controllers
 
->Bước 2: Thay đổi `namespace GP247\Core\Admin\Controllers` thành `namespace App\GP247\Core\Admin\Controllers`
+>Bước 2: Thay đổi `namespace GP247\Core\Controllers` thành `namespace App\GP247\Core\Controllers`
 
 **Ghi đè các file controller API gp247**
 
@@ -184,7 +184,7 @@ Sau đó, chạy lệnh:
 
 Sử dụng các hằng số prefix và middleware `GP247_ADMIN_PREFIX`, `GP247_ADMIN_MIDDLEWARE` trong khai báo route.
 
-Tham khảo: https://github.com/gp247net/core/blob/master/src/Admin/routes.php
+Tham khảo: https://github.com/gp247net/core/blob/master/src/routes.php
 
 ## Các biến môi trường trong file .env
 

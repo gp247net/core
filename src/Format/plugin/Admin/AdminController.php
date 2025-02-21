@@ -3,7 +3,7 @@
 
 namespace App\GP247\Plugins\Extension_Key\Admin;
 
-use GP247\Core\Admin\Controllers\RootAdminController;
+use GP247\Core\Controllers\RootAdminController;
 use App\GP247\Plugins\Extension_Key\AppConfig;
 
 class AdminController extends RootAdminController

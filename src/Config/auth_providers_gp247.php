@@ -2,6 +2,6 @@
 return [
     'admin_provider' => [
         'driver' => 'eloquent',
-        'model'  => \GP247\Core\Admin\Models\AdminUser::class,
+        'model'  => \GP247\Core\Models\AdminUser::class,
     ],
 ];

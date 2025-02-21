@@ -170,9 +170,9 @@ To create a zip file template:
 
 **Overwrite gp247 controller files**
 
->Step 1: Copy the controller files you want to override in vendor/gp247/core/src/Core/Controllers -> app/GP247/Core/Admin/Controllers
+>Step 1: Copy the controller files you want to override in vendor/gp247/core/src/Core/Controllers -> app/GP247/Core/Controllers
 
->Step 2: Change `namespace GP247\Core\Admin\Controllers` to `namespace App\GP247\Core\Admin\Controllers`
+>Step 2: Change `namespace GP247\Core\Controllers` to `namespace App\GP247\Core\Controllers`
 
 **Overwrite gp247 API controller files**
 
@@ -184,7 +184,7 @@ To create a zip file template:
 
 Use prefix and middleware constants `GP247_ADMIN_PREFIX`, `GP247_ADMIN_MIDDLEWARE` in route declaration.
 
-References: https://github.com/gp247net/core/blob/master/src/Admin/routes.php
+References: https://github.com/gp247net/core/blob/master/src/routes.php
 
 
 

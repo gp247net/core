@@ -1,6 +1,6 @@
 <?php
-use GP247\Core\Admin\Models\AdminCustomField;
-use GP247\Core\Admin\Models\AdminCustomFieldDetail;
+use GP247\Core\Models\AdminCustomField;
+use GP247\Core\Models\AdminCustomFieldDetail;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;

@@ -1,6 +1,6 @@
 <?php
 
-use GP247\Core\Admin\Models\AdminLanguage;
+use GP247\Core\Models\AdminLanguage;
 use Illuminate\Support\Str;
 
 if (!function_exists('gp247_language_all') && !in_array('gp247_language_all', config('gp247_functions_except', []))) {
@@ -18,7 +18,7 @@ if (!function_exists('gp247_languages') && !in_array('gp247_languages', config('
      */
     function gp247_languages($locale)
     {
-        $languages = \GP247\Core\Admin\Models\Languages::getListAll($locale);
+        $languages = \GP247\Core\Models\Languages::getListAll($locale);
         return $languages;
     }
 }

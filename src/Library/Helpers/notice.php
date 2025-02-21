@@ -13,7 +13,7 @@ if (!function_exists('gp247_notice_add')) {
      */
     function gp247_notice_add(string $type, string $typeId = '', string $content = '', $adminId = null, $creator = null)
     {
-        $modelNotice = new GP247\Core\Admin\Models\AdminNotice;
+        $modelNotice = new GP247\Core\Models\AdminNotice;
         if ($adminId) {
             $listAdmin = is_array($adminId)? $adminId: [$adminId];
         } else {
@@ -50,7 +50,7 @@ if (!function_exists('gp247_notice_add')) {
                 return gp247_notice_custom_get_admin($type);
             }
 
-            return (new \GP247\Core\Admin\Models\AdminUser)
+            return (new \GP247\Core\Models\AdminUser)
             ->selectRaw('distinct '. GP247_DB_PREFIX.'admin_user.id')
             ->join(GP247_DB_PREFIX . 'admin_role_user', GP247_DB_PREFIX . 'admin_role_user.user_id', GP247_DB_PREFIX . 'admin_user.id')
             ->join(GP247_DB_PREFIX . 'admin_role', GP247_DB_PREFIX . 'admin_role.id', GP247_DB_PREFIX . 'admin_role_user.role_id')
