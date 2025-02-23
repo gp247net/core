@@ -136,27 +136,13 @@ class GP247ServiceProvider extends ServiceProvider
                 exit;
             }
 
-            //Route Admin
+            //Route
             try {
                 if (file_exists($routes = __DIR__.'/routes.php')) {
                     $this->loadRoutesFrom($routes);
                 }
             } catch (\Throwable $e) {
                 $msg = '#GP247::core_route_load:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
-                gp247_report($msg);
-                echo $msg;
-                exit;
-            }
-
-            //Route Api
-            try {
-                if (config('gp247-config.env.GP247_API_MODE')) {
-                    if (file_exists($routes = __DIR__.'/Api/routes.php')) {
-                        $this->loadRoutesFrom($routes);
-                    }
-                }
-            } catch (\Throwable $e) {
-                $msg = '#GP247::core_api_route_load:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
                 gp247_report($msg);
                 echo $msg;
                 exit;

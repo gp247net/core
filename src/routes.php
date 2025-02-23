@@ -8,9 +8,11 @@ Route::group(
         'middleware' => GP247_ADMIN_MIDDLEWARE,
     ],
     function () {
-        foreach (glob(__DIR__ . '/Routes/*.php') as $filename) {
+
+        if (file_exists($filename = __DIR__ . '/Routes/admin.php')) {
             $this->loadRoutesFrom($filename);
         }
+
         if (file_exists(app_path('GP247/Core/Controllers/HomeController.php'))) {
             $nameSpaceHome = 'App\GP247\Core\Controllers';
         } else {
@@ -29,3 +31,19 @@ Route::group(
         })->name('admin.locale');
     }
 );
+
+
+// Route api admin
+if (config('gp247-config.env.GP247_API_MODE')) {
+    Route::group(
+        [
+            'middleware' => GP247_API_MIDDLEWARE,
+            'prefix' => GP247_API_PREFIX,
+        ],
+        function () {
+            if (file_exists($filename = __DIR__ . '/Routes/api.php')) {
+                $this->loadRoutesFrom($filename);
+            }
+        }
+    );
+}

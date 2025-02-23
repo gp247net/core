@@ -305,3 +305,15 @@ if (!function_exists('gp247_composer_get_package_installed') && !in_array('gp247
         return $packages;
     }
 }
+
+
+// Check core actived
+if (!function_exists('gp247_check_core_actived') && !in_array('gp247_check_core_actived', config('gp247_functions_except', []))) {
+    function gp247_check_core_actived()   
+    {
+        if ((GP247_ACTIVE == 1 && \Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt'))) {
+            return true;
+        }
+        return false;
+    }
+}
