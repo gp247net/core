@@ -89,17 +89,14 @@ if (!function_exists('gp247_store_check_multi_domain_installed') && !in_array('g
     function gp247_store_check_multi_domain_installed()
     {
         return 
-        gp247_config_global('MultiVendorPro') 
-        || gp247_config_global('MultiVendor') 
-        || gp247_config_global('MultiStorePro')
-        || gp247_config_global('Pmo');
+        gp247_store_check_multi_partner_installed() ||  gp247_store_check_multi_store_installed();
     }
 }
 
 if (!function_exists('gp247_store_check_multi_partner_installed') && !in_array('gp247_store_check_multi_partner_installed', config('gp247_functions_except', []))) {
     /**
-     * Check plugin multi vendor installed
-     * partner can login with different admin screen
+     * Check partner installed
+     * It is necessary to check if the domain is active and whether it belongs to a valid partner with the right to use it.
      *
      * @return
      */
@@ -115,6 +112,7 @@ if (!function_exists('gp247_store_check_multi_partner_installed') && !in_array('
 if (!function_exists('gp247_store_check_multi_store_installed') && !in_array('gp247_store_check_multi_store_installed', config('gp247_functions_except', []))) {
     /**
      * Check plugin multi store installed
+     * It is necessary to check if the domain is active 
      *
      * @return
      */
