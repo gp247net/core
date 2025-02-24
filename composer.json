@@ -28,9 +28,12 @@
   },
 
   "autoload": {
-      "psr-4": {
-         "GP247\\Core\\": "src/"
-      }
+    "files": [
+        "src/Library/Init/other.php"
+    ],
+    "psr-4": {
+        "GP247\\Core\\": "src/"
+    }
   },
 
   "extra": {
