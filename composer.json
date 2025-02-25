@@ -38,7 +38,7 @@
           "dont-discover": [
           ],
           "providers": [
-            "GP247\\Core\\GP247ServiceProvider"
+            "GP247\\Core\\CoreServiceProvider"
           ],
           "aliases": {
           }

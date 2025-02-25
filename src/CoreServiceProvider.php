@@ -26,7 +26,7 @@ use Spatie\Pjax\Middleware\FilterIfPjax;
 use GP247\Core\Models\PersonalAccessToken;
 use GP247\Core\Models\AdminStore;
 
-class GP247ServiceProvider extends ServiceProvider
+class CoreServiceProvider extends ServiceProvider
 {
     protected $listCommand = [
         MakePlugin::class,
