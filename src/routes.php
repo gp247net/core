@@ -9,9 +9,10 @@ Route::group(
     ],
     function () {
 
-        if (file_exists($filename = __DIR__ . '/Routes/admin.php')) {
+        foreach (glob(__DIR__ . '/Routes/Admin/*.php') as $filename) {
             $this->loadRoutesFrom($filename);
         }
+        
 
         if (file_exists(app_path('GP247/Core/Controllers/HomeController.php'))) {
             $nameSpaceHome = 'App\GP247\Core\Controllers';
@@ -41,7 +42,7 @@ if (config('gp247-config.env.GP247_API_MODE')) {
             'prefix' => GP247_API_PREFIX,
         ],
         function () {
-            if (file_exists($filename = __DIR__ . '/Routes/api.php')) {
+            foreach (glob(__DIR__ . '/Routes/Api/*.php') as $filename) {
                 $this->loadRoutesFrom($filename);
             }
         }
