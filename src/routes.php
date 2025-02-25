@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Admin routes
 Route::group(
     [
         'prefix' => GP247_ADMIN_PREFIX,
