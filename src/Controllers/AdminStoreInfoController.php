@@ -109,13 +109,17 @@ class AdminStoreInfoController extends RootAdminController
                     $templateKey = $value;
                     $oldTepmlateKey = $store->template;
                     
-                    $classTemplate = gp247_extension_get_class_config(type:'Templates', key:$templateKey);
-                    $oldClassTemplate = gp247_extension_get_class_config(type:'Templates', key:$oldTepmlateKey);
+                    $classTemplate = gp247_extension_get_namespace(type:'Templates', key:$templateKey);
+                    $classTemplate = $classTemplate . '\AppConfig';
+                    $oldClassTemplate = gp247_extension_get_namespace(type:'Templates', key:$oldTepmlateKey);
+                    $oldClassTemplate = $oldClassTemplate . '\AppConfig';
                     // Check class exist
                     if (class_exists($oldClassTemplate)) {
                         (new $oldClassTemplate)->removeStore($storeId);
                     }
-                    (new $classTemplate)->setupStore($storeId);
+                    if (class_exists($classTemplate)) {
+                        (new $classTemplate)->setupStore($storeId);
+                    }
 
                     AdminStore::where('id', $storeId)->update([$name => $templateKey]);
 

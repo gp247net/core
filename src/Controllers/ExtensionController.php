@@ -10,8 +10,13 @@ trait  ExtensionController
         $action = request('action');
         $key = request('key');
         if ($action == 'config' && $key != '') {
-            $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
-            $body = (new $namespace)->clickApp();
+            $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
+            $namespace = $namespace . '\AppConfig';
+            if (class_exists($namespace)) {
+                $body = (new $namespace)->clickApp();
+            } else {
+                $body = ['error' => 1, 'msg' => 'Class not found'];
+            }
         } else {
             $body = $this->render();
         }
@@ -45,16 +50,26 @@ trait  ExtensionController
     public function install()
     {
         $key = request('key');
-        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
+        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
+        $namespace = $namespace . '\AppConfig';
         $config = json_decode(file_get_contents(app_path('GP247/'.$this->groupType.'/'.$key.'/gp247.json')), true);
         $requireFaild = gp247_extension_check_compatibility($config);
         if($requireFaild) {
             return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.not_compatible', ['msg' => json_encode($requireFaild)])]);
         }
-        $response = (new $namespace)->install();
-        if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
-            gp247_extension_update();
+        if (class_exists($namespace)) {
+            //Check method install exist
+            if (method_exists($namespace, 'install')) {
+                $response = (new $namespace)->install();
+                if (is_array($response) && $response['error'] == 0) {
+                    gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
+                    gp247_extension_update();
+                }
+            } else {
+                return response()->json(['error' => 1, 'msg' => 'Method install not found']);
+            }
+        } else {
+            return response()->json(['error' => 1, 'msg' => 'Class not found']);
         }
         return response()->json($response);
     }
@@ -71,14 +86,20 @@ trait  ExtensionController
 
         $this->processUninstall($key);
 
-        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
+        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
+        $namespace = $namespace . '\AppConfig';
         $extensionsInstalled = gp247_extension_get_installed(type:$this->groupType, active: false);
         // Check class exist and extension installed
         if (class_exists($namespace) && array_key_exists($key, $extensionsInstalled->toArray())) {
-            $response = (new $namespace)->uninstall();
-            if (is_array($response) && $response['error'] == 0) {
+            //Check method uninstall exist
+            if (method_exists($namespace, 'uninstall')) {
+                $response = (new $namespace)->uninstall();
+                if (is_array($response) && $response['error'] == 0) {
                 gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_uninstall::name__'.$key);
-                gp247_extension_update();
+                    gp247_extension_update();
+                }
+            } else {
+                return response()->json(['error' => 1, 'msg' => 'Method uninstall not found']);
             }
         } else {
             // If extension not yet installed
@@ -101,11 +122,17 @@ trait  ExtensionController
     public function enable()
     {
         $key = request('key');
-        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
-        $response = (new $namespace)->enable();
-        if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
-            gp247_extension_update();
+        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
+        $namespace = $namespace . '\AppConfig';
+        //Check method enable exist
+        if (method_exists($namespace, 'enable')) {
+            $response = (new $namespace)->enable();
+            if (is_array($response) && $response['error'] == 0) {
+                gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
+                gp247_extension_update();
+            }
+        } else {
+            return response()->json(['error' => 1, 'msg' => 'Method enable not found']);
         }
         return response()->json($response);
     }
@@ -121,11 +148,17 @@ trait  ExtensionController
 
         $this->processDisable($key);
 
-        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
-        $response = (new $namespace)->disable();
+        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
+        $namespace = $namespace . '\AppConfig';
+        //Check method disable exist
+        if (method_exists($namespace, 'disable')) {
+            $response = (new $namespace)->disable();
         if (is_array($response) && $response['error'] == 0) {
             gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_disable::name__'.$key);
-            gp247_extension_update();
+                gp247_extension_update();
+            }
+        } else {
+            return response()->json(['error' => 1, 'msg' => 'Method disable not found']);
         }
         return response()->json($response);
     }
@@ -235,12 +268,23 @@ trait  ExtensionController
                         File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName.'/public'), public_path($appPath));
                         File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName), app_path($appPath));
                         File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$configKey);
-                        $response = (new $namespace)->install();
-                        if (!is_array($response) || $response['error'] == 1) {
-                            $msg = $response['msg'];
-                            gp247_report(msg:$msg, channel:null);
-                            return redirect()->back()->with('error', $msg);
+                        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$configKey);
+                        $namespace = $namespace . '\AppConfig';
+                        //Check class exist
+                        if (class_exists($namespace)) {
+                            //Check method install exist
+                            if (method_exists($namespace, 'install')) {
+                                $response = (new $namespace)->install();
+                                if (!is_array($response) || $response['error'] == 1) {
+                                    $msg = $response['msg'];
+                                    gp247_report(msg:$msg, channel:null);
+                                    return redirect()->back()->with('error', $msg);
+                                }
+                            } else {
+                                return redirect()->back()->with('error', 'Method install not found');
+                            }
+                        } else {
+                            return redirect()->back()->with('error', 'Class not found');
                         }
                         $linkRedirect = route('admin_plugin.index');
                     } catch (\Throwable $e) {

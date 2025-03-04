@@ -203,7 +203,7 @@ if (!function_exists('gp247_unzip') && !in_array('gp247_unzip', config('gp247_fu
  * Process path file
  */
 if (!function_exists('gp247_file') && !in_array('gp247_file', config('gp247_functions_except', []))) {
-    function gp247_file($pathFile = "", bool $security = null):string
+    function gp247_file($pathFile = "", bool $security = false):string
     {
         if (!is_string($pathFile)) {
             return '';

@@ -62,8 +62,8 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
      *
      * @return  [array]
      */
-    if (!function_exists('gp247_extension_get_class_config') && !in_array('gp247_extension_get_class_config', config('gp247_functions_except', []))) {
-        function gp247_extension_get_class_config(string $type="Plugins", $key = null)
+    if (!function_exists('gp247_extension_get_namespace') && !in_array('gp247_extension_get_namespace', config('gp247_functions_except', []))) {
+        function gp247_extension_get_namespace(string $type="Plugins", $key = null)
         {
             if (is_null($key)) {
                 return null;
@@ -71,8 +71,6 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
             $type = $type == 'Templates' ? 'Templates' : 'Plugins';
             $key = gp247_word_format_class($key);
             $nameSpace = '\App\GP247\\' . $type . '\\' . $key;
-            $nameSpace = $nameSpace . '\AppConfig';
-
             return $nameSpace;
         }
     }
@@ -187,20 +185,21 @@ if (!function_exists('gp247_extension_update') && !in_array('gp247_extension_upd
 }
 
 
-if (!function_exists('gp247_get_all_plugin_actived') && !in_array('gp247_get_all_plugin_actived', config('gp247_functions_except', []))) {
+if (!function_exists('gp247_extension_get_via_code') && !in_array('gp247_extension_get_via_code', config('gp247_functions_except', []))) {
     /**
      * Get all class plugin actived
      *
      * @param   [string]  $code  Payment, Shipping
+     * @param   [boolean]  $active  true, false
      *
      * @return  [array]
      */
-    function gp247_get_all_plugin_actived(string $code)
+    function gp247_extension_get_via_code(string $code, bool $active = true)
     {
         $code = gp247_word_format_class($code);
         
         $pluginsActived = [];
-        $allPlugins = gp247_extension_get_installed(type: 'Plugins');
+        $allPlugins = gp247_extension_get_installed(type: 'Plugins', active: $active);
         if (count($allPlugins)) {
             foreach ($allPlugins as $keyPlugin => $plugin) {
                 if (gp247_config($keyPlugin) == 1 && $plugin['code'] == $code) {

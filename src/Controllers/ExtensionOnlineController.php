@@ -227,8 +227,23 @@ trait ExtensionOnlineController
                     File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName.'/public'), public_path($appPath));
                     File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName), app_path($appPath));
                     File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                    $namespace = gp247_extension_get_class_config(type:$this->groupType, key:$key);
-                    $response = (new $namespace)->install();
+                    $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
+                    $namespace = $namespace . '\AppConfig';
+                    //Check class exist
+                    if (class_exists($namespace)) {
+                        //Check method install exist
+                        if (method_exists($namespace, 'install')) {
+                            $response = (new $namespace)->install();
+                        }else{
+                            $msg = 'Method install not found';
+                            gp247_report(msg:$msg, channel:null);
+                            return response()->json(['error' => 1, 'msg' => $msg]);
+                        }
+                    } else {
+                        $msg = 'Class not found';
+                        gp247_report(msg:$msg, channel:null);
+                        return response()->json(['error' => 1, 'msg' => $msg]);
+                    }
                 }
 
             } else {
