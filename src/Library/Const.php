@@ -11,7 +11,7 @@ define('GP247_GUARD_ROLES', ['1', '2']); // admin, only view
  */
 define('GP247_ADMIN_MIDDLEWARE', ['web', 'admin']);
 define('GP247_API_MIDDLEWARE', ['api', 'api.extend']);
-define('GP247_API_PREFIX', 'api/'.config('gp247-config.env.GP247_ADMIN_PREFIX'));
+define('GP247_API_CORE_PREFIX', 'api/'.config('gp247-config.env.GP247_ADMIN_PREFIX'));
 define('GP247_DB_CONNECTION', config('gp247-config.env.GP247_DB_CONNECTION'));
 //Prefix url admin
 define('GP247_ADMIN_PREFIX', config('gp247-config.env.GP247_ADMIN_PREFIX'));

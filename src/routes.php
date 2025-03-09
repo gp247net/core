@@ -10,10 +10,22 @@ Route::group(
     ],
     function () {
 
+        //Load admin from core
         foreach (glob(__DIR__ . '/Routes/Admin/*.php') as $filename) {
             $this->loadRoutesFrom($filename);
         }
-        
+
+
+        //Load admin from cart
+        foreach (glob(__DIR__ . '/../../cart/src/Routes/Admin/*.php') as $filename) {
+            $this->loadRoutesFrom($filename);
+        }
+
+        //Load admin from front
+        foreach (glob(__DIR__ . '/../../front/src/Routes/Admin/*.php') as $filename) {
+            $this->loadRoutesFrom($filename);
+        }
+
 
         if (file_exists(app_path('GP247/Core/Controllers/HomeController.php'))) {
             $nameSpaceHome = 'App\GP247\Core\Controllers';
@@ -37,15 +49,115 @@ Route::group(
 
 // Route api admin
 if (config('gp247-config.env.GP247_API_MODE')) {
+    //Api core
     Route::group(
         [
             'middleware' => GP247_API_MIDDLEWARE,
-            'prefix' => GP247_API_PREFIX,
+            'prefix' => GP247_API_CORE_PREFIX,
         ],
         function () {
+
+            //Load api from core
             foreach (glob(__DIR__ . '/Routes/Api/*.php') as $filename) {
                 $this->loadRoutesFrom($filename);
             }
+
+            //Load api from cart
+            foreach (glob(__DIR__ . '/../../cart/src/Routes/Api/*.php') as $filename) {
+                $this->loadRoutesFrom($filename);
+            }
+
+            //Load api from front
+            foreach (glob(__DIR__ . '/../../front/src/Routes/Api/*.php') as $filename) {
+                $this->loadRoutesFrom($filename);
+            }
+
+        }
+    );
+
+    //Api front
+    Route::group(
+        [
+            'middleware' => GP247_API_MIDDLEWARE,
+            'prefix' => 'api',
+        ],
+        function () {
+
+            //Load api from cart
+            foreach (glob(__DIR__ . '/../../cart/src/Routes/Api/*.php') as $filename) {
+                $this->loadRoutesFrom($filename);
+            }
+
+            //Load api from front
+            foreach (glob(__DIR__ . '/../../front/src/Routes/Api/*.php') as $filename) {
+                $this->loadRoutesFrom($filename);
+            }
+
+        }
+    );
+}
+
+
+if(defined('GP247_FRONT_MIDDLEWARE')){
+        $langUrl = GP247_SEO_LANG ?'{lang?}/' : '';
+        $suffix = GP247_SUFFIX_URL;
+        // Front routes
+        Route::group(
+            [
+            'middleware' => GP247_FRONT_MIDDLEWARE,
+        ],
+        function () use($langUrl, $suffix){
+
+            if (file_exists(app_path('GP247/Front/Controllers/HomeController.php'))) {
+                $nameSpaceHome = 'App\GP247\Front\Controllers';
+            } else {
+                $nameSpaceHome = 'GP247\Front\Controllers';
+            }
+
+            Route::get($langUrl.'search'.$suffix, $nameSpaceHome.'\HomeController@searchProcessFront')
+            ->name('front.search');
+
+            //Process click banner
+            Route::get('/banner/{id}', $nameSpaceHome.'\HomeController@clickBanner')
+            ->name('front.banner.click');
+
+
+            //Subscribe
+            Route::post('/subscribe', $nameSpaceHome.'\HomeController@emailSubscribe')
+                ->name('front.subscribe');
+
+
+            Route::get('/', $nameSpaceHome.'\HomeController@index')->name('front.home');
+
+            Route::get('index.html', function(){
+                return redirect()->route('front.home');
+            });
+
+            //Language
+            Route::get('locale/{code}', function ($code) {
+                session(['locale' => $code]);
+                if (request()->fullUrl() === redirect()->back()->getTargetUrl()
+                ) {
+                    return redirect()->route('front.home');
+                }
+                $urlBack = str_replace(url('/' . app()->getLocale()) . '/', url('/' . $code) . '/', back()->getTargetUrl());
+                return redirect($urlBack);
+            })->name('front.locale');
+
+
+            //Load front from cart
+            foreach (glob(__DIR__ . '/../../cart/src/Routes/Front/*.php') as $filename) {
+                $this->loadRoutesFrom($filename);
+            }
+
+
+            //Load front from front
+            foreach (glob(__DIR__ . '/../../front/src/Routes/Front/*.php') as $filename) {
+                $this->loadRoutesFrom($filename);
+            }
+    
+            Route::get($langUrl.'{alias}'.$suffix, $nameSpaceHome.'\HomeController@pageDetailProcessFront')->name('front.page.detail');
+
         }
     );
 }
