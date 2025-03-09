@@ -38,7 +38,7 @@ GP247 là một mã nguồn nhỏ gọn được xây dựng với Laravel, giú
 
 GP247 1.x
 
-> Core laravel framework 11.x 
+> Core laravel framework 12.x 
 
 
 ## Cấu trúc website sử dụng GP247

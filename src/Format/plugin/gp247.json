@@ -7,7 +7,7 @@
     "configGroup": "Plugins",
     "configKey": "Extension_Key",
     "version": "1.0",
-    "requireCore": ["1.0"],
+    "requireCore": ["1.0", "1.1"],
     "requirePackages": [],
     "requireExtensions": []
 }

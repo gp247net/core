@@ -224,7 +224,6 @@ trait  ExtensionController
                     
                     //Check compatibility 
                     $config = json_decode(file_get_contents($checkConfig[0]), true);
-                    $requireCore = $config['requireCore'] ?? [];
                     $requireFaild = gp247_extension_check_compatibility($config);
                     if ($requireFaild) {
                         File::deleteDirectory(storage_path('tmp/'.$pathTmp));
