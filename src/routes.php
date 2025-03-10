@@ -108,9 +108,9 @@ if(defined('GP247_FRONT_MIDDLEWARE')){
         ],
         function () use($langUrl, $suffix){
 
-            //Load front from cart
-            if(file_exists(__DIR__ . '/../../cart/src/Routes/front_default.php')){
-                $this->loadRoutesFrom(__DIR__ . '/../../cart/src/Routes/front_default.php');
+            //Load front from front default
+            if(file_exists(__DIR__ . '/../../front/src/Routes/front_default.php')){
+                $this->loadRoutesFrom(__DIR__ . '/../../front/src/Routes/front_default.php');
             }
 
             //Load front from cart
