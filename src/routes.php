@@ -101,12 +101,19 @@ if (config('gp247-config.env.GP247_API_MODE')) {
 if(defined('GP247_FRONT_MIDDLEWARE')){
         $langUrl = GP247_SEO_LANG ?'{lang?}/' : '';
         $suffix = GP247_SUFFIX_URL;
+
+        if (file_exists(app_path('GP247/Front/Controllers/HomeController.php'))) {
+            $nameSpaceHome = 'App\GP247\Front\Controllers';
+        } else {
+            $nameSpaceHome = 'GP247\Front\Controllers';
+        }
+
         // Front routes
         Route::group(
             [
             'middleware' => GP247_FRONT_MIDDLEWARE,
         ],
-        function () use($langUrl, $suffix){
+        function () use($langUrl, $suffix, $nameSpaceHome){
 
             //Load front from front default
             if(file_exists(__DIR__ . '/../../front/src/Routes/front_default.php')){
