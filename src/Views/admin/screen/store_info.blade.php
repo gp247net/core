@@ -131,6 +131,29 @@
                     </tr>
                 @endif
 
+
+            @if (gp247_composer_get_package_installed()['gp247/cart'] ?? '' && gp247_store_is_partner($storeId))
+            {{-- Only the partner account can edit this information --}}
+            @php
+              $currencies = \GP247\Cart\Models\ShopCurrency::getCodeActive();
+            @endphp
+                    <tr>
+                      <td><i class="far fa-money-bill-alt nav-icon"></i> {{ gp247_language_render('store.currency') }}</td>
+                      <td>
+                        <a href="#" class="editable-required editable editable-click" data-name="currency" data-type="select" data-pk="" data-source="{{ json_encode($currencies) }}" data-url="{{ gp247_route_admin('admin_store.update') }}" data-title="{{ gp247_language_render('store.currency') }}" data-value="{{ $store->currency }}" data-original-title="" title=""></a>
+                       </td>
+                    </tr>
+          
+          
+                    <tr>
+                      <td><i class="fas fa-language nav-icon"></i> {{ gp247_language_render('store.language') }}</td>
+                      <td>
+                        <a href="#" class="editable-required editable editable-click" data-name="language" data-type="select" data-pk="" data-source="{{ json_encode($languages->pluck('name','code')->toArray()) }}" data-url="{{ gp247_route_admin('admin_store.update') }}" data-title="{{ gp247_language_render('store.language') }}" data-value="{{ $store->language }}" data-original-title="" title=""></a>
+                       </td>
+                    </tr>
+          @endif
+
+
                 {{-- Check gp247/front installed --}}
                 @if (gp247_composer_get_package_installed()['gp247/front'] ?? '')
                     <tr>
