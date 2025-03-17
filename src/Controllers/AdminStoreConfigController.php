@@ -31,57 +31,6 @@ class AdminStoreConfigController extends RootAdminController
             'subTitle' => '',
         ];
 
-        // Customer config
-        $dataCustomerConfig = [
-            'code' => 'customer_config_attribute',
-            'storeId' => $id,
-            'keyBy' => 'key',
-        ];
-        $customerConfigs = AdminConfig::getListConfigByCode($dataCustomerConfig);
-        
-        $dataCustomerConfigRequired = [
-            'code' => 'customer_config_attribute_required',
-            'storeId' => $id,
-            'keyBy' => 'key',
-        ];
-        $customerConfigsRequired = AdminConfig::getListConfigByCode($dataCustomerConfigRequired);
-        //End customer
-
-        $productConfigQuery = [
-            'code' => 'product_config',
-            'storeId' => $id,
-            'keyBy' => 'key',
-        ];
-        $productConfig = AdminConfig::getListConfigByCode($productConfigQuery);
-
-        $productConfigAttributeQuery = [
-            'code' => 'product_config_attribute',
-            'storeId' => $id,
-            'keyBy' => 'key',
-        ];
-        $productConfigAttribute = AdminConfig::getListConfigByCode($productConfigAttributeQuery);
-
-        $productConfigAttributeRequiredQuery = [
-            'code' => 'product_config_attribute_required',
-            'storeId' => $id,
-            'keyBy' => 'key',
-        ];
-        $productConfigAttributeRequired = AdminConfig::getListConfigByCode($productConfigAttributeRequiredQuery);
-
-        $orderConfigQuery = [
-            'code' => 'order_config',
-            'storeId' => $id,
-            'keyBy' => 'key',
-        ];
-        $orderConfig = AdminConfig::getListConfigByCode($orderConfigQuery);
-
-        $configDisplayQuery = [
-            'code' => 'display_config',
-            'storeId' => $id,
-            'keyBy' => 'key',
-        ];
-        $configDisplay = AdminConfig::getListConfigByCode($configDisplayQuery);
-
         $configCaptchaQuery = [
             'code' => 'captcha_config',
             'storeId' => $id,
@@ -95,14 +44,6 @@ class AdminStoreConfigController extends RootAdminController
             'keyBy' => 'key',
         ];
         $configCustomize = AdminConfig::getListConfigByCode($configCustomizeQuery);
-
-        
-        $configLayoutQuery = [
-            'code' => 'config_layout',
-            'storeId' => $id,
-            'keyBy' => 'key',
-        ];
-        $configLayout = AdminConfig::getListConfigByCode($configLayoutQuery);
 
         $emailConfigQuery = [
             'code' => ['smtp_config', 'email_action'],
@@ -122,15 +63,7 @@ class AdminStoreConfigController extends RootAdminController
             'review'   => gp247_language_render('admin.captcha.captcha_page_review'),
         ];
         //End email
-        $data['customerConfigs']                = $customerConfigs;
-        $data['customerConfigsRequired']        = $customerConfigsRequired;
-        $data['productConfig']                  = $productConfig;
-        $data['productConfigAttribute']         = $productConfigAttribute;
-        $data['productConfigAttributeRequired'] = $productConfigAttributeRequired;
-        $data['configLayout']                   = $configLayout;
         $data['pluginCaptchaInstalled']         = gp247_captcha_get_plugin_installed();
-        $data['configDisplay']                  = $configDisplay;
-        $data['orderConfig']                    = $orderConfig;
         $data['configCaptcha']                  = $configCaptcha;
         $data['configCustomize']                = $configCustomize;
         $data['templates']                      = $this->templates;
