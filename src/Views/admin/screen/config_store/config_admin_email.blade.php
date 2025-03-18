@@ -7,7 +7,7 @@
     
         <div class="card">
           <div class="card-header with-border">
-            <h3 class="card-title">{{ gp247_language_render('email.admin.config_mode') }}</h3>
+            <h3 class="card-title">{{ gp247_language_render('admin.email.config_mode') }}</h3>
           </div>
     
           <div class="card-body table-responsivep-0">
@@ -55,7 +55,7 @@
     
         <div class="card">
           <div class="card-header with-border">
-            <h3 class="card-title">{{ gp247_language_render('email.admin.config_smtp') }}</h3>
+            <h3 class="card-title">{{ gp247_language_render('admin.email.config_smtp') }}</h3>
           </div>
     
           <div class="card-body table-responsivep-0">
