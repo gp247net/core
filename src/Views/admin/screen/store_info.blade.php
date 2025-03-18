@@ -126,16 +126,16 @@
                 @if ($storeId == GP247_STORE_ID_ROOT)
                 {{-- Only the root domain can edit this information --}}
                     <tr>
-                      <td><i class="fab fa-chrome"></i> {{ gp247_language_render('store.admin.domain') }}</td>
-                      <td><a href="#" class="editable-required editable editable-click" data-name="domain" data-type="text" data-pk="" data-source="" data-url="{{ gp247_route_admin('admin_store.update') }}" data-title="{{ gp247_language_render('store.admin.domain') }}" data-value="{{ $store->domain }}" data-original-title="" title="">{{$store->domain }}</a></td>
+                      <td><i class="fab fa-chrome"></i> {{ gp247_language_render('admin.store.domain') }}</td>
+                      <td><a href="#" class="editable-required editable editable-click" data-name="domain" data-type="text" data-pk="" data-source="" data-url="{{ gp247_route_admin('admin_store.update') }}" data-title="{{ gp247_language_render('admin.store.domain') }}" data-value="{{ $store->domain }}" data-original-title="" title="">{{$store->domain }}</a></td>
                     </tr>
                 @endif
 
 
-            @if (gp247_composer_get_package_installed()['gp247/cart'] ?? '' && gp247_store_is_partner($storeId))
+            @if (gp247_composer_get_package_installed()['gp247/shop'] ?? '' && gp247_store_is_partner($storeId))
             {{-- Only the partner account can edit this information --}}
             @php
-              $currencies = \GP247\Cart\Models\ShopCurrency::getCodeActive();
+              $currencies = \GP247\Shop\Models\ShopCurrency::getCodeActive();
             @endphp
                     <tr>
                       <td><i class="far fa-money-bill-alt nav-icon"></i> {{ gp247_language_render('store.currency') }}</td>
@@ -157,9 +157,9 @@
                 {{-- Check gp247/front installed --}}
                 @if (gp247_composer_get_package_installed()['gp247/front'] ?? '')
                     <tr>
-                      <td><i class="nav-icon  fas fa-object-ungroup "></i>{{ gp247_language_render('store.admin.template') }}</td>
+                      <td><i class="nav-icon  fas fa-object-ungroup "></i>{{ gp247_language_render('admin.store.template') }}</td>
                       <td>
-                        <a href="#" class="editable-required editable editable-click" data-name="template" data-type="select" data-pk="" data-source="{{ json_encode($templates) }}" data-url="{{ gp247_route_admin('admin_store.update') }}" data-title="{{ gp247_language_render('store.admin.template') }}" data-value="{{ $store->template }}" data-original-title="" title=""></a>
+                        <a href="#" class="editable-required editable editable-click" data-name="template" data-type="select" data-pk="" data-source="{{ json_encode($templates) }}" data-url="{{ gp247_route_admin('admin_store.update') }}" data-title="{{ gp247_language_render('admin.store.template') }}" data-value="{{ $store->template }}" data-original-title="" title=""></a>
                        </td>
                     </tr>
                 @endif

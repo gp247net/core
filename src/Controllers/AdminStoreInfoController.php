@@ -28,7 +28,7 @@ class AdminStoreInfoController extends RootAdminController
         $store = AdminStore::find($id);
         if (!$store) {
             $data = [
-                'title' => gp247_language_render('store.admin.title'),
+                'title' => gp247_language_render('admin.store.title'),
                 'subTitle' => '',
                 'dataNotFound' => 1
             ];
@@ -36,7 +36,7 @@ class AdminStoreInfoController extends RootAdminController
             ->with($data);
         }
         $data = [
-            'title' => gp247_language_render('store.admin.title'),
+            'title' => gp247_language_render('admin.store.title'),
             'subTitle' => '',
         ];
         $data['store'] = $store;
@@ -75,7 +75,7 @@ class AdminStoreInfoController extends RootAdminController
                 if ($name == 'type') {
                     // Can not change type in here
                     $error = 1;
-                    $msg = gp247_language_render('store.admin.value_cannot_change');
+                    $msg = gp247_language_render('admin.store.value_cannot_change');
                 } elseif ($name == 'domain') {
                     if (
                         $storeId == GP247_STORE_ID_ROOT 
@@ -86,19 +86,19 @@ class AdminStoreInfoController extends RootAdminController
                         $domain = gp247_store_process_domain($value);
                         if (AdminStore::where('domain', $domain)->where('id', '<>', $storeId)->first()) {
                             $error = 1;
-                            $msg = gp247_language_render('store.admin.domain_exist');
+                            $msg = gp247_language_render('admin.store.domain_exist');
                         } else {
                             AdminStore::where('id', $storeId)->update([$name => $domain]);
                             $error = 0;
                         }
                     } else {
                         $error = 1;
-                        $msg = gp247_language_render('store.admin.value_cannot_change');
+                        $msg = gp247_language_render('admin.store.value_cannot_change');
                     }
                 } elseif ($name == 'code') {
                     if (AdminStore::where('code', $value)->where('id', '<>', $storeId)->first()) {
                         $error = 1;
-                        $msg = gp247_language_render('store.admin.code_exist');
+                        $msg = gp247_language_render('admin.store.code_exist');
                     } else {
                         AdminStore::where('id', $storeId)->update([$name => $value]);
                         $error = 0;

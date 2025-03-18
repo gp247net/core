@@ -16,8 +16,8 @@ Route::group(
         }
 
 
-        //Load admin from cart
-        foreach (glob(__DIR__ . '/../../cart/src/Routes/Admin/*.php') as $filename) {
+        //Load admin from shop
+        foreach (glob(__DIR__ . '/../../shop/src/Routes/Admin/*.php') as $filename) {
             $this->loadRoutesFrom($filename);
         }
 
@@ -62,8 +62,8 @@ if (config('gp247-config.env.GP247_API_MODE')) {
                 $this->loadRoutesFrom($filename);
             }
 
-            //Load api from cart
-            foreach (glob(__DIR__ . '/../../cart/src/Routes/Api/*.php') as $filename) {
+            //Load api from shop
+            foreach (glob(__DIR__ . '/../../shop/src/Routes/Api/*.php') as $filename) {
                 $this->loadRoutesFrom($filename);
             }
 
@@ -83,8 +83,8 @@ if (config('gp247-config.env.GP247_API_MODE')) {
         ],
         function () {
 
-            //Load api from cart
-            foreach (glob(__DIR__ . '/../../cart/src/Routes/Api/*.php') as $filename) {
+            //Load api from shop
+            foreach (glob(__DIR__ . '/../../shop/src/Routes/Api/*.php') as $filename) {
                 $this->loadRoutesFrom($filename);
             }
 
@@ -120,8 +120,8 @@ if(defined('GP247_FRONT_MIDDLEWARE')){
                 $this->loadRoutesFrom(__DIR__ . '/../../front/src/Routes/front_default.php');
             }
 
-            //Load front from cart
-            foreach (glob(__DIR__ . '/../../cart/src/Routes/Front/*.php') as $filename) {
+            //Load front from shop
+            foreach (glob(__DIR__ . '/../../shop/src/Routes/Front/*.php') as $filename) {
                 $this->loadRoutesFrom($filename);
             }
 

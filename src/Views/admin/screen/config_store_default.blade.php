@@ -4,13 +4,13 @@
         <div class="card-header p-0 border-bottom-0">
           <ul class="nav nav-tabs" id="custom-tabs-four-tab" role="tablist">
             <li class="nav-item">
-              <a class="nav-link active" id="tab-admin-email-tab" data-toggle="pill" href="#tab-admin-email" role="tab" aria-controls="tab-admin-email" aria-selected="false">{{ gp247_language_render('store.admin.config_admin_email') }}</a>
+              <a class="nav-link active" id="tab-admin-email-tab" data-toggle="pill" href="#tab-admin-email" role="tab" aria-controls="tab-admin-email" aria-selected="false">{{ gp247_language_render('admin.store.config_admin_email') }}</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" id="tab-admin-other-tab" data-toggle="pill" href="#tab-admin-other" role="tab" aria-controls="tab-admin-other" aria-selected="false">{{ gp247_language_render('store.admin.config_admin_other') }}</a>
+              <a class="nav-link" id="tab-admin-other-tab" data-toggle="pill" href="#tab-admin-other" role="tab" aria-controls="tab-admin-other" aria-selected="false">{{ gp247_language_render('admin.store.config_admin_other') }}</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" id="tab-admin-customize-tab" data-toggle="pill" href="#tab-admin-customize" role="tab" aria-controls="tab-admin-customize" aria-selected="false">{{ gp247_language_render('store.admin.config_customize') }}</a>
+              <a class="nav-link" id="tab-admin-customize-tab" data-toggle="pill" href="#tab-admin-customize" role="tab" aria-controls="tab-admin-customize" aria-selected="false">{{ gp247_language_render('admin.store.config_customize') }}</a>
             </li>
           </ul>
         </div>
