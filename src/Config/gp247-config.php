@@ -13,7 +13,9 @@ return [
 
         'schema_customize' => [
             // Array of tables that can be customized add new fields
-            // Example: ['shop_product', 'shop_category']
+            // Example: 
+            //'shop_product', 
+            //'shop_category'
         ],
 
         //Config for extension
