@@ -4,6 +4,7 @@ namespace GP247\Core;
 abstract class  ExtensionConfigDefault
 {       
     public $configGroup;
+    public $configCode;
     public $configKey;
     public $title;
     public $version;

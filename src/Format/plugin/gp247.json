@@ -5,9 +5,10 @@
     "email": "support@gp247.net",
     "link": "https://GP247.net",
     "configGroup": "Plugins",
+    "configCode": "Extension_Key",
     "configKey": "Extension_Key",
     "version": "1.0",
-    "requireCore": ["1.0", "1.1"],
+    "requireCore": ["1.1"],
     "requirePackages": [],
     "requireExtensions": []
 }
