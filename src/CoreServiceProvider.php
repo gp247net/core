@@ -269,7 +269,7 @@ class CoreServiceProvider extends ServiceProvider
             ($storeId == GP247_STORE_ID_ROOT && gp247_config_global('smtp_mode'))
         ) {
             $smtpHost     = gp247_config('smtp_host');
-            $smtpPort     = gp247_config('smtp_port');
+            $smtpPort     = (int)gp247_config('smtp_port') ?: config('mail.mailers.smtp.port'); // smtp port must be int value
             $smtpSecurity = gp247_config('smtp_security');
             $smtpUser     = gp247_config('smtp_user');
             $smtpPassword = gp247_config('smtp_password');
