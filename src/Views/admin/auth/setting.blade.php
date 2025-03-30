@@ -62,7 +62,12 @@
                                         <div class="input-group-append">
                                         <span class="input-group-text"><i class="fas fa-pencil-alt"></i></span>
                                         </div>
-                                        <input type="text" disabled=""  id="email"  value="{{ old('email',$user['email']??'') }}" class="form-control form-control-sm email" placeholder="" />
+                                            @if (admin()->user()->isRole('administrator'))
+                                                <input type="text"  id="email" name="email"  value="{{ old('email',$user['email']??'') }}" class="form-control form-control-sm email" placeholder="" />
+                                                <!-- Admin can change email -->
+                                            @else
+                                                <input type="text"  id="email" disabled value="{{ $user['email']??'' }}" class="form-control form-control-sm email" placeholder="" />
+                                            @endif
                                     </div>
                                         @if ($errors->has('email'))
                                             <span class="form-text">

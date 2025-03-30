@@ -4,6 +4,7 @@ namespace GP247\Core\Controllers\Auth;
 
 use GP247\Core\Models\AdminPermission;
 use GP247\Core\Models\AdminRole;
+use GP247\Core\Models\AdminUser;
 use GP247\Core\Controllers\RootAdminController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -115,6 +116,7 @@ class LoginController extends RootAdminController
         $validator = Validator::make($dataOrigin, [
             'name' => 'required|string|max:100',
             'avatar' => 'nullable|string|max:255',
+            'email'    => 'nullable|string|email|max:255|unique:"'.AdminUser::class.'",email',
             'password' => $this->rulePasswordNullable(),
         ], [
             'username.regex' => gp247_language_render('admin.user.username_validate'),
@@ -131,6 +133,10 @@ class LoginController extends RootAdminController
             'name' => $data['name'],
             'avatar' => $data['avatar'],
         ];
+
+        if (admin()->user()->isRole('administrator')) {
+            $dataUpdate['email'] = $data['email'];
+        }
         if ($data['password']) {
             $dataUpdate['password'] = bcrypt($data['password']);
         }
