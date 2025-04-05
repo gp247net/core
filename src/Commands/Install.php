@@ -14,7 +14,7 @@ class Install extends Command
      *
      * @var string
      */
-    protected $signature = 'gp247:install {--force=0}';
+    protected $signature = 'gp247:core-install {--force=0}';
 
     /**
      * The console command description.
@@ -118,10 +118,6 @@ class Install extends Command
         $this->call('storage:link');
 
         Storage::disk('local')->put('gp247-installed.txt', date('Y-m-d H:i:s'));
-
-        if (class_exists('\GP247\Front\Commands\FrontInstall')) {
-            $this->call('gp247:front-install');
-        }
 
         $this->welcome();
     }

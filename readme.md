@@ -115,9 +115,7 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
 - **Step 5**: Initialize gp247
 
   Run the command: 
-  >`php artisan gp247:install`
-
-Note: If you have already installed the `gp247/front` package, running the `php artisan gp247:install` command will automatically call `php artisan gp247:front-install`.
+  >`php artisan gp247:core-install`
 
 ## Useful information:
 

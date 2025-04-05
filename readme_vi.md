@@ -115,9 +115,7 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
 - **Bước 5**: Khởi tạo gp247
 
   Chạy lệnh: 
-  >`php artisan gp247:install`
-
-Lưu ý: Nếu bạn đã cài đặt gói `gp247/front`, khi chạy lệnh `php artisan gp247:install` sẽ tự động gọi `php artisan gp247:front-install`.
+  >`php artisan gp247:core-install`
 
 ## Thông tin hữu ích:
 
