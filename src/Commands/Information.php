@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 use Throwable;
 
-class Infomation extends Command
+class Information extends Command
 {
     /**
      * The name and signature of the console command.

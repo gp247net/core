@@ -10,7 +10,7 @@ use Laravel\Sanctum\Sanctum;
 
 use GP247\Core\Commands\Customize;
 use GP247\Core\Commands\MakePlugin;
-use GP247\Core\Commands\Infomation;
+use GP247\Core\Commands\Information;
 use GP247\Core\Commands\Update;
 use GP247\Core\Commands\Install;
 use GP247\Core\Middleware\Localization;
@@ -30,7 +30,7 @@ class CoreServiceProvider extends ServiceProvider
 {
     protected $listCommand = [
         MakePlugin::class,
-        Infomation::class,
+        Information::class,
         Update::class,
         Customize::class,
     ];
