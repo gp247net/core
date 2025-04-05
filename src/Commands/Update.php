@@ -14,7 +14,7 @@ class Update extends Command
      *
      * @var string
      */
-    protected $signature = 'gp247:update';
+    protected $signature = 'gp247:core-update';
 
     /**
      * The console command description.

@@ -121,7 +121,7 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
 
 **To view GP247 version**
 
->`php artisan gp247:info`
+>`php artisan gp247:core-info`
 
 **Update gp247**
 
@@ -130,7 +130,7 @@ Update the package using the command:
 
 Then, run the command: 
 
->`php artisan gp247:update`
+>`php artisan gp247:core-update`
 
 **To create a plugin:**
 

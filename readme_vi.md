@@ -121,7 +121,7 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
 
 **Để xem phiên bản GP247**
 
->`php artisan gp247:info`
+>`php artisan gp247:core-info`
 
 **Cập nhật gp247**
 
@@ -130,7 +130,7 @@ Cập nhật gói bằng lệnh:
 
 Sau đó, chạy lệnh: 
 
->`php artisan gp247:update`
+>`php artisan gp247:core-update`
 
 **Để tạo plugin:**
 

@@ -13,7 +13,7 @@ class Information extends Command
      *
      * @var string
      */
-    protected $signature = 'gp247:info';
+    protected $signature = 'gp247:core-info';
 
     /**
      * The console command description.
