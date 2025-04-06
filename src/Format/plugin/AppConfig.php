@@ -47,8 +47,8 @@ class AppConfig extends ExtensionConfigDefault
             $dataInsert = [
                 [
                     'group'  => $this->configGroup,
-                    'key'    => $this->configKey,
                     'code'    => $this->configCode,
+                    'key'    => $this->configKey,
                     'sort'   => 0,
                     'store_id' => GP247_STORE_ID_GLOBAL,
                     'value'  => self::ON, //Enable extension
