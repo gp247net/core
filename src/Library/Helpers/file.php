@@ -208,6 +208,15 @@ if (!function_exists('gp247_file') && !in_array('gp247_file', config('gp247_func
         if (!is_string($pathFile)) {
             return '';
         }
+        
+        // Check if the current request is using HTTPS
+        $isSecure = request()->isSecure();
+        
+        // If the request is secure (HTTPS), force the asset URL to use HTTPS
+        if ($isSecure) {
+            return asset($pathFile, true);
+        }
+        
         return asset($pathFile, $security);
     }
 }
