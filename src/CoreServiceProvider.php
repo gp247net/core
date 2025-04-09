@@ -53,6 +53,14 @@ class CoreServiceProvider extends ServiceProvider
                 mkdir($directory, 0777, true);
             }
 
+            if (!is_dir($directory = public_path('GP247'))) {
+                mkdir($directory, 0777, true);
+            }
+
+            if (!is_dir($directory = public_path('vendor'))) {
+                mkdir($directory, 0777, true);
+            }
+
             if (!is_dir($directory = storage_path('tmp'))) {
                 mkdir($directory, 0777, true);
             }
@@ -258,9 +266,13 @@ class CoreServiceProvider extends ServiceProvider
         config(['app.storeId' => $storeId]);
         // end set store Id
         
+        //Config for logging
         if (gp247_config_global('LOG_SLACK_WEBHOOK_URL')) {
             config(['logging.channels.slack.url' => gp247_config_global('LOG_SLACK_WEBHOOK_URL')]);
         }
+        config(['logging.default' => 'daily']);
+        config(['logging.channels.daily.path' => storage_path('logs/gp247.log')]);
+        config(['logging.channels.daily.permission' => 0664]);
 
         //Title app
         config(['app.name' => gp247_store_info('title')]);

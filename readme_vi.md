@@ -52,6 +52,8 @@ GP247 1.x
     │           ├── Plugins(+) //Sử dụng `php artisan gp247:make-plugin --name=TenPlugin`
       //(NẾU bạn đã cài đặt gp247/front)//
     │           ├── Front(+) //Tùy chỉnh controller của Front 
+      //(NẾU bạn đã cài đặt gp247/shop)//
+    │           ├── Shop(+) //Tùy chỉnh controller của Shop 
     │           └── Templates(+) //Sử dụng `php artisan gp247:make-template --name=TenTemplate`
     ├── public
     │     └── GP247

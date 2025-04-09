@@ -12,21 +12,24 @@ return [
         'forgot_password'     => env('GP247_ADMIN_FORGOT_PASSWORD', 1), //Enable feature forgot password
 
         'schema_customize' => [
-            // Array of tables that can be customized add new fields
+            // Default, all tables have prefix GP247_DB_PREFIX can be customized add new fields.
+            // If you want to customize only some tables, add the table name to the array.
             // Example: 
-            //'shop_product', 
-            //'shop_category'
+            //'tables1', 
+            //'tables2'
         ],
 
         //Config for extension
         'extension' => [
             'extension_protected' => [
-                'Plugins' => explode(',', env('GP247_PROTECTED_PLUGINS', '')), // 'Plugin1','Plugin2'
-                'Templates' => explode(',', env('GP247_PROTECTED_TEMPLATES', '')), // 'Template1','Template2'
+                'Plugins' => explode(',', env('GP247_PROTECTED_PLUGINS', '')), // List plugins cannot remove, ex: 'Plugin1','Plugin2'
+                'Templates' => explode(',', env('GP247_PROTECTED_TEMPLATES', '')), // List templates cannot remove, ex: 'Template1','Template2'
             ],
         
         ],
 
+        // Middleware for admin
+        // Sort order of middleware is important, do not change the order.
         'middleware'  => [
             1        => 'admin.auth',
             2        => 'admin.permission',
@@ -52,6 +55,9 @@ return [
             'api_scope_user_guest' => env('GP247_API_SCOPE_USER_GUEST', 'user-guest'), //string, separated by commas
             'api_scope_admin' => env('GP247_API_SCOPE_ADMIN', 'admin-supper'),//string, separated by commas
         ],
+
+        // Middleware for api
+        // Sort order of middleware is important, do not change the order.
         'middleware' => [
             1        => 'json.response',
             2        => 'api.connection',
@@ -59,6 +65,7 @@ return [
         ],
     ],
 
+    //Config for env
     'env' => [
         'GP247_ACTIVE'        => env('GP247_ACTIVE', 1), // 1: active, 0: deactive - prevent load vencore package
         'GP247_LIBRARY_API'   => env('GP247_LIBRARY_API', 'https://api.gp247.net/api/v1'),

@@ -52,6 +52,8 @@ GP247 1.x
     │           ├── Plugins(+) //Use `php artisan gp247:make-plugin --name=NameOfPlugin`
       //(IF you have gp247/front installed)//
     │           ├── Front(+) //Customize controller of Front 
+      //(IF you have gp247/shop installed)//
+    │           ├── Shop(+) //Customize controller of Shop 
     │           └── Templates(+) /Use `php artisan gp247:make-template --name=NameOfTempate`
     ├── public
     │     └── GP247

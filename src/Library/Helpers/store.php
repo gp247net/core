@@ -96,6 +96,7 @@ if (!function_exists('gp247_store_check_multi_domain_installed') && !in_array('g
 if (!function_exists('gp247_store_check_multi_partner_installed') && !in_array('gp247_store_check_multi_partner_installed', config('gp247_functions_except', []))) {
     /**
      * Check partner installed
+     * Partner have domain and different method to login, register, forgot password, etc.
      * It is necessary to check if the domain is active and whether it belongs to a valid partner with the right to use it.
      *
      * @return
@@ -112,6 +113,7 @@ if (!function_exists('gp247_store_check_multi_partner_installed') && !in_array('
 if (!function_exists('gp247_store_check_multi_store_installed') && !in_array('gp247_store_check_multi_store_installed', config('gp247_functions_except', []))) {
     /**
      * Check plugin multi store installed
+     * Multistore only have different domain
      * It is necessary to check if the domain is active 
      *
      * @return
