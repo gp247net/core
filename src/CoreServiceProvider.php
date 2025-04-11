@@ -8,7 +8,6 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
-use GP247\Core\Commands\Customize;
 use GP247\Core\Commands\MakePlugin;
 use GP247\Core\Commands\Information;
 use GP247\Core\Commands\Update;
@@ -32,7 +31,6 @@ class CoreServiceProvider extends ServiceProvider
         MakePlugin::class,
         Information::class,
         Update::class,
-        Customize::class,
     ];
     
     protected function initial()

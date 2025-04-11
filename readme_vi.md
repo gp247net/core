@@ -148,25 +148,29 @@ Sau đó, chạy lệnh:
 
 Để tạo file zip template:
 
+
 >`php artisan gp247:make-template  --name=TenTemplate --download=1`
 
 ## Tùy chỉnh
 
-**Tùy chỉnh gp247-config và functions**
+**Tùy chỉnh gp247-config**
 
->`php artisan gp247:customize config`
+>`php artisan vendor:publish --tag=gp247:config`
 
-**Tùy chỉnh view admin**
+**Tùy chỉnh cấu hình lfm dành cho upload**
 
->`php artisan gp247:customize view`
+>`php artisan vendor:publish --tag=config-lfm`
+
+**Tùy chỉnh view của core admin**
+
+>`php artisan vendor:publish --tag=gp247:view-core`
+
 
 **Ghi đè các hàm helper gp247_***
 
->Bước 1: Sử dụng lệnh `php artisan gp247:customize config` để copy file `app/config/gp247_functions_except.php`
+>Bước 1: Thêm danh sách các hàm muốn ghi đè vào `config/gp247_functions_except.php`
 
->Bước 2: Thêm danh sách các hàm muốn ghi đè vào `gp247_functions_except.php`
-
->Bước 3: Tạo hàm mới trong thư mục `app/GP247/Helpers`
+>Bước 2: Tạo các file php chứa các hàm mới trong thư mục `app/GP247/Helpers`, ví dụ `app/GP247/Helpers/myfunction.php`
 
 **Ghi đè các file controller gp247**
 
