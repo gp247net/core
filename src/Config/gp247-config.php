@@ -6,18 +6,13 @@ return [
         'api_templates'    => env('GP247_ADMIN_API_TEMPLATE', 1),
 
         //Config log access admin
-        'admin_log_except'    => env('GP247_ADMIN_LOG_EXCEPT', 'password,password_confirmation'), //Except log
+        'admin_log_except'    => env('GP247_ADMIN_LOG_EXCEPT', ''), //Except log
         'admin_log'           => env('GP247_ADMIN_LOG', 1), //Log access admin
 
         'forgot_password'     => env('GP247_ADMIN_FORGOT_PASSWORD', 1), //Enable feature forgot password
 
-        'schema_customize' => [
-            // Default, all tables have prefix GP247_DB_PREFIX can be customized add new fields.
-            // If you want to customize only some tables, add the table name to the array.
-            // Example: 
-            //'tables1', 
-            //'tables2'
-        ],
+         // Default, all tables have prefix GP247_DB_PREFIX can be customized add new fields.
+        'schema_customize' => env('GP247_ADMIN_SCHEMA_CUSTOMIZE', ''), //List tables can be customized add new fields, ex: 'table1,table2'
 
         //Config for extension
         'extension' => [

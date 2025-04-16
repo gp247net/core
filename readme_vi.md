@@ -153,9 +153,6 @@ Sau đó, chạy lệnh:
 
 ## Tùy chỉnh
 
-**Tùy chỉnh gp247-config**
-
->`php artisan vendor:publish --tag=gp247:config`
 
 **Tùy chỉnh cấu hình lfm dành cho upload**
 

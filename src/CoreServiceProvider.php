@@ -382,7 +382,6 @@ class CoreServiceProvider extends ServiceProvider
             $this->publishes([__DIR__.'/public/GP247' => public_path('GP247')], 'gp247:public-static');
             $this->publishes([__DIR__.'/public/vendor' => public_path('vendor')], 'gp247:public-vendor');
             $this->publishes([__DIR__.'/Views/admin' => resource_path('views/vendor/gp247-core')], 'gp247:view-core');
-            $this->publishes([__DIR__.'/Config/gp247-config.php' => config_path('gp247-config.php')], 'gp247:config');
             $this->publishes([__DIR__.'/Config/lfm.php' => config_path('lfm.php')], 'gp247:config-lfm');
             $this->publishes([__DIR__.'/Config/gp247_functions_except.stub' => config_path('gp247_functions_except.php')], 'gp247:functions-except');
         }

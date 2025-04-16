@@ -12,8 +12,10 @@ if (!function_exists('gp247_custom_field_get_tables') && !in_array('gp247_custom
      */
     function gp247_custom_field_get_tables(): array
     {
-        if (config('gp247-config.admin.schema_customize')) {
-            return config('gp247-config.admin.schema_customize');
+        //Customize table
+        $tablesCustomize = explode(',', config('gp247-config.admin.schema_customize'));
+        if (!empty($tablesCustomize)) {
+            return $tablesCustomize;
         }
         try {
             $connection = GP247_DB_CONNECTION;

@@ -18,13 +18,17 @@ class LogOperation
     public function handle(Request $request, \Closure $next)
     {
         if ($this->shouldLogOperation($request)) {
+            //Default except password for security
+            $adminLogExcept = ['password', 'password_confirmation'];
+
+            $adminLogExcept = array_merge($adminLogExcept, explode(',', config('gp247-config.admin.admin_log_except')));
             $log = [
                 'user_id' => admin()->user()->id,
                 'path' => substr($request->path(), 0, 255),
                 'method' => $request->method(),
                 'ip' => $request->getClientIp(),
                 'user_agent' => $request->header('User-Agent'),
-                'input' => json_encode($request->except(explode(',', config('gp247-config.admin.admin_log_except')))),
+                'input' => json_encode($request->except($adminLogExcept)),
             ];
 
             try {

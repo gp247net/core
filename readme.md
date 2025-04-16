@@ -152,9 +152,6 @@ To create a zip file template:
 
 ## Customize
 
-**Customize gp247-config**
-
->`php artisan vendor:publish --tag=gp247:config`
 
 **Customize lfm configuration for upload**
 
