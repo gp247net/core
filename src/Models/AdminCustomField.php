@@ -36,7 +36,7 @@ class AdminCustomField extends Model
         //Uuid
         static::creating(function ($model) {
             if (empty($model->{$model->getKeyName()})) {
-                $model->{$model->getKeyName()} = gp247_generate_id($type = 'admin_custom_field');
+                $model->{$model->getKeyName()} = gp247_generate_id();
             }
         });
     }

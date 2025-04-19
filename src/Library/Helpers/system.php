@@ -148,27 +148,15 @@ if (!function_exists('gp247_uuid') && !in_array('gp247_uuid', config('gp247_func
 if (!function_exists('gp247_generate_id') && !in_array('gp247_generate_id', config('gp247_functions_except', []))) {
     /**
      * Generate ID
-     *
-     * @param   [type]  $type  [$type description]
-     *
+     *     *
      * @return  [type]         [return description]
      */
-    function gp247_generate_id($type = null, $prefix = null)
+    function gp247_generate_id($prefix = null)
     {
-        switch ($type) {
-            case 'admin_store':
-                return 'ST-'.gp247_token(5);
-                break;
-            case 'admin_user':
-                return 'AU-'.gp247_token(5);
-                break;
-            default:
-                if ($prefix) {
-                    return $prefix.'-'.gp247_token(8);
-                } else {
-                    return gp247_uuid();
-                }
-                break;
+        if ($prefix) {
+            return strtoupper($prefix).'-'.gp247_token(5);
+        } else {
+            return gp247_uuid();
         }
     }
 }
