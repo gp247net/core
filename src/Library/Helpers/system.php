@@ -117,6 +117,7 @@ if (!function_exists('gp247_route_admin') && !in_array('gp247_route_admin', conf
      */
     function gp247_route_admin($name, $param = [])
     {
+        $name = trim($name);
         if (Route::has($name)) {
             try {
                 $route = route($name, $param);
