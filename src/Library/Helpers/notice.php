@@ -22,7 +22,7 @@ if (!function_exists('gp247_notice_add')) {
         if ($creator) {
             $admin_created = $creator;
         } else {
-            $admin_created = admin()->user()->id;
+            $admin_created = admin()->user()->id ?? 0;
         }
         if (count($listAdmin)) {
             foreach ($listAdmin as $key => $admin) {
