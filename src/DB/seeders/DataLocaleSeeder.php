@@ -291,6 +291,8 @@ class DataLocaleSeeder extends Seeder
             ['code' => 'action.remove','text' => 'Gỡ bỏ','position' => 'action','location' => 'vi'],
             ['code' => 'action.remove_success','text' => 'Removed success','position' => 'action','location' => 'en'],
             ['code' => 'action.remove_success','text' => 'Gỡ bỏ thành công','position' => 'action','location' => 'vi'],
+            ['code' => 'action.download','text' => 'Download','position' => 'action','location' => 'en'],
+            ['code' => 'action.download','text' => 'Tải xuống','position' => 'action','location' => 'vi'],
             ['code' => 'action.edit','text' => 'Edit','position' => 'action','location' => 'en'],
             ['code' => 'action.edit','text' => 'Chỉnh sửa','position' => 'action','location' => 'vi'],
             ['code' => 'action.update','text' => 'Update','position' => 'action','location' => 'en'],
