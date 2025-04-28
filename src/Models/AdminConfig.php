@@ -66,7 +66,7 @@ class AdminConfig extends Model
     public static function getPluginCaptchaCode($onlyActive = true)
     {
         $query =  self::where('group', 'Plugins')
-        ->where('code', 'Other')
+        ->where('code', 'like', '%Captcha')
         ->where('key', 'like', '%Captcha');
         if ($onlyActive) {
             $query = $query->where('value', 1);

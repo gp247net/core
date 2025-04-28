@@ -53,13 +53,39 @@ if (!function_exists('gp247_captcha_get_plugin_installed') && !in_array('gp247_c
         if ($listPluginInstalled) {
             foreach ($listPluginInstalled as $key => $plugin) {
                 $keyPlugin = gp247_word_format_class($plugin->key);
-                $appPath = app_path() . '/Plugins/Other/'.$keyPlugin;
-                $nameSpaceConfig = '\GP247\Plugins\Other\\'.$keyPlugin.'\AppConfig';
+                $appPath = app_path() . '/GP247/Plugins/'.$keyPlugin;
+                $nameSpaceConfig = '\App\GP247\Plugins\\'.$keyPlugin.'\AppConfig';
                 if (file_exists($appPath . '/AppConfig.php') && class_exists($nameSpaceConfig)) {
                     $arrPlugin[$nameSpaceConfig] = gp247_language_render($plugin->detail);
                 }
             }
         }
         return $arrPlugin;
+    }
+}
+
+
+if (!function_exists('gp247_captcha_processview') && !in_array('gp247_captcha_processview', config('gp247_functions_except', []))) {
+    /**
+     * Process view captcha
+     *
+     * @param   [string]  $position  Position captcha
+     * @param   [string]  $name      Name button captcha
+     *
+     */
+    function gp247_captcha_processview($position = '', $name = 'Submit')
+    {
+        $viewCaptcha = '';
+        if (gp247_captcha_method() && in_array($position, gp247_captcha_page())) {
+            if (view()->exists(gp247_captcha_method()->appPath.'::render')) {
+                $dataView = [
+                    'titleButton' => $name,
+                    'idForm' => 'gp247-form-process',
+                    'idButtonForm' => 'gp247-button-process',
+                ];
+                $viewCaptcha = view(gp247_captcha_method()->appPath.'::render', $dataView)->render();
+            }
+        }
+        return $viewCaptcha;
     }
 }
