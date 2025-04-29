@@ -25,6 +25,9 @@
             <label for="view"
                 class="col-form-label">{!! gp247_language_render('admin.admin_home_layout.view') !!}
             </label>
+            <div class="text-sm">
+              {!! gp247_language_render('admin.admin_home_layout.view_help') !!}
+            </div>
             <select class="form-control form-control-sm select2" name="view" data-live-search="true"  title="Please select item..."  data-actions-box="true">
                 @foreach ($listView as $pathView)
                 <option value="{{ $pathView }}"

@@ -1476,6 +1476,7 @@ class DataLocaleSeeder extends Seeder
 
             //admin_home_layout
             ['code' => 'admin.admin_home_layout.view','text' => 'Đường dẫn View','position' => 'admin_home_layout','location' => 'vi'],
+            ['code' => 'admin.admin_home_layout.view_help','text' => '<i class="fa fa-info-circle"></i> Sử dụng <span class="text-danger">gp247_add_module("homepage", "path-to-view")</span> để thêm module vào trang chủ admin','position' => 'admin_home_layout','location' => 'vi'],
             ['code' => 'admin.admin_home_layout.size','text' => 'Kích thước cột (1-12)','position' => 'admin_home_layout','location' => 'vi'],
             ['code' => 'admin.admin_home_layout.sort','text' => 'Thứ tự','position' => 'admin_home_layout','location' => 'vi'],
             ['code' => 'admin.admin_home_layout.status','text' => 'Trạng thái','position' => 'admin_home_layout','location' => 'vi'],
@@ -1484,6 +1485,7 @@ class DataLocaleSeeder extends Seeder
             ['code' => 'admin.admin_home_layout.add_new_title','text' => 'Thêm mới','position' => 'admin_home_layout','location' => 'vi'],
 
             ['code' => 'admin.admin_home_layout.view','text' => 'View path','position' => 'admin_home_layout','location' => 'en'],
+            ['code' => 'admin.admin_home_layout.view_help','text' => '<i class="fa fa-info-circle"></i> Use <span class="text-danger">gp247_add_module("homepage", "path-to-view")</span>  to add module to admin home page','position' => 'admin_home_layout','location' => 'en'],
             ['code' => 'admin.admin_home_layout.size','text' => 'Column size (1-12)','position' => 'admin_home_layout','location' => 'en'],
             ['code' => 'admin.admin_home_layout.sort','text' => 'Sort','position' => 'admin_home_layout','location' => 'en'],
             ['code' => 'admin.admin_home_layout.status','text' => 'Status','position' => 'admin_home_layout','location' => 'en'],
