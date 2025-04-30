@@ -220,41 +220,6 @@ if (!function_exists('gp247_handle_exception') && !in_array('gp247_handle_except
     }
 }
 
-
-if (!function_exists('gp247_push_include_view') && !in_array('gp247_push_include_view', config('gp247_functions_except', []))) {
-    /**
-     * Push view
-     *
-     * @param   [string]  $position
-     * @param   [string]  $pathView
-     *
-     */
-    function gp247_push_include_view($position = "", string $pathView = "")
-    {
-        $includePathView = config('gp247_include_view.'.$position, []);
-        $includePathView[] = $pathView;
-        config(['gp247_include_view.'.$position => $includePathView]);
-    }
-}
-
-
-if (!function_exists('gp247_push_include_script') && !in_array('gp247_push_include_script', config('gp247_functions_except', []))) {
-    /**
-     * Push script
-     *
-     * @param   [string]  $position
-     * @param   [string]  $pathScript
-     *
-     */
-    function gp247_push_include_script($position, $pathScript)
-    {
-        $includePathScript = config('gp247_include_script.'.$position, []);
-        $includePathScript[] = $pathScript;
-        config(['gp247_include_script.'.$position => $includePathScript]);
-    }
-}
-
-
 /**
  * convert datetime to date
  */
