@@ -4,8 +4,13 @@
       <strong>Env</strong>
       {{ config('app.env') }}
       &nbsp;&nbsp;
-      <strong>Version</strong> 
+      <strong>Core</strong> 
       {{ config('gp247.sub-version') }} ({{ (config('gp247.core') ?? '') }})
+      @if (gp247_composer_get_package_installed()['s-cart/s-cart'] ?? '') 
+        &nbsp;&nbsp;
+        <strong>S-Cart</strong>
+        ({{ (gp247_composer_get_package_installed()['s-cart/s-cart'] ?? '') }})
+      @endif
     </div>
     <strong>
       Copyright &copy; {{ date('Y') }} 
