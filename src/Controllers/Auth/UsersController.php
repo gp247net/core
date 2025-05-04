@@ -258,7 +258,7 @@ class UsersController extends RootAdminController
             'username' => 'required|regex:/(^([0-9A-Za-z@\._]+)$)/|unique:"'.AdminUser::class.'",username,' . $user->id . '|string|max:100|min:3',
             'avatar'   => 'nullable|string|max:255',
             'password' => $this->rulePasswordNullable(),
-            'email'    => 'required|string|email|max:255|unique:"'.AdminUser::class.'",email,' . $user->id,
+            'email'    => 'required|string|email|max:255|unique:"'.AdminUser::class.'",email,' . $user->id . ',id',
         ], [
             'username.regex' => gp247_language_render('admin.user.username_validate'),
         ]);

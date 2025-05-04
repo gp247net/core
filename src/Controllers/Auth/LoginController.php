@@ -116,7 +116,7 @@ class LoginController extends RootAdminController
         $validator = Validator::make($dataOrigin, [
             'name' => 'required|string|max:100',
             'avatar' => 'nullable|string|max:255',
-            'email'    => 'nullable|string|email|max:255|unique:"'.AdminUser::class.'",email',
+            'email'    => 'nullable|string|email|max:255|unique:"'.AdminUser::class.'",email,' . $user->id . ',id',
             'password' => $this->rulePasswordNullable(),
         ], [
             'username.regex' => gp247_language_render('admin.user.username_validate'),
