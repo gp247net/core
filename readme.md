@@ -119,6 +119,22 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
   Run the command: 
   >`php artisan gp247:core-install`
 
+- **Step 6**: Add error handling
+
+  To add custom error handling to your application, open the `bootstrap/app.php` file and add the following code to the `withExceptions` function:
+
+  ```php
+  ->withExceptions(function (Exceptions $exceptions) {
+      $exceptions->report(function (\Throwable $e) {
+          if (function_exists('gp247_handle_exception')) {
+              gp247_handle_exception($e);
+          }
+      });
+  });
+  ```
+
+  This code will help you handle exceptions through the `gp247_handle_exception` function if it exists.
+
 ## Useful information:
 
 **To view GP247 version**

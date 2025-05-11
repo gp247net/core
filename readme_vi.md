@@ -119,6 +119,21 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
   Chạy lệnh: 
   >`php artisan gp247:core-install`
 
+- **Bước 6**: Thêm xử lý lỗi
+
+  Để thêm xử lý lỗi tùy chỉnh cho ứng dụng của bạn, hãy mở file `bootstrap/app.php` và thêm đoạn mã sau vào hàm `withExceptions`:
+
+  ```php
+  ->withExceptions(function (Exceptions $exceptions) {
+      $exceptions->report(function (\Throwable $e) {
+          if (function_exists('gp247_handle_exception')) {
+              gp247_handle_exception($e);
+          }
+      });
+  });
+  ```
+
+  Đoạn mã này sẽ giúp bạn xử lý các ngoại lệ thông qua hàm `gp247_handle_exception` nếu hàm này tồn tại.
 ## Thông tin hữu ích:
 
 **Để xem phiên bản GP247**
