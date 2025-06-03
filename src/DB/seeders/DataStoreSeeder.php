@@ -20,8 +20,15 @@ class DataStoreSeeder extends Seeder
 
         $db = DB::connection(GP247_DB_CONNECTION);
 
+        //Insert config default for new store
         $dataConfig = $this->dataConfig($storeId);
         $db->table(GP247_DB_PREFIX.'admin_config')->insert($dataConfig);
+
+        //Setup store with template
+        $classTemplate = 'App\GP247\Templates\\'.$this->getTemplateDefault().'\AppConfig';
+        if (class_exists($classTemplate)) {
+            (new $classTemplate)->setupStore($storeId);
+        }
     }
     
     public function dataConfig($storeId) {
@@ -43,7 +50,7 @@ class DataStoreSeeder extends Seeder
             ['group' => '','code' => 'admin_custom_config','key' => 'fanpage_url','value' => 'https://www.facebook.com/GP247.official/','sort' => '0','detail' => 'admin.admin_custom_config.fanpage_url','store_id' => $storeId],
             ['group' => '','code' => 'admin_custom_config','key' => 'twitter_url','value' => '#','sort' => '0','detail' => 'admin.admin_custom_config.twitter_url','store_id' => $storeId],
             ['group' => '','code' => 'admin_custom_config','key' => 'instagram_url','value' => '#','sort' => '0','detail' => 'admin.admin_custom_config.instagram_url','store_id' => $storeId],
-            ['group' => '','code' => 'admin_custom_config','key' => 'youtube_url','value' => 'https://www.youtube.com/channel/UCR8kitefby3N6KvvawQVqdg/videos','sort' => '0','detail' => 'admin.admin_custom_config.youtube_url','store_id' => $storeId],
+            ['group' => '','code' => 'admin_custom_config','key' => 'youtube_url','value' => '','sort' => '0','detail' => 'admin.admin_custom_config.youtube_url','store_id' => $storeId],
         ];
         return $dataConfig;
     }
