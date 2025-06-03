@@ -67,16 +67,26 @@ if (!function_exists('gp247_store_process_domain') && !in_array('gp247_store_pro
     /**
      * Process domain store
      *
-     * @param   [string]  $domain
+     * @param   $domain
      *
      * @return  [string]         [$domain]
      */
-    function gp247_store_process_domain(string $domain = "")
+    function gp247_store_process_domain($domain)
     {
-        $domain = str_replace(['http://', 'https://'], '', $domain);
-        $domain = Str::lower($domain);
-        $domain = rtrim($domain, '/');
-        return $domain;
+        // Return empty string if domain is null or not a string
+        if ($domain === null || !is_string($domain)) {
+            return "";
+        }
+
+        // Process domain string
+        return rtrim(
+            str_replace(
+                ['http://', 'https://'], 
+                '', 
+                trim(strtolower($domain))
+            ),
+            '/'
+        );
     }
 }
 
