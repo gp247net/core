@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 class AdminStore extends Model
 {   
 
-
+    use \GP247\Core\Models\UuidTrait;
+    
     public $table = GP247_DB_PREFIX.'admin_store';
     protected $connection = GP247_DB_CONNECTION;
     protected $guarded = [];
