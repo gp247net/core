@@ -27,7 +27,10 @@ class DataStoreSeeder extends Seeder
         //Setup store with template
         $classTemplate = 'App\GP247\Templates\\'.$this->getTemplateDefault().'\AppConfig';
         if (class_exists($classTemplate)) {
-            (new $classTemplate)->setupStore($storeId);
+            $template = new $classTemplate;
+            if (method_exists($template, 'setupStore')) {
+                $template->setupStore($storeId);
+            }
         }
     }
     
