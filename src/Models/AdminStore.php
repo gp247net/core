@@ -40,7 +40,6 @@ class AdminStore extends Model
             }
             //Delete store descrition
             $store->descriptions()->delete();
-            $store->links()->detach();
             AdminConfig::where('store_id', $store->id)->delete();
         });
 
