@@ -57,7 +57,7 @@ class UsersController extends RootAdminController
             $sort_field = explode('__', $sort)[1];
             $obj = $obj->orderBy($field, $sort_field);
         } else {
-            $obj = $obj->orderBy('id', 'desc');
+            $obj = $obj->orderBy('created_at', 'desc');
         }
         $dataTmp = $obj->paginate(20);
 
