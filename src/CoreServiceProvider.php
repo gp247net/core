@@ -252,7 +252,7 @@ class CoreServiceProvider extends ServiceProvider
         $storeId = GP247_STORE_ID_ROOT;
 
         //Process for multi store
-        if (gp247_store_check_multi_domain_installed()) {
+        if (gp247_store_check_multi_partner_installed() ||  gp247_store_check_multi_store_installed()) {
             $domain = gp247_store_process_domain(url('/'));
             $arrDomain = AdminStore::getDomainStore();
             if (in_array($domain, $arrDomain)) {
@@ -278,7 +278,7 @@ class CoreServiceProvider extends ServiceProvider
         //Config for  email
         if (
             // Default use smtp mode for for supplier if use multi-store
-            ($storeId != GP247_STORE_ID_ROOT && gp247_store_check_multi_domain_installed())
+            ($storeId != GP247_STORE_ID_ROOT && (gp247_store_check_multi_partner_installed() ||  gp247_store_check_multi_store_installed()))
             ||
             // Use smtp config from admin if root domain have smtp_mode enable
             ($storeId == GP247_STORE_ID_ROOT && gp247_config_global('smtp_mode'))
