@@ -261,4 +261,28 @@ class AdminStore extends Model
             );
         }
     }
+
+    /**
+     * Set up data default for new store
+     *
+     * @param   AdminStore  $store  [$store description]
+     *
+     * @return  [type]        [return description]
+     */
+    public static function setUpDataDefault(AdminStore $store) {
+        $storeId = $store->id;
+        //Add config default for new store
+        session(['lastStoreId' => $storeId]);
+        session(['lastStoreTemplate' => $store->template]);
+        \Illuminate\Support\Facades\Artisan::call('db:seed', [
+            '--class' => '\GP247\Core\DB\seeders\DataStoreSeeder',
+            '--force' => true
+        ]);
+        \Illuminate\Support\Facades\Artisan::call('db:seed', [
+            '--class' => '\GP247\Shop\DB\seeders\DataShopDefaultSeeder',
+            '--force' => true
+        ]);
+        session()->forget('lastStoreTemplate');
+        session()->forget('lastStoreId');
+    }
 }
