@@ -159,10 +159,10 @@ if (!function_exists('gp247_extension_check_installed') && !in_array('gp247_exte
 }
 
 
-if (!function_exists('gp247_extension_update') && !in_array('gp247_extension_update', config('gp247_functions_except', []))) {
+if (!function_exists('gp247_extension_after_update') && !in_array('gp247_extension_after_update', config('gp247_functions_except', []))) {
 
-    // Process when extension update
-    function gp247_extension_update()
+    // Process when after extension (template or plugin) update
+    function gp247_extension_after_update()
     {
         try {
             // Check if file cache exist then clear cache and create new cache

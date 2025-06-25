@@ -63,7 +63,7 @@ trait  ExtensionController
                 $response = (new $namespace)->install();
                 if (is_array($response) && $response['error'] == 0) {
                     gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
-                    gp247_extension_update();
+                    gp247_extension_after_update();
                 }
             } else {
                 return response()->json(['error' => 1, 'msg' => 'Method install not found']);
@@ -96,7 +96,7 @@ trait  ExtensionController
                 $response = (new $namespace)->uninstall();
                 if (is_array($response) && $response['error'] == 0) {
                 gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_uninstall::name__'.$key);
-                    gp247_extension_update();
+                    gp247_extension_after_update();
                 }
             } else {
                 return response()->json(['error' => 1, 'msg' => 'Method uninstall not found']);
@@ -129,7 +129,7 @@ trait  ExtensionController
             $response = (new $namespace)->enable();
             if (is_array($response) && $response['error'] == 0) {
                 gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
-                gp247_extension_update();
+                gp247_extension_after_update();
             }
         } else {
             return response()->json(['error' => 1, 'msg' => 'Method enable not found']);
@@ -155,7 +155,7 @@ trait  ExtensionController
             $response = (new $namespace)->disable();
         if (is_array($response) && $response['error'] == 0) {
             gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_disable::name__'.$key);
-                gp247_extension_update();
+                gp247_extension_after_update();
             }
         } else {
             return response()->json(['error' => 1, 'msg' => 'Method disable not found']);
@@ -309,7 +309,7 @@ trait  ExtensionController
         }
 
         gp247_notice_add(type:$this->groupType, typeId: $configKey, content:'admin_notice.gp247_'.strtolower($this->groupType).'_import::name__'.$configKey);
-        gp247_extension_update();
+        gp247_extension_after_update();
 
         if ($linkRedirect) {
             return redirect($linkRedirect)->with('success', gp247_language_render('admin.extension.import_success'));

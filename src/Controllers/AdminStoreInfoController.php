@@ -124,7 +124,7 @@ class AdminStoreInfoController extends RootAdminController
                     AdminStore::where('id', $storeId)->update([$name => $templateKey]);
 
                     gp247_notice_add(type:'template', typeId: $templateKey, content:'admin_notice.gp247_template_change::old__'.$oldTepmlateKey.'::new__'.$templateKey);
-                    gp247_extension_update();
+                    gp247_extension_after_update();
 
                     $error = 0;
                 } else {
