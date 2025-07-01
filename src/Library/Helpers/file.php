@@ -295,6 +295,7 @@ if (!function_exists('gp247_process_private_folder') && !in_array('gp247_process
 
     function gp247_process_private_folder()
     {
+        // For link uploads?type=
         //Process private folder for laravel file manager if packages multi app exist
         if (session('partner_id') && \Illuminate\Support\Str::startsWith(request('type'),['pmo_','partner_'])) {
             return session('partner_id');
