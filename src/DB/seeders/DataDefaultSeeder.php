@@ -198,7 +198,7 @@ class DataDefaultSeeder extends Seeder
             'address' => '123st - abc - xyz',
             'language' => $language,
             'currency' => 'USD',
-            'code' => 'gp247',
+            'code' => 'gp247_shop',
             'domain' => $domain]
         ];
         return $dataAdminStore;
