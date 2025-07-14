@@ -282,6 +282,17 @@ class AdminStore extends Model
             '--class' => '\GP247\Shop\DB\seeders\DataShopDefaultSeeder',
             '--force' => true
         ]);
+
+        //Setup store with template
+        $template = $store->template;
+        $classTemplate = 'App\GP247\Templates\\'.$template.'\AppConfig';
+        if (class_exists($classTemplate)) {
+            $template = new $classTemplate;
+            if (method_exists($template, 'setupStore')) {
+                $template->setupStore($storeId);
+            }
+        }
+
         session()->forget('lastStoreTemplate');
         session()->forget('lastStoreId');
     }

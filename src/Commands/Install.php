@@ -33,7 +33,7 @@ class Install extends Command
         $force = $this->option('force') ?? 0;
 
         if (!$force) {
-            if (!$this->checkGP247Installed()) {         
+            if (!$this->checkGP247Installed()) {
                 return Command::FAILURE;
             }
             if ($this->confirm('Are you sure you want to install GP247?')) {

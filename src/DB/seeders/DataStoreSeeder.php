@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\DB;
 
 class DataStoreSeeder extends Seeder
 {
-    public function getTemplateDefault() {
-        return  empty(session('lastStoreTemplate')) ? (defined('GP247_TEMPLATE_FRONT_DEFAULT') ? GP247_TEMPLATE_FRONT_DEFAULT : 'Default') : session('lastStoreTemplate');
-    }
     /**
      * Run the database seeds.
      *
@@ -23,15 +20,6 @@ class DataStoreSeeder extends Seeder
         //Insert config default for new store
         $dataConfig = $this->dataConfig($storeId);
         $db->table(GP247_DB_PREFIX.'admin_config')->insert($dataConfig);
-
-        //Setup store with template
-        $classTemplate = 'App\GP247\Templates\\'.$this->getTemplateDefault().'\AppConfig';
-        if (class_exists($classTemplate)) {
-            $template = new $classTemplate;
-            if (method_exists($template, 'setupStore')) {
-                $template->setupStore($storeId);
-            }
-        }
     }
     
     public function dataConfig($storeId) {
