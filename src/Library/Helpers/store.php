@@ -21,7 +21,7 @@ if (!function_exists('gp247_store_get_domain_from_code') && !in_array('gp247_sto
     {
         $domainList = \GP247\Core\Models\AdminStore::getStoreDomainByCode();
         if (!empty($domainList[$code])) {
-            return 'http://'.$domainList[$code];
+            return 'https://'.$domainList[$code];
         } else {
             return url('/');
         }
@@ -163,7 +163,7 @@ if (!function_exists('gp247_store_info') && !in_array('gp247_store_info', config
      *
      * @return  [mix]
      */
-    function gp247_store_info(string $key = null, $default = null, $storeId = null)
+    function gp247_store_info(string $key, $default = null, $storeId = null)
     {
         $storeId = ($storeId == null) ? config('app.storeId') : $storeId;
 
