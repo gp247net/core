@@ -121,7 +121,7 @@ return new class extends Migration
             $table->string('warehouse', 300)->nullable();
             $table->string('template', 100)->nullable();
             $table->string('domain', 100)->nullable()->index()->comment('Use for multi-store, multi-vendor');
-            $table->string('partner', 10)->default(0)->index()->comment('Use for multi-vendor');
+            $table->integer('partner')->default(0)->index()->comment('Use for multi-vendor');
             $table->string('code', 20)->nullable()->unique();
             $table->string('language', 10);
             $table->string('currency', 10);
