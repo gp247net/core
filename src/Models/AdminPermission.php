@@ -73,7 +73,7 @@ class AdminPermission extends Model
      */
     public static function updateInfo($dataUpdate, $id)
     {
-        $dataUpdate = $dataUpdate;
+        $dataUpdate = gp247_clean(data:$dataUpdate, hight: true);
         $obj = self::find($id);
         return $obj->update($dataUpdate);
     }
@@ -84,6 +84,7 @@ class AdminPermission extends Model
      */
     public static function createPermission($dataCreate)
     {
+        $dataCreate = gp247_clean(data:$dataCreate, hight: true);
         return self::create($dataCreate);
     }
 }

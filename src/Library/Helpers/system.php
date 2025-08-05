@@ -179,6 +179,7 @@ if (!function_exists('gp247_config_update') && !in_array('gp247_config_update', 
         //Update config
         if (is_array($dataUpdate)) {
             if (count($dataUpdate) == 1) {
+                $dataUpdate = gp247_clean(data:$dataUpdate, hight: true);
                 foreach ($dataUpdate as $k => $v) {
                     return AdminConfig::where('store_id', $storeId)
                         ->where('key', $k)

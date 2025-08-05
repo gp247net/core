@@ -112,6 +112,7 @@ class LoginController extends RootAdminController
     {
         $user = admin()->user();
         $data = request()->all();
+        $data = gp247_clean(data:$data, hight: true);
         $dataOrigin = request()->all();
         $validator = Validator::make($dataOrigin, [
             'name' => 'required|string|max:100',

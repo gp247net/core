@@ -49,6 +49,7 @@ class AdminPasswordPolicyController extends RootAdminController
             return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.method_not_allow')]);
         } else {
             $data = request()->all();
+            $data = gp247_clean(data:$data, hight: true);
             $name = $data['name'];
             $value = $data['value'];
             $storeId = $data['storeId'] ?? '';

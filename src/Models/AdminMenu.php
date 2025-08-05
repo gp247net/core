@@ -156,6 +156,7 @@ class AdminMenu extends Model
      */
     public static function createMenu($dataCreate)
     {
+        $dataCreate = gp247_clean(data:$dataCreate, hight: true);
         return self::create($dataCreate);
     }
     
