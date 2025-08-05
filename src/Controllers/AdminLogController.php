@@ -84,7 +84,7 @@ class AdminLogController extends RootAdminController
                 'method' => '<span class="badge bg-' . (AdminLog::$methodColors[$row['method']] ?? '') . '">' . $row['method'] . '</span>',
                 'path' => '<code>' . $row['path'] . '</code>',
                 'ip' => $row['ip'],
-                'user_agent' => $row['user_agent'],
+                'user_agent' => htmlspecialchars($row['user_agent']),
                 'input' => htmlspecialchars($row['input']),
                 'created_at' => $row['created_at'],
                 'action' => $action,
