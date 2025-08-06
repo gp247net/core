@@ -116,7 +116,7 @@ if (!function_exists('gp247_store_check_multi_partner_installed') && !in_array('
             return 
             gp247_config_global('MultiVendorPro') 
             || gp247_config_global('MultiVendor')
-            || gp247_config_global('Pmo');
+            || gp247_config_global('Pmo247');
         }
 }
 
