@@ -109,8 +109,13 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
             if($requireExtensions) {
                 //Check extension installed (plugin or template)
                 $listExtensionsInstalled = gp247_extension_get_installed(type: 'Extension');
+                if (count($listExtensionsInstalled)) {
+                    $listExtensionsInstalled = $listExtensionsInstalled->toArray();
+                } else {
+                    $listExtensionsInstalled = [];
+                }
                 foreach($requireExtensions as $extension) {
-                    if(!in_array($extension, $listExtensionsInstalled)) {
+                    if(!in_array($extension, array_keys($listExtensionsInstalled))) {
                         $arrRequireFaild['requireExtensions'][] = $extension;
                     }
                 }
