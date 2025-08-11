@@ -40,7 +40,7 @@ class AdminConfig extends Model
             $query = $query->where('value', 1);
         }
         $data = $query->orderBy('sort', 'desc')
-            ->get()->keyBy('key')->toArray();
+            ->get()->keyBy('key');
         return $data;
     }
 
