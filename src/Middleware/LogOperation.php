@@ -26,7 +26,7 @@ class LogOperation
                 'user_id' => admin()->user()->id,
                 'path' => substr($request->path(), 0, 255),
                 'method' => $request->method(),
-                'ip' => $request->getClientIp(),
+                'ip' => gp247_get_real_ip_client(),
                 'user_agent' => $request->header('User-Agent'),
                 'input' => json_encode($request->except($adminLogExcept)),
             ];
