@@ -139,14 +139,25 @@
       <div class="col-md-7">
         <div class="card">
           <div class="card-header with-border">
-            <input class="switch-data-config" data-on-text="ON CONNECTION"  data-off-text="OFF CONNECTION" name="api_connection_required" type="checkbox"  {{ (gp247_config_global('api_connection_required')?'checked':'') }}>
-            <br>&nbsp; {!! gp247_language_render('admin.api_connection.api_connection_required_help') !!}
-          <div style="padding-left:10px; color:#ad846f">
-            @foreach ($listApi as $item)
-              {{ $item }}<br>
-            @endforeach
+            <div class="api-switch-row"><span class="api-switch-label">{!! gp247_language_render('admin.api_connection.service') !!}</span><input class="switch-data-config" data-on-text="ON"  data-off-text="OFF" name="api_connection_required" type="checkbox"  {{ (gp247_config_global('api_connection_required')?'checked':'') }}></div>
+            <div class="api-list">
+              <b>List API:</b><br>
+              @foreach ($listApi as $item)
+                <span class="api-list-item">{{ $item }}</span>
+              @endforeach
+            </div>
           </div>
+          
+          <div class="api-help">{!! gp247_language_render('admin.api_connection.api_connection_required_help') !!}</div>
 
+          <div class="api-usage">
+            <span>curl -X GET "https://api.example.com/api/resource" \<br>
+            -H "Content-Type: application/json" \<br>
+            -H "Authorization: Bearer your-bearer-token"<br>
+            </span>
+            <span class="text-red api-use-connection {{ (gp247_config_global('api_connection_required') ? '' : 'd-none') }}">
+            -H "<b>apiconnection</b>: your-connection-id" \<br>
+            -H "<b>apikey</b>: your-api-key" \<br> </span>
           </div>
     
           <div class="box-body table-responsive">
@@ -196,7 +207,72 @@
 @endsection
 
 @push('styles')
-
+<style>
+  /* Style API usage block */
+  .api-usage {
+    margin: 8px 15px 15px 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 12px 14px;
+  }
+  /* Help text and API list */
+  .api-help {
+    margin: 8px 15px 8px 15px;
+    padding: 8px 12px;
+    background: #f6f9ff;
+    border: 1px solid #e6edff;
+    border-left: 3px solid #0d6efd; /* primary accent */
+    border-radius: 4px;
+    color: #495057;
+  }
+  .api-help a { color: #0d6efd; text-decoration: underline; font-weight: 600; }
+  .api-list {
+    margin: 6px 0 10px 10px;
+    padding: 8px 10px;
+    background: #fdfdfd;
+    border: 1px dashed #d3d7db;
+    border-radius: 4px;
+    color: #6b5a4b;
+  }
+  .api-list-item {
+    display: block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+    margin: 2px 0;
+    color: #7a7a7a;
+  }
+  /* Header row for API switch */
+  .api-switch-row {
+    display: flex;
+    align-items: center; /* center vertically */
+    gap: 10px;
+  }
+  .api-switch-label {
+    margin: 0;
+    line-height: 1; /* avoid extra vertical offset */
+  }
+  /* Monospace for command lines */
+  .api-usage span {
+    display: block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    color: #212529;
+    white-space: normal;
+  }
+  /* Highlight required headers when connection is required */
+  .api-use-connection {
+    margin-top: 6px;
+    background: #fff5f5;
+    border-left: 3px solid #dc3545;
+    padding-left: 8px;
+  }
+  .api-use-connection b { color: #c82333; }
+  /* Align label and switch nicely */
+  .card-header.with-border .float-left { margin-right: 10px; line-height: 24px; }
+  .card-header.with-border .switch-data-config { margin-left: 8px; }
+</style>
 @endpush
 
 @push('scripts')
@@ -238,6 +314,12 @@ $("input.switch-data-config").bootstrapSwitch();
         success: function (response) {
           if(parseInt(response.error) ==0){
             alertMsg('success', '{{ gp247_language_render('admin.msg_change_success') }}');
+            // Update visibility of API usage headers when server confirms the change
+            if (state === true) {
+              $('.api-use-connection').removeClass('d-none');
+            } else {
+              $('.api-use-connection').addClass('d-none');
+            }
           }else{
             alertMsg('error', response.msg);
           }

@@ -827,12 +827,10 @@ class DataLocaleSeeder extends Seeder
             ['code' => 'admin.api_connection.create','text' => 'Create new connection','position' => 'admin.api_connection','location' => 'en'],
             ['code' => 'admin.api_connection.edit','text' => 'Chỉnh sửa connection','position' => 'admin.api_connection','location' => 'vi'],
             ['code' => 'admin.api_connection.edit','text' => 'Edit connection','position' => 'admin.api_connection','location' => 'en'],
-            ['code' => 'admin.api_connection.api_connection_required_help','text' => '<ul><li>Nếu không sử dụng apikey và apiconnection, hãy chuyển sang trạng thái "OFF CONNECTION"</li></ul>
-                <a href="https://gp247.net/vi/docs/developer/about-api-gp247.html" target="_new"><i class="fa fa-info-circle" aria-hidden="true">Xem chi tiết ở đây</i></a>
-                ','position' => 'admin.api_connection','location' => 'vi'],
-            ['code' => 'admin.api_connection.api_connection_required_help','text' => '<ul><li>If apikey and apiconnection are not used, switch to "OFF CONNECTION" state</li></ul>
-                <i class="fa fa-info-circle" aria-hidden="true"></i>List API
-                ','position' => 'admin.api_connection','location' => 'en'],
+            ['code' => 'admin.api_connection.api_connection_required_help','text' => 'Hướng dẫn sử dụng.<br>Link hướng dẫn chi tiết: <a href="https://gp247.net/vi/docs/user-guide-extension/about-api-gp247.html" target="_new">Ở ĐÂY</a>','position' => 'admin.api_connection','location' => 'vi'],
+            ['code' => 'admin.api_connection.api_connection_required_help','text' => 'Guide use.<br>Link guide detail: <a href="https://gp247.net/en/docs/user-guide-extension/about-api-gp247.html" target="_new">HERE</a>','position' => 'admin.api_connection','location' => 'en'],
+            ['code' => 'admin.api_connection.service','text' => 'Bảo mật bằng API connection','position' => 'admin.api_connection','location' => 'vi'],
+            ['code' => 'admin.api_connection.service','text' => 'Security with API connection','position' => 'admin.api_connection','location' => 'en'],
             ['code' => 'admin.result_item','text' => 'Showing <b>:item_from</b>-<b>:item_to</b> of <b>:total</b> results</b>','position' => 'admin','location' => 'en'],
             ['code' => 'admin.result_item','text' => 'Hiển thị <b>:item_from</b>-<b>:item_to</b> của <b>:total</b> kết quả</b>','position' => 'admin','location' => 'vi'],
             ['code' => 'admin.method_not_allow','text' => 'Method not allow','position' => 'admin','location' => 'en'],
@@ -1432,9 +1430,6 @@ class DataLocaleSeeder extends Seeder
             ['code' => 'admin.api_connection.create','text' => 'Create new connection','position' => 'admin.api_connection','location' => 'en'],
             ['code' => 'admin.api_connection.edit','text' => 'Chỉnh sửa connection','position' => 'admin.api_connection','location' => 'vi'],
             ['code' => 'admin.api_connection.edit','text' => 'Edit connection','position' => 'admin.api_connection','location' => 'en'],
-            ['code' => 'admin.api_connection.api_connection_required_help','text' => '<ul><li>Nếu không sử dụng API, hãy hãy chuyển sang trạng thái "OFF API"</li><li>Nếu không sử dụng apikey và apiconnection, hãy chuyển sang trạng thái "OFF CONNECTION"</li></ul>
-                <i class="fa fa-info-circle" aria-hidden="true">Danh sách API:</i>
-                ','position' => 'admin.api_connection','location' => 'vi'],
 
             //admin_notice
             ['code' => 'admin_notice.gp247_templates_change','text' => 'Template vừa mới thay đổi :old thành :new','position' => 'admin_notice','location' => 'vi'],

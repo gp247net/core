@@ -136,7 +136,7 @@ class AdminApiConnectionController extends RootAdminController
         $listTh = [
             'id' => 'ID',
             'description' => gp247_language_render('admin.api_connection.description'),
-            'apiconnection' => gp247_language_render('admin.api_connection.apikey'),
+            'apiconnection' => gp247_language_render('admin.api_connection.connection'),
             'apikey' => gp247_language_render('admin.api_connection.apikey'),
             'expire' => gp247_language_render('admin.api_connection.expire'),
             'last_active' => gp247_language_render('admin.api_connection.last_active'),
