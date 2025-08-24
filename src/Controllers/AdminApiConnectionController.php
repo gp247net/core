@@ -119,12 +119,15 @@ class AdminApiConnectionController extends RootAdminController
         return redirect()->back()->with('success', gp247_language_render('action.edit_success'));
     }
 
-    private function processDataScreen(string $id = null) {
+    private function processDataScreen($id = null) {
         $routes = app()->routes->getRoutes();
-        $listApi = [];
+        $listFront = [];
+        $listCore = [];
         foreach ($routes as $route) {
-            if (\Str::startsWith($route->uri(), 'api')) {
-                $listApi[] = $route->uri();
+            if (\Str::startsWith($route->uri(), GP247_API_CORE_PREFIX)) {
+                $listCore[] = $route->uri();
+            } else if (\Str::startsWith($route->uri(), GP247_API_FRONT_PREFIX)) {
+                $listFront[] = $route->uri();
             }
         }
         $data = [
@@ -170,7 +173,8 @@ class AdminApiConnectionController extends RootAdminController
     
             $data['listTh'] = $listTh;
             $data['dataTr'] = $dataTr;
-            $data['listApi'] = $listApi;
+            $data['listCore'] = $listCore;
+            $data['listFront'] = $listFront;
             $data['pagination'] = $dataTmp->appends(request()->except(['_token', '_pjax']))->links('gp247-core::component.pagination');
             $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
         

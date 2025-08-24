@@ -140,23 +140,36 @@
         <div class="card">
           <div class="card-header with-border">
             <div class="api-switch-row"><span class="api-switch-label">{!! gp247_language_render('admin.api_connection.service') !!}</span><input class="switch-data-config" data-on-text="ON"  data-off-text="OFF" name="api_connection_required" type="checkbox"  {{ (gp247_config_global('api_connection_required')?'checked':'') }}></div>
-            <div class="api-list">
-              <b>List API:</b><br>
-              @foreach ($listApi as $item)
-                <span class="api-list-item">{{ $item }}</span>
-              @endforeach
-            </div>
+              <div class="api-list">
+                <b>List API core:</b><br>
+                @if (count($listCore) > 0)
+                    @foreach ($listCore as $item)
+                        <span class="api-list-item">{{ $item }}</span>
+                    @endforeach
+                @else
+                    <span class="api-list-item">{{ gp247_language_render('') }}</span>
+                @endif
+              </div>
+              @if (count($listFront) > 0)
+              <div class="api-list">
+                <b>List API front:</b><br>
+                    @foreach ($listFront as $item)
+                        <span class="api-list-item">{{ $item }}</span>
+                    @endforeach
+              </div>
+             @endif
           </div>
           
-          <div class="api-help">{!! gp247_language_render('admin.api_connection.api_connection_required_help') !!}</div>
+          <div class="api-help">{!! gp247_language_render('admin.api_connection.api_connection_required_help') !!}
+          </div>
 
           <div class="api-usage">
-            <span>curl -X GET "https://api.example.com/api/resource" \<br>
+            <span>curl -X GET "https://your-domain.local/api/your_resource" \<br>
             -H "Content-Type: application/json" \<br>
             -H "Authorization: Bearer your-bearer-token"<br>
             </span>
-            <span class="text-red api-use-connection {{ (gp247_config_global('api_connection_required') ? '' : 'd-none') }}">
-            -H "<b>apiconnection</b>: your-connection-id" \<br>
+            <span class="api-use-connection {{ (gp247_config_global('api_connection_required') ? '' : 'd-none') }}">
+            -H "<b>apiconnection</b>: your-connection" \<br>
             -H "<b>apikey</b>: your-api-key" \<br> </span>
           </div>
     

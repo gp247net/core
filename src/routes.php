@@ -47,13 +47,11 @@ Route::group(
 );
 
 
-// Route api admin
+// Route api
 if (config('gp247-config.env.GP247_API_MODE')) {
-    //Api core
     Route::group(
         [
             'middleware' => GP247_API_MIDDLEWARE,
-            'prefix' => GP247_API_CORE_PREFIX,
         ],
         function () {
 
@@ -61,27 +59,6 @@ if (config('gp247-config.env.GP247_API_MODE')) {
             foreach (glob(__DIR__ . '/Routes/Api/*.php') as $filename) {
                 $this->loadRoutesFrom($filename);
             }
-
-            //Load api from shop
-            foreach (glob(__DIR__ . '/../../shop/src/Routes/Api/*.php') as $filename) {
-                $this->loadRoutesFrom($filename);
-            }
-
-            //Load api from front
-            foreach (glob(__DIR__ . '/../../front/src/Routes/Api/*.php') as $filename) {
-                $this->loadRoutesFrom($filename);
-            }
-
-        }
-    );
-
-    //Api front
-    Route::group(
-        [
-            'middleware' => GP247_API_MIDDLEWARE,
-            'prefix' => 'api',
-        ],
-        function () {
 
             //Load api from shop
             foreach (glob(__DIR__ . '/../../shop/src/Routes/Api/*.php') as $filename) {

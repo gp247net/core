@@ -47,8 +47,11 @@ class AdminAuthController extends RootAdminController
         if (function_exists('gp247_event_admin_login')) {
             gp247_event_admin_login($user);
         }
-
-        $scope = explode(',', config('gp247-config.api.auth.api_scope_admin'));
+        if ($user->isRole('administrator')) {
+            $scope = explode(',', config('gp247-config.api.auth.api_scope_admin_supper'));
+        } else {
+            $scope = explode(',', config('gp247-config.api.auth.api_scope_admin'));
+        }
         
         $tokenResult = $user->createToken('Admin:'.$user->email.'- '.now(), $scope);
         $token = $tokenResult->plainTextToken;
