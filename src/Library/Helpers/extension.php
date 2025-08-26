@@ -90,7 +90,7 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
             $requirePackages = $config['requirePackages'] ?? [];
             $requireExtensions = $config['requireExtensions'] ?? [];
             if($requireCore) {
-                //Check core version gp24
+                //Check core version gp247
                 if(!in_array(config('gp247.core'), $requireCore)) {
                     $arrRequireFaild['requireCore'] = $requireCore;
                 }
