@@ -1,6 +1,6 @@
 <?php
 return [
-    'core'                 => '1.1',
+    'core'                 => '1.2',
     'homepage'             => 'https://gp247.net',
     'name'                 => 'Core laravel admin for all systems',
     'github'               => 'https://github.com/gp247net/core',

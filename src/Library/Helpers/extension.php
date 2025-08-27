@@ -3,6 +3,43 @@ use GP247\Core\Models\AdminConfig;
 use GP247\Core\Models\AdminHome;
 use Illuminate\Support\Facades\Artisan;
 
+if (!function_exists('gp247_extension_version_in_required_core_ranges') && !in_array('gp247_extension_version_in_required_core_ranges', config('gp247_functions_except', []))) {
+    /**
+     * Check current core version is within any required ranges.
+     * A required item like "1.2" means: >= 1.2.0 and < 2.0.0
+     * Multiple items mean union of ranges.
+     */
+    function gp247_extension_version_in_required_core_ranges(array $requireCore, string $currentVersion): bool
+    {
+        $normalize = function ($version) {
+            $version = trim((string) $version);
+            if ($version === '') {
+                return '0.0.0';
+            }
+            $parts = explode('.', $version);
+            $parts = array_slice(array_merge($parts, ['0', '0', '0']), 0, 3);
+            return implode('.', $parts);
+        };
+
+        $current = $normalize($currentVersion);
+
+        foreach ($requireCore as $start) {
+            if (!is_string($start) || $start === '') {
+                continue;
+            }
+            $startNorm = $normalize($start);
+            $major = (int) explode('.', $startNorm)[0];
+            $upper = ($major + 1) . '.0.0';
+
+            if (version_compare($current, $startNorm, '>=') && version_compare($current, $upper, '<')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 if (!function_exists('gp247_extension_get_all_local') && !in_array('gp247_extension_get_all_local', config('gp247_functions_except', []))) {
     /**
      * Get all extension local
@@ -90,8 +127,9 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
             $requirePackages = $config['requirePackages'] ?? [];
             $requireExtensions = $config['requireExtensions'] ?? [];
             if($requireCore) {
-                //Check core version gp247
-                if(!in_array(config('gp247.core'), $requireCore)) {
+                // Check core version gp247 by ranges
+                $currentCore = config('gp247.core') ?? (gp247_composer_get_package_installed()['gp247/core'] ?? null);
+                if (!$currentCore || !gp247_extension_version_in_required_core_ranges($requireCore, $currentCore)) {
                     $arrRequireFaild['requireCore'] = $requireCore;
                 }
             }

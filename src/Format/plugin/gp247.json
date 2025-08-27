@@ -8,7 +8,7 @@
     "configCode": "Extension_Key",
     "configKey": "Extension_Key",
     "version": "1.0",
-    "requireCore": ["1.1"],
+    "requireCore": ["1.2"],
     "requirePackages": [],
     "requireExtensions": []
 }
