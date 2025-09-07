@@ -4,7 +4,7 @@
 <p align="center">Core Laravel admin cho tất cả các hệ thống (thương mại điện tử, cms, pmo...)<br>
     <code><b>composer require gp247/core</b></code></p>
 <p align="center">
- <a href="https://gp247.net">Hướng dẫn cài đặt và tài liệu</a>
+ <a href="https://gp247.net">Hướng dẫn cài đặt và tài liệu</a> | <a href="https://www.facebook.com/GP247.official/">Facebook Official</a>
 </p>
 
 <p align="center">

@@ -4,7 +4,7 @@
 <p align="center">Core Laravel admin for all systems (ecommerce, cms, pmo...)<br>
     <code><b>composer require gp247/core</b></code></p>
 <p align="center">
- <a href="https://gp247.net">Installation and documentation</a>
+ <a href="https://gp247.net">Installation and documentation</a> | <a href="https://www.facebook.com/GP247.official/">Facebook Official</a>
 </p>
 
 <p align="center">
