@@ -97,9 +97,7 @@
     if (array_key_exists($extension['key'], $arrExtensionsLocal)) 
     {
       $extensionAction = '<span title="'.gp247_language_render('admin.extension.located').'" class="btn btn-flat btn-default"><i class="fa fa-check" aria-hidden="true"></i></span>';
-    } elseif(!in_array(config('gp247.core'), $gp247Version)) {
-      $extensionAction = '';
-    } else {
+    }  else {
       if(($extension['is_free'] || $extension['price_final'] == 0)) {
        $extensionAction = '<span onClick="installExtension($(this),\''.$extension['key'].'\', \''.$extension['file'].'\');" title="'.gp247_language_render('admin.extension.install').'" type="button" class="btn btn-flat btn-success"><i class="fa fa-plus-circle"></i></span>';
       } else {
@@ -112,7 +110,7 @@
                     <td>{{ $extension['key'] }}</td>
                     <td>{{ $extension['name'] }} <span data-toggle="tooltip" title="{!! $extension['description'] !!}"><i class="fa fa-info-circle" aria-hidden="true"></i></span></td>
                     <td>{{ $extension['version']??'' }}</td>
-                    <td><b>GP247:</b> {!! $gp247RenderVersion !!}</td>
+                    <td><b>Core</b> >= {!! $gp247RenderVersion !!}</td>
                     <td>{{ $extension['username']??'' }}</td>
                     <td class="pointer" onclick="imagedemo('{{ $extension['image_demo']??'' }}')"><a>{{ gp247_language_render('admin.extension.click_here') }}</a></td>
                     <td>
