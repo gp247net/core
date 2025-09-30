@@ -202,6 +202,15 @@ trait ExtensionOnlineController
 
         try {
             $data = file_get_contents($path);
+            
+            // Check if response is JSON error instead of zip file
+            $jsonData = json_decode($data, true);
+            if (json_last_error() === JSON_ERROR_NONE && isset($jsonData['error']) && $jsonData['error'] == 1) {
+                $errorMsg = $jsonData['msg'] ?? 'Unknown error';
+                $errorDetail = isset($jsonData['detail']) ? ' - ' . $jsonData['detail'] : '';
+                return response()->json(['error' => 1, 'msg' => $errorMsg . $errorDetail]);
+            }
+            
             $pathTmp = $key.'_'.time();
             $fileTmp = $pathTmp.'.zip';
             Storage::disk('tmp')->put($pathTmp.'/'.$fileTmp, $data);
