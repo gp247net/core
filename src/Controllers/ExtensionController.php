@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\File;
 
 trait  ExtensionController
 {
+    const MAX_FILE_SIZE = 50; // 50MB
+
     public function index()
     {
         $action = request('action');
@@ -173,9 +175,21 @@ trait  ExtensionController
         } else {
             $urlAction = gp247_route_admin('admin_plugin.process_import');
         }
+        
+        // Calculate server limits for upload
+        $uploadMaxFilesize = ini_get('upload_max_filesize');
+        $postMaxSize = ini_get('post_max_size');
+        $maxSizeInMB = min(gp247_getMaximumFileUploadSize('M'), self::MAX_FILE_SIZE);
+        $maxSizeInBytes = gp247_convertPHPSizeToBytes($postMaxSize);
+        $uploadMaxBytes = gp247_convertPHPSizeToBytes($uploadMaxFilesize);
+        
         $data =  [
             'title' => gp247_language_render('admin.extension.import').': '.$this->groupType,
-            'urlAction' => $urlAction
+            'urlAction' => $urlAction,
+            'uploadMaxFilesize' => $uploadMaxFilesize,
+            'postMaxSize' => $postMaxSize,
+            'maxSizeInMB' => number_format($maxSizeInMB, 2),
+            'maxSizeInBytes' => min($uploadMaxBytes, $maxSizeInBytes, self::MAX_FILE_SIZE * 1024 * 1024), // 50MB
         ];
         return view('gp247-core::screen.extension_upload')
         ->with($data);
@@ -188,11 +202,63 @@ trait  ExtensionController
      */
     public function processImport()
     {
+        // Handle case when POST data exceeds post_max_size (PHP rejects entire request)
+        // When this happens, PHP sets $_POST and $_FILES to empty arrays
+        // but CONTENT_LENGTH header still contains the actual request size
+        $contentLength = $_SERVER['CONTENT_LENGTH'] ?? 0;
+        
+        if ($contentLength > 0 && empty($_POST) && empty($_FILES)) {
+            $postMaxSize = ini_get('post_max_size');
+            $uploadMaxSize = ini_get('upload_max_filesize');
+            
+            $msg = sprintf(
+                'Upload rejected by server: File size (%s) exceeds post_max_size limit (%s). ' .
+                'Current server limits: upload_max_filesize=%s, post_max_size=%s. ' .
+                'Please choose a smaller file (max %s) or contact administrator to increase server limits.',
+                number_format($contentLength / 1048576, 2) . ' MB',
+                $postMaxSize,
+                $uploadMaxSize,
+                $postMaxSize,
+                number_format(min(gp247_getMaximumFileUploadSize('M'), self::MAX_FILE_SIZE), 2) . ' MB'
+            );
+            return redirect()->back()->with('error', $msg);
+        }
+        
         $data = request()->all();
+        
+        // Check if file uploaded successfully before validation
+        if (request()->hasFile('file')) {
+            $uploadedFile = request()->file('file');
+            if (!$uploadedFile->isValid()) {
+                $errorCode = $uploadedFile->getError();
+                $errorMessages = [
+                    UPLOAD_ERR_INI_SIZE   => 'File size exceeds upload_max_filesize (' . ini_get('upload_max_filesize') . ') in php.ini',
+                    UPLOAD_ERR_FORM_SIZE  => 'File size exceeds MAX_FILE_SIZE directive in HTML form',
+                    UPLOAD_ERR_PARTIAL    => 'File was only partially uploaded',
+                    UPLOAD_ERR_NO_FILE    => 'No file was uploaded',
+                    UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
+                    UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+                    UPLOAD_ERR_EXTENSION  => 'A PHP extension stopped the file upload',
+                ];
+                $errorMsg = $errorMessages[$errorCode] ?? 'Unknown upload error (code: ' . $errorCode . ')';
+                return redirect()->back()->with('error', 'Upload failed: ' . $errorMsg);
+            }
+        }
+        
+        // Calculate max upload size allowed (min between PHP config and 50MB limit)
+        $maxSizeConfig = gp247_getMaximumFileUploadSize($unit = 'K');
+        $maxAllowed = min($maxSizeConfig, self::MAX_FILE_SIZE * 1024); // 50MB in KB
+        
         $validator = \Validator::make(
             $data,
             [
-                'file'   => 'required|mimetypes:application/zip|max:'.min($maxSizeConfig = gp247_getMaximumFileUploadSize($unit = 'K'), 51200),
+                // Use 'mimes:zip' instead of 'mimetypes' for better compatibility across OS
+                'file' => 'required|file|mimes:zip|max:' . $maxAllowed,
+            ],
+            [
+                'file.required' => 'Please select a file to upload',
+                'file.mimes'    => 'File must be a ZIP archive',
+                'file.max'      => 'File size must not exceed ' . number_format($maxAllowed / 1024, 2) . ' MB (current limit: upload_max_filesize=' . ini_get('upload_max_filesize') . ', post_max_size=' . ini_get('post_max_size') . ')',
             ]
         );
 
