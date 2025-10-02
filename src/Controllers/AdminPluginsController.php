@@ -24,6 +24,7 @@ class AdminPluginsController extends RootAdminController
             'uninstall' => gp247_route_admin('admin_plugin.uninstall'),
             'enable' => gp247_route_admin('admin_plugin.enable'),
             'disable' => gp247_route_admin('admin_plugin.disable'),
+            'urlLocal' => gp247_route_admin('admin_plugin.index'),
             'urlOnline' => gp247_route_admin('admin_plugin_online.index'),
             'urlImport' => gp247_route_admin('admin_plugin.import'),
         ];

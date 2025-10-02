@@ -190,6 +190,8 @@ trait  ExtensionController
             'postMaxSize' => $postMaxSize,
             'maxSizeInMB' => number_format($maxSizeInMB, 2),
             'maxSizeInBytes' => min($uploadMaxBytes, $maxSizeInBytes, self::MAX_FILE_SIZE * 1024 * 1024), // 50MB
+            'listUrlAction' => $this->listUrlAction,
+            'configExtension' => config('gp247-config.admin.api_'.strtolower($this->groupType)),
         ];
         return view('gp247-core::screen.extension_upload')
         ->with($data);
