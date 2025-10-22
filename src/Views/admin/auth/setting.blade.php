@@ -187,6 +187,19 @@
                             </div>
 {{-- //select permission --}}
 
+
+@if(function_exists('mfa_get_guard_config') && mfa_get_guard_config('admin')['enabled'])
+<div class="form-group row">
+    <label for="roles" class="col-sm-2  control-label">
+        <a href="{{ gp247_route_front('mfa.manage', ['guard' => 'admin']) }}"><span class="fas fa-user-shield" aria-hidden="true"></span> {{ gp247_language_render('Plugins/MFA::lang.admin_title') }}</a>
+    </label>
+    <div class="col-sm-8">
+        
+    </div>
+</div>
+@endif
+
+
                         </div>
                     </div>
 
