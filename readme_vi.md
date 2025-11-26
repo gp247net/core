@@ -11,6 +11,7 @@
 <a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/d/total.svg" alt="Tổng lượt tải"></a>
 <a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/v/stable.svg" alt="Phiên bản ổn định mới nhất"></a>
 <a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/license.svg" alt="Giấy phép"></a>
+<a href="https://deepwiki.com/gp247net/core"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 ## Giới thiệu về GP247

@@ -11,6 +11,7 @@
 <a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/d/total.svg" alt="Total Downloads"></a>
 <a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/v/stable.svg" alt="Latest Stable Version"></a>
 <a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/license.svg" alt="License"></a>
+<a href="https://deepwiki.com/gp247net/core"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 ## About GP247
