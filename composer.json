@@ -14,7 +14,7 @@
       "php": "^8.3",
       "unisharp/laravel-filemanager": "^2.15",
       "intervention/image-laravel": "^1.5",
-      "spatie/laravel-json-api-paginate": "^1.16",
+      "spatie/laravel-json-api-paginate": "^2.0",
       "phpoffice/phpspreadsheet": "^2.0",
       "jenssegers/agent": "^2.6",
       "barryvdh/laravel-dompdf": "^v3.1",
