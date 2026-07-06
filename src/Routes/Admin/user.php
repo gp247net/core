@@ -7,7 +7,7 @@ use GP247\Core\AdminShell\Http\Livewire\UserManager;
 // (canonical); create/edit/delete run inside the component over livewire/update, so
 // legacy POST routes are removed (US-AUI-010/011).
 Route::group(['prefix' => 'user'], function () {
-    Route::get('/', UserManager::class)->name('admin_user.index');
-    Route::get('create', UserManager::class)->name('admin_user.create');
-    Route::get('edit/{id}', UserManager::class)->name('admin_user.edit');
+    Route::get('/', gp247_namespace(UserManager::class))->name('admin_user.index');
+    Route::get('create', gp247_namespace(UserManager::class))->name('admin_user.create');
+    Route::get('edit/{id}', gp247_namespace(UserManager::class))->name('admin_user.edit');
 });

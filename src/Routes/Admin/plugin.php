@@ -1,35 +1,36 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminPluginsController.php'))) {
-    $nameSpaceAdminPlugin = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminPlugin = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'plugin'], function () use ($nameSpaceAdminPlugin) {
+
+use GP247\Core\Controllers\AdminPluginsController;
+use GP247\Core\Controllers\AdminPluginsOnlineController;
+
+$pluginController = gp247_namespace(AdminPluginsController::class);
+Route::group(['prefix' => 'plugin'], function () use ($pluginController) {
     //Process import
-    Route::get('/import', $nameSpaceAdminPlugin.'\AdminPluginsController@importExtension')
+    Route::get('/import', $pluginController.'@importExtension')
         ->name('admin_plugin.import');
-    Route::post('/import', $nameSpaceAdminPlugin.'\AdminPluginsController@processImport')
+    Route::post('/import', $pluginController.'@processImport')
         ->name('admin_plugin.process_import');
     //End process
-    
-    Route::get('', $nameSpaceAdminPlugin.'\AdminPluginsController@index')
+
+    Route::get('', $pluginController.'@index')
         ->name('admin_plugin.index');
-    Route::post('/install', $nameSpaceAdminPlugin.'\AdminPluginsController@install')
+    Route::post('/install', $pluginController.'@install')
         ->name('admin_plugin.install');
-    Route::post('/uninstall', $nameSpaceAdminPlugin.'\AdminPluginsController@uninstall')
+    Route::post('/uninstall', $pluginController.'@uninstall')
         ->name('admin_plugin.uninstall');
-    Route::post('/enable', $nameSpaceAdminPlugin.'\AdminPluginsController@enable')
+    Route::post('/enable', $pluginController.'@enable')
         ->name('admin_plugin.enable');
-    Route::post('/disable', $nameSpaceAdminPlugin.'\AdminPluginsController@disable')
+    Route::post('/disable', $pluginController.'@disable')
         ->name('admin_plugin.disable');
 
     if (config('gp247-config.admin.api_plugins')) {
-        Route::get('/online', $nameSpaceAdminPlugin.'\AdminPluginsOnlineController@index')
+        $pluginOnlineController = gp247_namespace(AdminPluginsOnlineController::class);
+        Route::get('/online', $pluginOnlineController.'@index')
         ->name('admin_plugin_online.index');
-        Route::post('/install/online', $nameSpaceAdminPlugin.'\AdminPluginsOnlineController@install')
+        Route::post('/install/online', $pluginOnlineController.'@install')
             ->name('admin_plugin_online.install');
         // Route register api license
-        Route::post('/register-license', $nameSpaceAdminPlugin.'\AdminPluginsOnlineController@registerLicense')
+        Route::post('/register-license', $pluginOnlineController.'@registerLicense')
             ->name('admin_plugin_online.register-license');
     }
 });

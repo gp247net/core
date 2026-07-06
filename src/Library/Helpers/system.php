@@ -263,3 +263,38 @@ if (!function_exists('gp247_add_module') && !in_array('gp247_add_module', config
         config(['gp247-module.'.$position => $positions]);
     }
 }
+
+if (!function_exists('gp247_namespace') && !in_array('gp247_namespace', config('gp247_functions_except', []))) {
+    /**
+     * Resolve the class a route should actually point to: an app-level
+     * override when the developer created one, otherwise the package's own
+     * class unchanged.
+     *
+     * Generalises the long-standing `file_exists(app_path('GP247/.../XController.php'))
+     * ? App\GP247\...\XController : GP247\...\XController` convention used by
+     * admin/front/api routes across core, front and shop, so every package
+     * (including AdminShell Livewire component routes, which previously
+     * hardcoded the vendor class) supports the same customization point.
+     *
+     * Override convention: for `GP247\Core\AdminShell\Http\Livewire\UserManager`,
+     * create `app/GP247/Core/AdminShell/Http/Livewire/UserManager.php` with
+     * `class UserManager extends \GP247\Core\AdminShell\Http\Livewire\UserManager`.
+     * Works as a route target unchanged, whether used as `SomeClass::class`
+     * (Livewire full-page components) or `gp247_namespace(X::class).'@method'`
+     * (classic controller actions).
+     *
+     * @param string $vendorClass Fully-qualified vendor class, e.g. UserManager::class.
+     * @return string The app override class if present, else $vendorClass unchanged.
+     */
+    function gp247_namespace(string $vendorClass): string
+    {
+        if (!str_starts_with($vendorClass, 'GP247\\')) {
+            return $vendorClass;
+        }
+
+        $relative = substr($vendorClass, strlen('GP247\\'));
+        $path = app_path('GP247/' . str_replace('\\', '/', $relative) . '.php');
+
+        return file_exists($path) ? ('App\\GP247\\' . $relative) : $vendorClass;
+    }
+}

@@ -1,39 +1,34 @@
 <?php
+
+use GP247\Core\Api\Controllers\AdminAuthController;
+use GP247\Core\Api\Controllers\AdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::group([
     'prefix' => GP247_API_CORE_PREFIX,
 ], function (){
-    
+
     $listAbility = [
         config('gp247-config.api.auth.api_scope_admin'),
         config('gp247-config.api.auth.api_scope_admin_supper')
     ];
 
-    if (file_exists(app_path('GP247/Core/Api/Controllers/AdminAuthController.php'))) {
-        $nameSpaceAdminAuth = 'App\GP247\Core\Api\Controllers';
-    } else {
-        $nameSpaceAdminAuth = 'GP247\Core\Api\Controllers';
-    }
+    $authController = gp247_namespace(AdminAuthController::class);
     //Login
-    Route::post('login', $nameSpaceAdminAuth.'\AdminAuthController@login');
+    Route::post('login', $authController.'@login');
 
     Route::group([
         'middleware' => [
-            'auth:admin-api', 
+            'auth:admin-api',
             'ability:'.implode(',', $listAbility)
         ]
-    ], function () use($nameSpaceAdminAuth){
+    ], function () use($authController){
         //Logout
-        Route::get('logout', $nameSpaceAdminAuth.'\AdminAuthController@logout');
-        
+        Route::get('logout', $authController.'@logout');
+
         //Admin info
-        if (file_exists(app_path('GP247/Core/Api/Controllers/AdminController.php'))) {
-            $nameSpaceHome = 'App\GP247\Core\Api\Controllers';
-        } else {
-            $nameSpaceHome = 'GP247\Core\Api\Controllers';
-        }
-        Route::get('info', $nameSpaceHome.'\AdminController@getInfo');
+        $adminController = gp247_namespace(AdminController::class);
+        Route::get('info', $adminController.'@getInfo');
     });
 
 

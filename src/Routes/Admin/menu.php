@@ -7,6 +7,6 @@ use GP247\Core\AdminShell\Http\Livewire\MenuManager;
 // (canonical); create/edit/delete/sort run inside the component over livewire/update,
 // so legacy POST routes are removed (US-AUI-010/011).
 Route::group(['prefix' => 'menu'], function () {
-    Route::get('/', MenuManager::class)->name('admin_menu.index');
-    Route::get('edit/{id}', MenuManager::class)->name('admin_menu.edit');
+    Route::get('/', gp247_namespace(MenuManager::class))->name('admin_menu.index');
+    Route::get('edit/{id}', gp247_namespace(MenuManager::class))->name('admin_menu.edit');
 });

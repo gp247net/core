@@ -7,5 +7,5 @@ use GP247\Core\AdminShell\Http\Livewire\AdminLogList;
 // delete runs inside the component over livewire/update, so the legacy POST route is
 // removed (US-AUI-010/011).
 Route::group(['prefix' => 'log'], function () {
-    Route::get('/', AdminLogList::class)->name('admin_log.index');
+    Route::get('/', gp247_namespace(AdminLogList::class))->name('admin_log.index');
 });

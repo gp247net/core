@@ -8,5 +8,5 @@ use Illuminate\Support\Facades\Route;
 // (update, add) are removed — no external references outside old controller.
 // Route name admin_language_manager.index kept canonical.
 Route::group(['prefix' => 'language_manager'], function () {
-    Route::get('/', LanguageStringManager::class)->name('admin_language_manager.index');
+    Route::get('/', gp247_namespace(LanguageStringManager::class))->name('admin_language_manager.index');
 });

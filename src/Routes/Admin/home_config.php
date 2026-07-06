@@ -6,7 +6,7 @@ use GP247\Core\AdminShell\Http\Livewire\HomeLayoutManager;
 // HomeLayoutManager (ResourcePanel). Route names kept for back-compat;
 // create route maps to index (form is always visible on the left panel).
 Route::group(['prefix' => 'admin_home_layout'], function () {
-    Route::get('/', HomeLayoutManager::class)->name('admin_home_layout.index');
-    Route::get('create', HomeLayoutManager::class)->name('admin_home_layout.create');
-    Route::get('edit/{id}', HomeLayoutManager::class)->name('admin_home_layout.edit');
+    Route::get('/', gp247_namespace(HomeLayoutManager::class))->name('admin_home_layout.index');
+    Route::get('create', gp247_namespace(HomeLayoutManager::class))->name('admin_home_layout.create');
+    Route::get('edit/{id}', gp247_namespace(HomeLayoutManager::class))->name('admin_home_layout.edit');
 });

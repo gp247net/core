@@ -13,4 +13,6 @@ use Illuminate\Support\Facades\Route;
  * @aidlc-unit installer-deploy
  * @aidlc-story US-DEP-001
  */
+// WHY: this route is registered before Library/Helpers/*.php loads (it must be
+// reachable even pre-install), so gp247_namespace() isn't available yet.
 Route::get('/install', InstallerWizard::class)->name('gp247.install');

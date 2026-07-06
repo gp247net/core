@@ -7,5 +7,5 @@ use GP247\Core\AdminShell\Http\Livewire\WebsiteInfo;
 // (canonical); update runs inside the component over livewire/update, so the legacy
 // POST route is removed (US-AUI-010/011).
 Route::group(['prefix' => 'store_info'], function () {
-    Route::get('/', WebsiteInfo::class)->name('admin_store.index');
+    Route::get('/', gp247_namespace(WebsiteInfo::class))->name('admin_store.index');
 });

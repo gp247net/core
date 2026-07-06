@@ -7,5 +7,5 @@ use GP247\Core\AdminShell\Http\Livewire\CacheConfigForm;
 // (canonical); clear-cache runs inside the component over livewire/update, so the
 // legacy POST route is removed (US-AUI-010/011).
 Route::group(['prefix' => 'cache_config'], function () {
-    Route::get('/', CacheConfigForm::class)->name('admin_cache_config.index');
+    Route::get('/', gp247_namespace(CacheConfigForm::class))->name('admin_cache_config.index');
 });

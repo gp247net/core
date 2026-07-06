@@ -8,5 +8,5 @@ use GP247\Core\AdminShell\Http\Livewire\ApiConnectionManager;
 // create/edit/delete/generate now run inside the component over livewire/update, so
 // the legacy POST/GET action routes are removed (US-AUI-010/011).
 Route::group(['prefix' => 'api_connection'], function () {
-    Route::get('/', ApiConnectionManager::class)->name('admin_api_connection.index');
+    Route::get('/', gp247_namespace(ApiConnectionManager::class))->name('admin_api_connection.index');
 });

@@ -7,7 +7,7 @@ use GP247\Core\AdminShell\Http\Livewire\RoleManager;
 // (canonical); create/edit/delete run inside the component over livewire/update, so
 // legacy POST routes are removed (US-AUI-010/011).
 Route::group(['prefix' => 'role'], function () {
-    Route::get('/', RoleManager::class)->name('admin_role.index');
-    Route::get('create', RoleManager::class)->name('admin_role.create');
-    Route::get('edit/{id}', RoleManager::class)->name('admin_role.edit');
+    Route::get('/', gp247_namespace(RoleManager::class))->name('admin_role.index');
+    Route::get('create', gp247_namespace(RoleManager::class))->name('admin_role.create');
+    Route::get('edit/{id}', gp247_namespace(RoleManager::class))->name('admin_role.edit');
 });

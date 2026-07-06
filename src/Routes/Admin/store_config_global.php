@@ -7,5 +7,5 @@ use GP247\Core\AdminShell\Http\Livewire\GlobalConfigForm;
 // (canonical); update runs inside the component over livewire/update, so the legacy
 // POST route is removed (US-AUI-010/011).
 Route::group(['prefix' => 'config'], function () {
-    Route::get('/webhook', GlobalConfigForm::class)->name('admin_config_global.webhook');
+    Route::get('/webhook', gp247_namespace(GlobalConfigForm::class))->name('admin_config_global.webhook');
 });

@@ -9,7 +9,7 @@ use GP247\Core\AdminShell\Http\Livewire\CustomFieldList;
 // create/edit/delete run inside the components over livewire/update, so the legacy
 // POST action routes are removed (US-AUI-010/011).
 Route::group(['prefix' => 'custom_field'], function () {
-    Route::get('/', CustomFieldList::class)->name('admin_custom_field.index');
-    Route::get('create', CustomFieldForm::class)->name('admin_custom_field.create');
-    Route::get('edit/{id}', CustomFieldForm::class)->name('admin_custom_field.edit');
+    Route::get('/', gp247_namespace(CustomFieldList::class))->name('admin_custom_field.index');
+    Route::get('create', gp247_namespace(CustomFieldForm::class))->name('admin_custom_field.create');
+    Route::get('edit/{id}', gp247_namespace(CustomFieldForm::class))->name('admin_custom_field.edit');
 });

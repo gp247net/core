@@ -7,5 +7,5 @@ use GP247\Core\AdminShell\Http\Livewire\PasswordPolicyForm;
 // (canonical); update runs inside the component over livewire/update, so the legacy
 // POST route is removed (US-AUI-010/011).
 Route::group(['prefix' => 'password_policy'], function () {
-    Route::get('/', PasswordPolicyForm::class)->name('admin_password_policy.index');
+    Route::get('/', gp247_namespace(PasswordPolicyForm::class))->name('admin_password_policy.index');
 });
