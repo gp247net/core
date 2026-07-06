@@ -1,10 +1,11 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminCacheConfigController.php'))) {
-    $nameSpaceAdminCacheConfig = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminCacheConfig = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'cache_config'], function () use ($nameSpaceAdminCacheConfig) {
-    Route::get('/', $nameSpaceAdminCacheConfig.'\AdminCacheConfigController@index')->name('admin_cache_config.index');
-    Route::post('/clear_cache', $nameSpaceAdminCacheConfig.'\AdminCacheConfigController@clearCache')->name('admin_cache_config.clear_cache');
+
+use GP247\Core\AdminShell\Http\Livewire\CacheConfigForm;
+
+// Cutover PA-1 (modification 20260629T022055): legacy AdminCacheConfigController is
+// replaced by CacheConfigForm (TailAdmin/Livewire). Old admin URL + route name kept
+// (canonical); clear-cache runs inside the component over livewire/update, so the
+// legacy POST route is removed (US-AUI-010/011).
+Route::group(['prefix' => 'cache_config'], function () {
+    Route::get('/', CacheConfigForm::class)->name('admin_cache_config.index');
 });

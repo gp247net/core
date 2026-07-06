@@ -1,11 +1,9 @@
 <?php
+
+use GP247\Core\AdminShell\Http\Livewire\ServerInfo;
 use Illuminate\Support\Facades\Route;
 
-if (file_exists(app_path('GP247/Core/Controllers/AdminServerInfoController.php'))) {
-    $nameSpace = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpace = 'GP247\Core\Controllers';
-}
-
-Route::get('server_info', $nameSpace.'\AdminServerInfoController@index')
-->name('admin.server_info');
+// Cutover PA-1 (modification 20260629T022055): legacy AdminServerInfoController is
+// replaced by the ServerInfo component (TailAdmin/Livewire). Old admin URL + route
+// name kept (canonical); read-only screen, no POST routes (US-AUI-010).
+Route::get('server_info', ServerInfo::class)->name('admin.server_info');

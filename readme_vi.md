@@ -176,7 +176,7 @@ Sau đó, chạy lệnh:
 
 **Tùy chỉnh view của core admin**
 
->`php artisan vendor:publish --tag=gp247:view-core`
+>`php artisan vendor:publish --tag=gp247:core-view`
 
 
 **Ghi đè các hàm helper gp247_***

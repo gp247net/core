@@ -1,291 +1,165 @@
-@extends('gp247-core::layout')
+@extends('gp247-admin::layouts.plain')
 
 @section('main')
-<div class="row">
-    <div class="col-md-12">
-        <div class="card card-primary card-outline card-outline-tabs">
-            <div class="card-header p-0 border-bottom-0">
-                <ul class="nav nav-tabs" id="custom-tabs-four-tab" role="tablist">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ $listUrlAction['urlLocal'] }}">{{ gp247_language_render('admin.extension.local') }}</a>
-                    </li>
-                    @if ($configExtension)
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ $listUrlAction['urlOnline'] }}">{{ gp247_language_render('admin.extension.online') }}</a>
-                    </li>
-                    @endif
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#" aria-controls="custom-tabs-four-import" aria-selected="true">
-                            <span><i class="fas fa-save"></i> {{ gp247_language_render('admin.extension.import') }}</span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
 
-            <div class="card-body">
-                <div class="tab-content" id="custom-tabs-four-tabContent">
-                    <form action="{{ $urlAction }}" method="post" accept-charset="UTF-8" id="import-product" enctype="multipart/form-data">
-                        @csrf
-                        <div class="row justify-content-center">
-                            <div class="col-lg-6 col-md-8">
-                                
-                                <div class="form-group{{ $errors->has('file') ? ' text-red' : '' }}">
-                                    <label for="input-file" class="font-weight-bold">
-                                        <i class="fas fa-file-archive text-primary"></i> {{ gp247_language_render('action.choose_file') }}
-                                    </label>
-                                    <div class="input-group">
-                                        <div class="custom-file">
-                                            <input type="file" id="input-file" class="custom-file-input" accept=".zip,application/zip,application/x-zip-compressed" required="required" name="file">
-                                            <label class="custom-file-label" for="input-file">{{ gp247_language_render('action.choose_file') }}</label>
-                                        </div>
-                                        <div class="input-group-append">
-                                            <button type="button" class="btn btn-success button-upload">
-                                                <i class="fas fa-upload"></i> {{ gp247_language_render('admin.extension.import_submit') }}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+    {{-- Tab navigation --}}
+    <div class="border-b border-gray-200 px-1 dark:border-gray-700">
+        <nav class="-mb-px flex flex-wrap">
+            <a href="{{ $listUrlAction['urlLocal'] }}"
+               class="inline-flex items-center gap-1.5 border-b-2 border-transparent px-5 py-3 text-sm font-medium text-gray-500 transition hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-200">
+                <i class="fas fa-puzzle-piece text-xs"></i>
+                {{ gp247_language_render('admin.extension.local') }}
+            </a>
+            @if ($configExtension)
+            <a href="{{ $listUrlAction['urlOnline'] }}"
+               class="inline-flex items-center gap-1.5 border-b-2 border-transparent px-5 py-3 text-sm font-medium text-gray-500 transition hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-200">
+                <i class="fas fa-globe text-xs"></i>
+                {{ gp247_language_render('admin.extension.online') }}
+            </a>
+            @endif
+            <span class="inline-flex items-center gap-1.5 border-b-2 border-blue-500 px-5 py-3 text-sm font-medium text-blue-600 dark:border-blue-400 dark:text-blue-400">
+                <i class="fas fa-upload text-xs"></i>
+                {{ gp247_language_render('admin.extension.import') }}
+            </span>
+        </nav>
+    </div>
 
-                                @if ($errors->has('file'))
-                                <div class="alert alert-danger alert-dismissible">
-                                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
-                                    <h5><i class="icon fas fa-ban"></i> Error!</h5>
-                                    {{ $errors->first('file') }}
-                                </div>
-                                @elseif(session('error'))
-                                <div class="alert alert-danger alert-dismissible">
-                                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
-                                    <h5><i class="icon fas fa-ban"></i> Error!</h5>
-                                    {{ session('error') }}
-                                </div>
-                                @else
-                                <div class="info-box bg-light" id="file-size-info">
-                                    <span class="info-box-icon bg-info"><i class="fas fa-info-circle"></i></span>
-                                    <div class="info-box-content">
-                                        <span class="info-box-text">{!! gp247_language_render('admin.extension.import_note') !!}</span>
-                                        <span class="info-box-number"><strong>Maximum file size:</strong> {{ $maxSizeInMB }} MB</span>
-                                        <span class="progress-description">
-                                            <small class="text-muted">Server limits: upload_max={{ $uploadMaxFilesize }}, post_max={{ $postMaxSize }}</small>
-                                        </span>
-                                    </div>
-                                </div>
-                                @endif
+    {{-- Upload form --}}
+    <div class="p-6">
+        <form action="{{ $urlAction }}" method="POST" enctype="multipart/form-data" id="import-form">
+            @csrf
+            <div class="mx-auto max-w-lg space-y-4">
 
-                            </div>
+                {{-- Error / Session alert --}}
+                @if ($errors->has('file') || session('error'))
+                    <div class="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-900/20">
+                        <i class="fas fa-circle-xmark mt-0.5 text-red-500"></i>
+                        <div class="text-sm text-red-700 dark:text-red-300">
+                            {{ $errors->first('file') ?: session('error') }}
                         </div>
-                    </form>
+                    </div>
+                @endif
+
+                {{-- Drop zone --}}
+                <div x-data="gp247Upload({{ $maxSizeInBytes }})"
+                     x-on:dragover.prevent="dragging = true"
+                     x-on:dragleave.prevent="dragging = false"
+                     x-on:drop.prevent="handleDrop($event)"
+                     :class="dragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'"
+                     class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition">
+
+                    <i class="fas fa-file-zipper mb-3 text-4xl text-gray-300 dark:text-gray-600"
+                       x-show="!fileName" x-cloak></i>
+                    <i class="fas fa-file-zipper mb-3 text-4xl text-blue-500"
+                       x-show="fileName && !fileError" x-cloak></i>
+                    <i class="fas fa-exclamation-circle mb-3 text-4xl text-red-500"
+                       x-show="fileError" x-cloak></i>
+
+                    <p class="mb-1 text-sm font-medium text-gray-700 dark:text-gray-200"
+                       x-text="fileName ? fileName : '{{ gp247_language_render('action.choose_file') }}'"></p>
+
+                    <p class="text-xs text-gray-500 dark:text-gray-400"
+                       x-show="!fileName" x-cloak>
+                        {{ gp247_language_render('admin.extension.import_note') }}
+                    </p>
+                    <p class="text-xs font-medium"
+                       x-show="fileName && !fileError" x-cloak
+                       :class="fileError ? 'text-red-600' : 'text-green-600'"
+                       x-text="fileSizeLabel"></p>
+                    <p class="text-xs text-red-600 dark:text-red-400"
+                       x-show="fileError" x-cloak
+                       x-text="fileError"></p>
+
+                    <label class="mt-4 cursor-pointer">
+                        <span class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                            <i class="fas fa-folder-open"></i>
+                            {{ gp247_language_render('action.choose_file') }}
+                        </span>
+                        <input type="file" id="input-file" name="file" accept=".zip,application/zip,application/x-zip-compressed"
+                               class="sr-only" required x-on:change="handleChange($event)">
+                    </label>
                 </div>
+
+                {{-- File limits info --}}
+                <div class="flex items-center gap-3 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50">
+                    <i class="fas fa-circle-info text-blue-500"></i>
+                    <div class="text-xs text-gray-600 dark:text-gray-300">
+                        <span class="font-medium">Max {{ $maxSizeInMB }} MB</span>
+                        <span class="ml-2 text-gray-400">(upload_max={{ $uploadMaxFilesize }}, post_max={{ $postMaxSize }})</span>
+                    </div>
+                </div>
+
+                {{-- Submit --}}
+                <div class="flex justify-end">
+                    <button type="button" id="btn-upload"
+                        onclick="submitUpload()"
+                        class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50">
+                        <i class="fas fa-upload"></i>
+                        {{ gp247_language_render('admin.extension.import_submit') }}
+                    </button>
+                </div>
+
             </div>
-        </div>
+        </form>
     </div>
 </div>
-
 @endsection
 
-@push('styles')
-<style>
-    /* File input and button alignment fix - small */
-    .input-group .custom-file,
-    .input-group .custom-file-input,
-    .input-group .custom-file-label {
-        height: 36px;
-    }
-    
-    .input-group .custom-file-label {
-        padding: 0.25rem 0.75rem;
-        font-size: 0.875rem;
-        line-height: 1.5;
-    }
-    
-    .input-group .custom-file-label::after {
-        height: 34px;
-        padding: 0.25rem 0.75rem;
-        line-height: 1.5;
-        font-size: 0.85rem;
-    }
-    
-    /* Upload button styling - small */
-    .button-upload {
-        font-weight: 600;
-        padding: 0.25rem 1rem;
-        font-size: 0.875rem;
-        height: 36px;
-        line-height: 1.5;
-    }
-    
-    /* Label styling - small */
-    label[for="input-file"] {
-        margin-bottom: 0.4rem;
-        font-size: 0.875rem;
-    }
-    
-    /* Form group spacing */
-    .form-group {
-        margin-bottom: 0.75rem;
-    }
-    
-    /* Info box styling - small */
-    #file-size-info {
-        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-        border-radius: 0.25rem;
-        margin-top: 0.75rem;
-    }
-    
-    #file-size-info .info-box-icon {
-        width: 60px;
-        font-size: 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    #file-size-info .info-box-content {
-        padding: 0.4rem 0.5rem;
-    }
-    
-    #file-size-info .info-box-text {
-        font-size: 0.8rem;
-        color: #495057;
-        display: block;
-        margin-bottom: 0.2rem;
-    }
-    
-    #file-size-info .info-box-number {
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: #212529;
-        display: block;
-        margin-bottom: 0.2rem;
-    }
-    
-    #file-size-info .progress-description {
-        font-size: 0.75rem;
-    }
-    
-    /* Alert spacing - small */
-    .alert {
-        margin-top: 0.75rem;
-        padding: 0.75rem 1rem;
-    }
-    
-    .alert h5 {
-        font-size: 0.9rem;
-    }
-    
-    /* Success state for info box */
-    #file-size-info.bg-success {
-        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%) !important;
-        border-left: 3px solid #28a745;
-    }
-    
-    #file-size-info.bg-success .info-box-icon {
-        background: #28a745 !important;
-    }
-    
-    /* Danger state for info box */
-    #file-size-info.bg-danger-light {
-        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%) !important;
-        border-left: 3px solid #dc3545;
-    }
-    
-    #file-size-info.bg-danger-light .info-box-icon {
-        background: #dc3545 !important;
-    }
-</style>
-@endpush
-
 @push('scripts')
-    <script>
-        // Get server limits from Controller (in bytes for JavaScript comparison)
-        const maxAllowedSize = {{ $maxSizeInBytes }};
-        
-        // Format bytes to human readable
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        // Show file size when selected
-        $('#input-file').on('change', function() {
-            const fileName = $(this).val().split('\\').pop();
-            $(this).next('.custom-file-label').html(fileName);
-            
-            if (this.files && this.files[0]) {
-                const fileSize = this.files[0].size;
-                const fileType = this.files[0].type;
-                const fileSizeFormatted = formatBytes(fileSize);
-                const maxSizeFormatted = formatBytes(maxAllowedSize);
-                
-                // Check file type
-                const validTypes = ['application/zip', 'application/x-zip-compressed', 'application/x-zip', 'application/octet-stream'];
-                const isValidType = validTypes.includes(fileType) || fileName.toLowerCase().endsWith('.zip');
-                
-                if (!isValidType) {
-                    // Update info-box for invalid file type
-                    $('#file-size-info').removeClass('bg-light bg-success').addClass('bg-danger-light');
-                    $('#file-size-info .info-box-icon').removeClass('bg-info bg-success').addClass('bg-danger').html('<i class="fas fa-exclamation-triangle"></i>');
-                    $('#file-size-info .info-box-text').html('Invalid file type!');
-                    $('#file-size-info .info-box-number').html('<strong>' + fileName + '</strong>');
-                    $('#file-size-info .progress-description').html('<span style="color: #721c24;">File must be a ZIP archive (.zip)</span>');
-                    $('.button-upload').prop('disabled', true);
-                    return;
-                }
-                
-                // Check file size BEFORE upload
-                if (fileSize > maxAllowedSize) {
-                    // Update info-box for oversized file
-                    $('#file-size-info').removeClass('bg-light bg-success').addClass('bg-danger-light');
-                    $('#file-size-info .info-box-icon').removeClass('bg-info bg-success').addClass('bg-danger').html('<i class="fas fa-exclamation-triangle"></i>');
-                    $('#file-size-info .info-box-text').html('File too large!');
-                    $('#file-size-info .info-box-number').html('<strong>' + fileName + '</strong> (' + fileSizeFormatted + ')');
-                    $('#file-size-info .progress-description').html('<span style="color: #721c24;">Maximum allowed: ' + maxSizeFormatted + ' (upload_max={{ $uploadMaxFilesize }}, post_max={{ $postMaxSize }})</span>');
-                    $('.button-upload').prop('disabled', true);
-                } else {
-                    // Update info-box for valid file
-                    $('#file-size-info').removeClass('bg-light bg-danger-light').addClass('bg-success');
-                    $('#file-size-info .info-box-icon').removeClass('bg-info bg-danger').addClass('bg-success').html('<i class="fas fa-check-circle"></i>');
-                    $('#file-size-info .info-box-text').html('File ready to upload');
-                    $('#file-size-info .info-box-number').html('<strong>' + fileName + '</strong> (' + fileSizeFormatted + ')');
-                    $('#file-size-info .progress-description').html('<span style="color: #155724;">File size OK. Maximum allowed: ' + maxSizeFormatted + '</span>');
-                    $('.button-upload').prop('disabled', false);
-                }
+<script>
+function gp247Upload(maxBytes) {
+    return {
+        dragging:    false,
+        fileName:    '',
+        fileSizeLabel: '',
+        fileError:   '',
+        maxBytes,
+
+        handleChange(e) {
+            const file = e.target.files[0];
+            if (file) this.processFile(file);
+        },
+
+        handleDrop(e) {
+            this.dragging = false;
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById('input-file').files = dt.files;
+            this.processFile(file);
+        },
+
+        processFile(file) {
+            this.fileName  = file.name;
+            this.fileError = '';
+            const isZip = ['application/zip','application/x-zip-compressed','application/x-zip'].includes(file.type)
+                       || file.name.toLowerCase().endsWith('.zip');
+            if (!isZip) {
+                this.fileError     = 'Only ZIP archives are accepted (.zip)';
+                this.fileSizeLabel = '';
+                document.getElementById('btn-upload').disabled = true;
+                return;
             }
-        });
-        
-        // Handle upload button click
-        $('.button-upload').click(function(e){
-            e.preventDefault();
-            
-            const fileInput = document.getElementById('input-file');
-            if (!fileInput.files || !fileInput.files[0]) {
-                alert('Please select a file to upload!');
-                return false;
+            const kb = file.size / 1024;
+            const mb = kb / 1024;
+            this.fileSizeLabel = mb >= 1 ? mb.toFixed(2) + ' MB' : kb.toFixed(1) + ' KB';
+            if (file.size > this.maxBytes) {
+                this.fileError = 'File exceeds maximum size of ' + (this.maxBytes / 1048576).toFixed(0) + ' MB';
+                document.getElementById('btn-upload').disabled = true;
+            } else {
+                document.getElementById('btn-upload').disabled = false;
             }
-            
-            const fileSize = fileInput.files[0].size;
-            const fileName = fileInput.files[0].name;
-            
-            // Final check before submit
-            if (fileSize > maxAllowedSize) {
-                alert('File "' + fileName + '" (' + formatBytes(fileSize) + ') exceeds the maximum allowed size (' + formatBytes(maxAllowedSize) + ').\n\n' +
-                      'Server limits:\n' +
-                      '- upload_max_filesize: {{ $uploadMaxFilesize }}\n' +
-                      '- post_max_size: {{ $postMaxSize }}\n\n' +
-                      'Please choose a smaller file or contact your administrator.');
-                return false;
-            }
-            
-            // Show loading and submit
-            $('#loading').show();
-            $('#import-product').submit();
-        });
-        
-        $('.button-upload-des').click(function(){
-            $('#loading').show();
-            $('#import-product-des').submit();
-        });
-    </script>
+        },
+    };
+}
+
+function submitUpload() {
+    const file = document.getElementById('input-file').files[0];
+    if (!file) { alert('{{ gp247_language_render('action.choose_file') }}'); return; }
+    document.getElementById('gp247-page-loading').style.display = 'flex';
+    document.getElementById('import-form').submit();
+}
+</script>
 @endpush

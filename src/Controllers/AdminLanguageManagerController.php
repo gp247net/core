@@ -14,7 +14,7 @@ class AdminLanguageManagerController extends RootAdminController
     }
     public function index()
     {
-        $lang = request('lang');
+        $lang = request('lang', 'en');
         $position = request('position');
         $keyword = request('keyword');
         $languages = AdminLanguage::getListAll();

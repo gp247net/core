@@ -68,13 +68,14 @@ class ForgotPasswordController extends RootAdminController
     public function getForgot()
     {
         if (admin()->user()) {
-            return redirect()->route('admin.home');
+            return redirect(gp247_route_admin('admin.home'));
         }
-        $data = [
-            'title'       => gp247_language_render('admin.password_forgot'),
-        ];
-        return view('gp247-core::auth.forgot')
-        ->with($data);
+        // Cutover (PA-1): render the modern TailAdmin forgot screen in-place at the
+        // legacy URL. Presentation only — the form posts to admin.post_forgot, so
+        // the SendsPasswordResetEmails backend is unchanged.
+        return view('gp247-admin::auth.forgot', [
+            'title' => gp247_language_render('admin.password_forgot'),
+        ]);
     }
     
     public function redirectPath() {

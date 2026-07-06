@@ -45,7 +45,7 @@ class Permission
         $uriCurrent = request()->fullUrl();
         $methodCurrent = request()->method();
         if (strtoupper($methodCurrent) === 'GET') {
-            return redirect()->route('admin.deny')->with(['method' => $methodCurrent, 'url' => $uriCurrent]);
+            return redirect(gp247_route_admin('admin.deny'))->with(['method' => $methodCurrent, 'url' => $uriCurrent]);
         } else {
             return response()->json([
                 'error' => '1',

@@ -82,7 +82,7 @@ class RoleController extends RootAdminController
 
         $data['listTh'] = $listTh;
         $data['dataTr'] = $dataTr;
-        $data['pagination'] = $dataTmp->appends(request()->except(['_token', '_pjax']))->links('gp247-core::component.pagination');
+        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-core::component.pagination');
         $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
 
         //menuRight
@@ -175,7 +175,7 @@ class RoleController extends RootAdminController
         if ($administrators) {
             $role->administrators()->attach($administrators);
         }
-        return redirect()->route('admin_role.index')->with('success', gp247_language_render('action.create_success'));
+        return redirect(gp247_route_admin('admin_role.index'))->with('success', gp247_language_render('action.create_success'));
     }
 
     /**
@@ -240,7 +240,7 @@ class RoleController extends RootAdminController
         if ($administrators) {
             $role->administrators()->attach($administrators);
         }
-        return redirect()->route('admin_role.index')->with('success', gp247_language_render('action.edit_success'));
+        return redirect(gp247_route_admin('admin_role.index'))->with('success', gp247_language_render('action.edit_success'));
     }
 
     /*

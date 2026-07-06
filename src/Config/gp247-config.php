@@ -28,11 +28,10 @@ return [
         'middleware'  => [
             1        => 'admin.auth',
             2        => 'admin.permission',
-            3        => 'admin.pjax',
-            4        => 'admin.log',
-            5        => 'admin.storeId',
-            6        => 'localization',
-            // 7        => 'admin.session',
+            3        => 'admin.log',
+            4        => 'admin.storeId',
+            5        => 'localization',
+            // 6        => 'admin.session',
         ],
 
     ],

@@ -11,21 +11,21 @@
       }
   ],
   "require": {
-      "php": "^8.2",
-      "unisharp/laravel-filemanager": "^2.10",
+      "php": "^8.3",
+      "unisharp/laravel-filemanager": "^2.15",
       "intervention/image-laravel": "^1.5",
-      "spatie/laravel-pjax": "^2.4",
       "spatie/laravel-json-api-paginate": "^1.16",
       "phpoffice/phpspreadsheet": "^2.0",
       "jenssegers/agent": "^2.6",
       "barryvdh/laravel-dompdf": "^v3.1",
-      "laravel/framework": "^12.0",
+      "laravel/framework": "^13.0",
       "laravel/helpers": "^1.7",
       "laravel/legacy-factories": "^1.4",
       "laravel/sanctum": "^4.0",
-      "laravel/tinker": "^2.10.1",
+      "laravel/tinker": "^3.0",
       "laravel/ui": "^4.6",
-      "league/flysystem-aws-s3-v3": "^3.29"
+      "league/flysystem-aws-s3-v3": "^3.29",
+      "livewire/livewire": "^4.0"
   },
 
   "autoload": {
@@ -39,7 +39,8 @@
           "dont-discover": [
           ],
           "providers": [
-            "GP247\\Core\\CoreServiceProvider"
+            "GP247\\Core\\CoreServiceProvider",
+            "GP247\\Core\\AdminShell\\Infrastructure\\AdminShellServiceProvider"
           ],
           "aliases": {
           }

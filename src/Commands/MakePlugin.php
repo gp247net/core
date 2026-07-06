@@ -99,6 +99,21 @@ class MakePlugin extends Command
             $appConfig      = str_replace('Extension_Key', $extensionKey, $appConfig);
             file_put_contents(storage_path($tmp.'/AppConfig.php'), $appConfig);
 
+            // US-PLG-004: Livewire scaffold — sample admin component + its view.
+            // Both reference the "Extension_Key" placeholder (namespace + view
+            // path) so they are templated the same way as the legacy controller.
+            if (file_exists(storage_path($tmp.'/Livewire/AdminLivewire.php'))) {
+                $adminLivewire = file_get_contents(storage_path($tmp.'/Livewire/AdminLivewire.php'));
+                $adminLivewire      = str_replace('Extension_Key', $extensionKey, $adminLivewire);
+                file_put_contents(storage_path($tmp.'/Livewire/AdminLivewire.php'), $adminLivewire);
+            }
+
+            if (file_exists(storage_path($tmp.'/Views/livewire.blade.php'))) {
+                $livewireView = file_get_contents(storage_path($tmp.'/Views/livewire.blade.php'));
+                $livewireView      = str_replace('Extension_Key', $extensionKey, $livewireView);
+                file_put_contents(storage_path($tmp.'/Views/livewire.blade.php'), $livewireView);
+            }
+
             $langen = file_get_contents(storage_path($tmp.'/Lang/en/lang.php'));
             $langen      = str_replace('Extension_Key', $extensionKey, $langen);
             file_put_contents(storage_path($tmp.'/Lang/en/lang.php'), $langen);

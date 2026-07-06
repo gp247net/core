@@ -35,12 +35,12 @@ class PermissionMiddleware
             } else {
                 if (!request()->ajax()) {
                     if (collect($this->viewWithoutToMessage())->contains($request->path())) {
-                        return redirect()->route('admin.deny_single')->with(['url' => $request->url(), 'method' => $request->method()]);
+                        return redirect(gp247_route_admin('admin.deny_single'))->with(['url' => $request->url(), 'method' => $request->method()]);
                     }
-                    return redirect()->route('admin.deny')->with(['url' => $request->url(), 'method' => $request->method()]);
+                    return redirect(gp247_route_admin('admin.deny'))->with(['url' => $request->url(), 'method' => $request->method()]);
                 } else {
                     if (collect($this->viewWithoutToMessage())->contains($request->path())) {
-                        return redirect()->route('admin.deny_single')->with(['url' => $request->url(), 'method' => $request->method()]);
+                        return redirect(gp247_route_admin('admin.deny_single'))->with(['url' => $request->url(), 'method' => $request->method()]);
                     }
                     return Permission::error();
                 }
@@ -68,9 +68,9 @@ class PermissionMiddleware
         })) {
             if (!request()->ajax()) {
                 if (request()->route()->getName() == 'admin.home') {
-                    return redirect()->route('admin.default')->with(['title' => gp247_language_render('admin.home')]);
+                    return redirect(gp247_route_admin('admin.default'))->with(['title' => gp247_language_render('admin.home')]);
                 }
-                return redirect()->route('admin.deny')->with(['url' => $request->url(), 'method' => $request->method()]);
+                return redirect(gp247_route_admin('admin.deny'))->with(['url' => $request->url(), 'method' => $request->method()]);
             } else {
                 return Permission::error();
             }

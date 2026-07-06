@@ -1,10 +1,11 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminStoreInfoController.php'))) {
-    $nameSpaceAdminStoreInfo = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminStoreInfo = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'store_info'], function () use ($nameSpaceAdminStoreInfo) {
-    Route::get('/', $nameSpaceAdminStoreInfo.'\AdminStoreInfoController@index')->name('admin_store.index');
-    Route::post('/update_info', $nameSpaceAdminStoreInfo.'\AdminStoreInfoController@updateInfo')->name('admin_store.update');
+
+use GP247\Core\AdminShell\Http\Livewire\WebsiteInfo;
+
+// Cutover PA-1 (modification 20260629T022055): legacy AdminStoreInfoController is
+// replaced by WebsiteInfo (TailAdmin/Livewire). Old admin URL + route name kept
+// (canonical); update runs inside the component over livewire/update, so the legacy
+// POST route is removed (US-AUI-010/011).
+Route::group(['prefix' => 'store_info'], function () {
+    Route::get('/', WebsiteInfo::class)->name('admin_store.index');
 });

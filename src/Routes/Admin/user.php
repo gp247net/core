@@ -1,14 +1,13 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminTemplateController.php'))) {
-    $nameSpaceAdminUser = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminUser = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'user'], function () use ($nameSpaceAdminUser) {
-    Route::get('/', $nameSpaceAdminUser.'\Auth\UsersController@index')->name('admin_user.index');
-    Route::get('create', $nameSpaceAdminUser.'\Auth\UsersController@create')->name('admin_user.create');
-    Route::post('/create', $nameSpaceAdminUser.'\Auth\UsersController@postCreate')->name('admin_user.post_create');
-    Route::get('/edit/{id}', $nameSpaceAdminUser.'\Auth\UsersController@edit')->name('admin_user.edit');
-    Route::post('/edit/{id}', $nameSpaceAdminUser.'\Auth\UsersController@postEdit')->name('admin_user.post_edit');
-    Route::post('/delete', $nameSpaceAdminUser.'\Auth\UsersController@deleteList')->name('admin_user.delete');
+
+use GP247\Core\AdminShell\Http\Livewire\UserManager;
+
+// Cutover PA-1 (modification 20260629T022055): legacy Auth\UsersController is replaced
+// by the UserManager panel (TailAdmin/Livewire). Old admin URL + route names kept
+// (canonical); create/edit/delete run inside the component over livewire/update, so
+// legacy POST routes are removed (US-AUI-010/011).
+Route::group(['prefix' => 'user'], function () {
+    Route::get('/', UserManager::class)->name('admin_user.index');
+    Route::get('create', UserManager::class)->name('admin_user.create');
+    Route::get('edit/{id}', UserManager::class)->name('admin_user.edit');
 });

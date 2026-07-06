@@ -33,13 +33,13 @@ class Update extends Command
         try {
             Artisan::call('db:seed', 
                 [
-                    '--class' => '\GP247\Core\DB\seeders\DataDefaultSeeder',
+                    '--class' => '\GP247\Core\Database\Seeders\DataDefaultSeeder',
                     '--force' => true
                 ]
             );
             Artisan::call('db:seed', 
                 [
-                    '--class' => '\GP247\Core\DB\seeders\DataLocaleSeeder',
+                    '--class' => '\GP247\Core\Database\Seeders\DataLocaleSeeder',
                     '--force' => true
                 ]
             );

@@ -20,8 +20,6 @@ use GP247\Core\Middleware\LogOperation;
 use GP247\Core\Middleware\Session;
 use GP247\Core\Middleware\PermissionMiddleware;
 use GP247\Core\Middleware\AdminStoreId;
-use Spatie\Pjax\Middleware\FilterIfPjax;
-
 use GP247\Core\Models\PersonalAccessToken;
 use GP247\Core\Models\AdminStore;
 
@@ -100,6 +98,12 @@ class CoreServiceProvider extends ServiceProvider
     {
 
         $this->initial();
+
+        // WHY: the installer route must be reachable before gp247-installed.txt exists
+        // so new deployments can run the web wizard without CLI access (US-DEP-001).
+        if (file_exists($installRoute = __DIR__.'/Routes/install.php')) {
+            $this->loadRoutesFrom($installRoute);
+        }
 
         if (GP247_ACTIVE == 1 && \Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {
 
@@ -226,6 +230,22 @@ class CoreServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        // admin-shell-rbac (ADR-001/002/005): the modern admin shell ships inside
+        // core. Register its provider here so it loads with core regardless of the
+        // host app's installed.json auto-discovery cache.
+        $this->app->register(\GP247\Core\AdminShell\Infrastructure\AdminShellServiceProvider::class);
+
+        // Installer bootstrap: before gp247-installed.txt exists, the DB may not
+        // be migrated yet, so a `sessions` table (needed by SESSION_DRIVER=database)
+        // won't exist either. Livewire reads/writes the session on every request,
+        // including the installer wizard's own Step 1 AJAX round-trip - force the
+        // file driver until installation completes so the wizard isn't blocked by
+        // the very migration it exists to run. Reverts automatically once
+        // InstallerWizard::runInstall() writes the flag file.
+        if (!file_exists(storage_path('app/gp247-installed.txt'))) {
+            config(['session.driver' => 'file']);
+        }
+
         //Note the order of precedence.
         //The previous config can be used in the following configg
 
@@ -273,7 +293,7 @@ class CoreServiceProvider extends ServiceProvider
         config(['logging.channels.daily.permission' => 0664]);
 
         //Title app
-        config(['app.name' => gp247_store_info('title')]);
+        config(['app.name' => gp247_store_info('name')]);
 
         //Config for  email
         if (
@@ -297,11 +317,11 @@ class CoreServiceProvider extends ServiceProvider
             config(['mail.mailers.smtp.username'   => $smtpUser]);
             config(['mail.mailers.smtp.password'   => $smtpPassword]);
             config(['mail.from.address'            => ($smtpFrom ?? gp247_store_info('email'))]);
-            config(['mail.from.name'               => ($smtpName ?? gp247_store_info('title'))]);
+            config(['mail.from.name'               => ($smtpName ?? gp247_store_info('name'))]);
         } else {
             //Set default
             config(['mail.from.address' => (config('mail.from.address')) ? config('mail.from.address') : gp247_store_info('email')]);
-            config(['mail.from.name'    => (config('mail.from.name')) ? config('mail.from.name') : gp247_store_info('title')]);
+            config(['mail.from.name'    => (config('mail.from.name')) ? config('mail.from.name') : gp247_store_info('name')]);
         }
         //email
 
@@ -323,7 +343,6 @@ class CoreServiceProvider extends ServiceProvider
         'admin.log'        => LogOperation::class,
         'admin.permission' => PermissionMiddleware::class,
         'admin.storeId'    => AdminStoreId::class,
-        'admin.pjax'      => FilterIfPjax::class,
         'admin.session'    => Session::class,
         //Sanctum
         'abilities'        => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
@@ -379,9 +398,8 @@ class CoreServiceProvider extends ServiceProvider
     protected function registerPublishing()
     {
         if ($this->app->runningInConsole()) {
-            $this->publishes([__DIR__.'/public/GP247' => public_path('GP247')], 'gp247:public-static');
-            $this->publishes([__DIR__.'/public/vendor' => public_path('vendor')], 'gp247:public-vendor');
-            $this->publishes([__DIR__.'/Views/admin' => resource_path('views/vendor/gp247-core')], 'gp247:view-core');
+            $this->publishes([__DIR__.'/public/GP247' => public_path('GP247')], 'gp247:core-public');
+            $this->publishes([__DIR__.'/Views/admin' => resource_path('views/vendor/gp247-core')], 'gp247:core-view');
             $this->publishes([__DIR__.'/Config/lfm.php' => config_path('lfm.php')], 'gp247:config-lfm');
             $this->publishes([__DIR__.'/Config/gp247_functions_except.stub' => config_path('gp247_functions_except.php')], 'gp247:functions-except');
         }

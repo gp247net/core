@@ -1,10 +1,11 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminLogController.php'))) {
-    $nameSpaceAdminLog = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminLog = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'log'], function () use ($nameSpaceAdminLog) {
-    Route::get('/', $nameSpaceAdminLog.'\AdminLogController@index')->name('admin_log.index');
-    Route::post('/delete', $nameSpaceAdminLog.'\AdminLogController@deleteList')->name('admin_log.delete');
+
+use GP247\Core\AdminShell\Http\Livewire\AdminLogList;
+
+// Cutover PA-1 (modification 20260629T022055): legacy AdminLogController is replaced by
+// AdminLogList (TailAdmin/Livewire). Old admin URL + route name kept (canonical);
+// delete runs inside the component over livewire/update, so the legacy POST route is
+// removed (US-AUI-010/011).
+Route::group(['prefix' => 'log'], function () {
+    Route::get('/', AdminLogList::class)->name('admin_log.index');
 });

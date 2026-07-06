@@ -215,11 +215,23 @@ if (!function_exists('gp247_store_process_domain') && !in_array('gp247_store_pro
 
 
 /**
- * Get store list of links
+ * Get store list of links grouped by link_id.
+ * Requires gp247/front to be installed (FrontLinkStore model).
+ * Returns empty collection when front package is absent.
+ *
+ * @param array $arrLinkId
+ * @return \Illuminate\Support\Collection
+ *
+ * @aidlc-unit compat-foundation
+ * @aidlc-story US-CMP-006
  */
 if (!function_exists('gp247_store_get_list_domain_of_array_link') && !in_array('gp247_store_get_list_domain_of_array_link', config('gp247_functions_except', []))) {
     function gp247_store_get_list_domain_of_array_link($arrLinkId)
     {
+        // WHY: front package is optional when core runs standalone (MC-009 / US-CMP-006).
+        if (!class_exists(\GP247\Front\Models\FrontLinkStore::class)) {
+            return collect();
+        }
         $tableStore = (new \GP247\Core\Models\AdminStore)->getTable();
         $tableLinkStore = (new \GP247\Front\Models\FrontLinkStore)->getTable();
         return \GP247\Front\Models\FrontLinkStore::select($tableStore.'.code', $tableStore.'.id', 'link_id')
@@ -231,11 +243,23 @@ if (!function_exists('gp247_store_get_list_domain_of_array_link') && !in_array('
 }
 
 /**
- * Get list store of link detail
+ * Get list of store IDs associated with a link.
+ * Requires gp247/front to be installed (FrontLinkStore model).
+ * Returns empty array when front package is absent.
+ *
+ * @param mixed $cId Link ID
+ * @return array
+ *
+ * @aidlc-unit compat-foundation
+ * @aidlc-story US-CMP-006
  */
 if (!function_exists('gp247_store_get_list_domain_of_link_detail') && !in_array('gp247_store_get_list_domain_of_link_detail', config('gp247_functions_except', []))) {
     function gp247_store_get_list_domain_of_link_detail($cId)
     {
+        // WHY: front package is optional when core runs standalone (MC-009 / US-CMP-006).
+        if (!class_exists(\GP247\Front\Models\FrontLinkStore::class)) {
+            return [];
+        }
         return \GP247\Front\Models\FrontLinkStore::where('link_id', $cId)
             ->pluck('store_id')
             ->toArray();

@@ -32,7 +32,11 @@ Route::group(
         } else {
             $nameSpaceHome = 'GP247\Core\Controllers';
         }
-        Route::get('/', $nameSpaceHome.'\HomeController@index')->name('admin.home');
+        // Cutover (PA-1): the admin landing renders the modern TailAdmin dashboard
+        // in-place at the legacy `/` URL (keeps route name + URI for RBAC). The
+        // full-page Livewire Dashboard has no permission gate, mirroring the legacy
+        // home. HomeController@default/deny/... stay on the controller below.
+        Route::get('/', \GP247\Core\AdminShell\Http\Livewire\Dashboard::class)->name('admin.home');
         Route::get('/default', $nameSpaceHome.'\HomeController@default')->name('admin.default');
         Route::get('/deny', $nameSpaceHome.'\HomeController@deny')->name('admin.deny');
         Route::get('/data_not_found', $nameSpaceHome.'\HomeController@dataNotFound')->name('admin.data_not_found');

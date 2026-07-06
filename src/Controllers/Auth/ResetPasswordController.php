@@ -54,12 +54,13 @@ class ResetPasswordController extends RootAdminController
         if (admin()->user()) {
             return redirect(gp247_route_admin('admin.home'));
         }
-        $data = [
-                'title'       => gp247_language_render('admin.password_reset'),
-                'token'       => $token,
-            ];
-        return view('gp247-core::auth.reset')
-        ->with($data);
+        // Cutover (PA-1): render the modern TailAdmin reset screen in-place at the
+        // legacy URL (keep token). Presentation only — the form posts to
+        // admin.password_request, so the ResetsPasswords backend is unchanged.
+        return view('gp247-admin::auth.reset', [
+            'title' => gp247_language_render('admin.password_reset'),
+            'token' => $token,
+        ]);
     }
 
 

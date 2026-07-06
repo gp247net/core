@@ -1,0 +1,79 @@
+/*
+ * GP247 admin shell stylesheet — SOURCE (ADR-002 / ADR-004).
+ *
+ * This lives inside the core module and is compiled by Tailwind CLI to
+ * `../../dist/css/admin.css` (committed, ships with the package). On install the
+ * service provider publishes the dist to `public/GP247/Core/AdminShell/`, and the
+ * layout loads it via `gp247_file()` — so a consuming Laravel app needs no Node /
+ * Vite / Tailwind of its own. Build command: see `resources/assets/README.md`.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    /* Neutral page background + readable defaults for both themes. */
+    body {
+        @apply bg-gray-50 text-gray-800 antialiased dark:bg-gray-900 dark:text-gray-100;
+    }
+
+    /* Hide Alpine-controlled elements until Alpine initialises (no FOUC). */
+    [x-cloak] {
+        display: none !important;
+    }
+}
+
+/*
+ * Drag-to-reorder cues (Menu manager). The dragged row dims; a blue insertion
+ * line shows whether the item will land above or below the row under the cursor.
+ * Applied by the vanilla drag handler in admin.js.
+ */
+.gp247-dragging {
+    opacity: 0.4;
+}
+
+.gp247-drop-before {
+    box-shadow: inset 0 3px 0 0 #3b82f6;
+}
+
+.gp247-drop-after {
+    box-shadow: inset 0 -3px 0 0 #3b82f6;
+}
+
+/*
+ * Collapsed "icon rail" sidebar (desktop only). When the sidebar is collapsed
+ * the Alpine store adds `.gp247-rail` (and `lg:w-20`) to the <aside>; we then
+ * hide the text labels, section headings, group carets and nested submenus so
+ * only the icons remain, and center those icons. Gated to lg so the mobile
+ * off-canvas drawer always shows full labels regardless of the collapsed flag.
+ */
+@media (min-width: 1024px) {
+    .gp247-rail .gp247-section-label,
+    .gp247-rail .gp247-nav-label,
+    .gp247-rail .gp247-nav-caret {
+        display: none;
+    }
+
+    .gp247-rail .gp247-submenu {
+        display: none !important;
+    }
+
+    .gp247-rail nav a,
+    .gp247-rail nav button {
+        justify-content: center;
+    }
+
+    .gp247-rail .gp247-brand {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+/*
+ * Compat shim: legacy GP247 language strings embed `<span class="text-red">…`
+ * (AdminLTE class) for required-field asterisks. Map it to the Tailwind red so
+ * those DB-driven labels render correctly without rewriting every string.
+ */
+.text-red {
+    color: #ef4444;
+}

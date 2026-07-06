@@ -1,12 +1,12 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminLanguageManagerController.php'))) {
-    $nameSpaceAdminLangManager = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminLangManager = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'language_manager'], function () use ($nameSpaceAdminLangManager) {
-    Route::get('/', $nameSpaceAdminLangManager.'\AdminLanguageManagerController@index')->name('admin_language_manager.index');
-    Route::post('/update', $nameSpaceAdminLangManager.'\AdminLanguageManagerController@postUpdate')->name('admin_language_manager.update');
-    Route::get('/add', $nameSpaceAdminLangManager.'\AdminLanguageManagerController@add')->name('admin_language_manager.add');
-    Route::post('/add', $nameSpaceAdminLangManager.'\AdminLanguageManagerController@postAdd');
+
+use GP247\Core\AdminShell\Http\Livewire\LanguageStringManager;
+use Illuminate\Support\Facades\Route;
+
+// LanguageManager — cutover (PA-1): all CRUD (inline edit, add, delete) is
+// handled by LanguageStringManager via Livewire. Legacy POST endpoints
+// (update, add) are removed — no external references outside old controller.
+// Route name admin_language_manager.index kept canonical.
+Route::group(['prefix' => 'language_manager'], function () {
+    Route::get('/', LanguageStringManager::class)->name('admin_language_manager.index');
 });

@@ -1,10 +1,6 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminStoreMaintainController.php'))) {
-    $nameSpaceAdminStoreMaintain = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminStoreMaintain = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'store_maintain'], function () use ($nameSpaceAdminStoreMaintain) {
-    Route::get('/', $nameSpaceAdminStoreMaintain.'\AdminStoreMaintainController@index')->name('admin_store_maintain.index');
-    Route::post('/', $nameSpaceAdminStoreMaintain.'\AdminStoreMaintainController@postEdit');
-});
+
+// store_maintain removed (modification 20260630): merged into store_info (WebsiteInfo).
+// Keep a permanent redirect so any bookmarks / old links land on store_info.
+Route::get('store_maintain', fn() => redirect(gp247_route_admin('admin_store.index'), 301))
+    ->name('admin_store_maintain.index');

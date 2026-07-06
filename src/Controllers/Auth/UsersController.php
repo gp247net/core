@@ -101,7 +101,7 @@ class UsersController extends RootAdminController
 
         $data['listTh'] = $listTh;
         $data['dataTr'] = $dataTr;
-        $data['pagination'] = $dataTmp->appends(request()->except(['_token', '_pjax']))->links('gp247-core::component.pagination');
+        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-core::component.pagination');
         $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
 
         //menuRight
@@ -214,7 +214,7 @@ class UsersController extends RootAdminController
             $user->permissions()->attach($permission);
         }
 
-        return redirect()->route('admin_user.index')->with('success', gp247_language_render('action.create_success'));
+        return redirect(gp247_route_admin('admin_user.index'))->with('success', gp247_language_render('action.create_success'));
     }
 
     /**
@@ -228,7 +228,7 @@ class UsersController extends RootAdminController
             return gp247_language_render('display.data_not_found_detail');
         }
         if ($user->id == admin()->user()->id) {
-            return redirect()->route('admin.setting');
+            return redirect(gp247_route_admin('admin.setting'));
         }
         $data = [
             'title'             => gp247_language_render('action.edit'),
@@ -302,7 +302,7 @@ class UsersController extends RootAdminController
             }
         }
 
-        return redirect()->route('admin_user.index')->with('success', gp247_language_render('action.edit_success'));
+        return redirect(gp247_route_admin('admin_user.index'))->with('success', gp247_language_render('action.edit_success'));
     }
 
     /*

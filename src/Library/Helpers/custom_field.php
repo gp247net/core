@@ -13,9 +13,11 @@ if (!function_exists('gp247_custom_field_get_tables') && !in_array('gp247_custom
     function gp247_custom_field_get_tables(): array
     {
         //Customize table
-        $tablesCustomize = explode(',', config('gp247-config.admin.schema_customize'));
+        // WHY: explode(',', '') returns [''] (never a true empty array), so filter
+        // blank entries first to correctly fall through to SHOW TABLES when unset.
+        $tablesCustomize = array_filter(explode(',', config('gp247-config.admin.schema_customize')));
         if (!empty($tablesCustomize)) {
-            return $tablesCustomize;
+            return array_values($tablesCustomize);
         }
         try {
             $connection = GP247_DB_CONNECTION;

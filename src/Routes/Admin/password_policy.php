@@ -1,10 +1,11 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminPasswordPolicyController.php'))) {
-    $nameSpaceAdminStoreConfig = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminStoreConfig = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'password_policy'], function () use ($nameSpaceAdminStoreConfig) {
-    Route::get('/', $nameSpaceAdminStoreConfig.'\AdminPasswordPolicyController@index')->name('admin_password_policy.index');
-    Route::post('/update', $nameSpaceAdminStoreConfig.'\AdminPasswordPolicyController@update')->name('admin_password_policy.update');
+
+use GP247\Core\AdminShell\Http\Livewire\PasswordPolicyForm;
+
+// Cutover PA-1 (modification 20260629T022055): legacy AdminPasswordPolicyController is
+// replaced by PasswordPolicyForm (TailAdmin/Livewire). Old admin URL + route name kept
+// (canonical); update runs inside the component over livewire/update, so the legacy
+// POST route is removed (US-AUI-010/011).
+Route::group(['prefix' => 'password_policy'], function () {
+    Route::get('/', PasswordPolicyForm::class)->name('admin_password_policy.index');
 });

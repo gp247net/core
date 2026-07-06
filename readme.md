@@ -176,7 +176,7 @@ To create a zip file template:
 
 **Customize core admin view**
 
->`php artisan vendor:publish --tag=gp247:view-core`
+>`php artisan vendor:publish --tag=gp247:core-view`
 
 **Overwrite gp247_* helper functions**
 

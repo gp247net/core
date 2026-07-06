@@ -1,14 +1,13 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/Auth/PermissionController.php'))) {
-    $nameSpaceAdminPermission = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminPermission = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'permission'], function () use ($nameSpaceAdminPermission) {
-    Route::get('/', $nameSpaceAdminPermission.'\Auth\PermissionController@index')->name('admin_permission.index');
-    Route::get('create', $nameSpaceAdminPermission.'\Auth\PermissionController@create')->name('admin_permission.create');
-    Route::post('/create', $nameSpaceAdminPermission.'\Auth\PermissionController@postCreate')->name('admin_permission.post_create');
-    Route::get('/edit/{id}', $nameSpaceAdminPermission.'\Auth\PermissionController@edit')->name('admin_permission.edit');
-    Route::post('/edit/{id}', $nameSpaceAdminPermission.'\Auth\PermissionController@postEdit')->name('admin_permission.post_edit');
-    Route::post('/delete', $nameSpaceAdminPermission.'\Auth\PermissionController@deleteList')->name('admin_permission.delete');
+
+use GP247\Core\AdminShell\Http\Livewire\PermissionManager;
+
+// Cutover PA-1 (modification 20260629T022055): legacy Auth\PermissionController is
+// replaced by the PermissionManager panel (TailAdmin/Livewire). Old admin URL + route
+// names kept (canonical); create/edit/delete run inside the component over
+// livewire/update, so legacy POST routes are removed (US-AUI-010/011).
+Route::group(['prefix' => 'permission'], function () {
+    Route::get('/', PermissionManager::class)->name('admin_permission.index');
+    Route::get('create', PermissionManager::class)->name('admin_permission.create');
+    Route::get('edit/{id}', PermissionManager::class)->name('admin_permission.edit');
 });

@@ -1,14 +1,13 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/Auth/RoleController.php'))) {
-    $nameSpaceAdminRole = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminRole = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'role'], function () use ($nameSpaceAdminRole) {
-    Route::get('/', $nameSpaceAdminRole.'\Auth\RoleController@index')->name('admin_role.index');
-    Route::get('create', $nameSpaceAdminRole.'\Auth\RoleController@create')->name('admin_role.create');
-    Route::post('/create', $nameSpaceAdminRole.'\Auth\RoleController@postCreate')->name('admin_role.post_create');
-    Route::get('/edit/{id}', $nameSpaceAdminRole.'\Auth\RoleController@edit')->name('admin_role.edit');
-    Route::post('/edit/{id}', $nameSpaceAdminRole.'\Auth\RoleController@postEdit')->name('admin_role.post_edit');
-    Route::post('/delete', $nameSpaceAdminRole.'\Auth\RoleController@deleteList')->name('admin_role.delete');
+
+use GP247\Core\AdminShell\Http\Livewire\RoleManager;
+
+// Cutover PA-1 (modification 20260629T022055): legacy Auth\RoleController is replaced
+// by the RoleManager panel (TailAdmin/Livewire). Old admin URL + route names kept
+// (canonical); create/edit/delete run inside the component over livewire/update, so
+// legacy POST routes are removed (US-AUI-010/011).
+Route::group(['prefix' => 'role'], function () {
+    Route::get('/', RoleManager::class)->name('admin_role.index');
+    Route::get('create', RoleManager::class)->name('admin_role.create');
+    Route::get('edit/{id}', RoleManager::class)->name('admin_role.edit');
 });

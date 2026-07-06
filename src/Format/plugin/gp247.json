@@ -9,6 +9,7 @@
     "configKey": "Extension_Key",
     "version": "1.0",
     "requireCore": ["1.2"],
+    "requireLivewire": false,
     "requirePackages": [],
     "requireExtensions": []
 }

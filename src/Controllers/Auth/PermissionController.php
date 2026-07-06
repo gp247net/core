@@ -113,7 +113,7 @@ class PermissionController extends RootAdminController
 
         $data['listTh'] = $listTh;
         $data['dataTr'] = $dataTr;
-        $data['pagination'] = $dataTmp->appends(request()->except(['_token', '_pjax']))->links('gp247-core::component.pagination');
+        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-core::component.pagination');
         $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
 
         //menuRight
@@ -183,7 +183,7 @@ class PermissionController extends RootAdminController
         $dataCreate = gp247_clean($dataCreate, [], true);
         $permission = AdminPermission::createPermission($dataCreate);
 
-        return redirect()->route('admin_permission.index')->with('success', gp247_language_render('action.create_success'));
+        return redirect(gp247_route_admin('admin_permission.index'))->with('success', gp247_language_render('action.create_success'));
     }
 
     /**
@@ -236,7 +236,7 @@ class PermissionController extends RootAdminController
         ];
         $dataUpdate = gp247_clean($dataUpdate, [], true);
         $permission->update($dataUpdate);
-        return redirect()->route('admin_permission.index')->with('success', gp247_language_render('action.edit_success'));
+        return redirect(gp247_route_admin('admin_permission.index'))->with('success', gp247_language_render('action.edit_success'));
     }
 
     /*

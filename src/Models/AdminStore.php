@@ -169,7 +169,7 @@ class AdminStore extends Model
     }
     public function getTitle()
     {
-        return $this->getText()->title ?? '';
+        return $this->getText()->name ?? '';
     }
     public function getDescription()
     {

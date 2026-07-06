@@ -1,10 +1,11 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminConfigGlobalController.php'))) {
-    $nameSpaceAdminStoreConfigGlobal = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminStoreConfigGlobal = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'config'], function () use ($nameSpaceAdminStoreConfigGlobal) {
-    Route::get('/webhook', $nameSpaceAdminStoreConfigGlobal.'\AdminConfigGlobalController@webhook')->name('admin_config_global.webhook');
-    Route::post('/update', $nameSpaceAdminStoreConfigGlobal.'\AdminConfigGlobalController@update')->name('admin_config_global.update');
+
+use GP247\Core\AdminShell\Http\Livewire\GlobalConfigForm;
+
+// Cutover PA-1 (modification 20260629T022055): legacy AdminConfigGlobalController is
+// replaced by GlobalConfigForm (TailAdmin/Livewire). Old admin URL + route name kept
+// (canonical); update runs inside the component over livewire/update, so the legacy
+// POST route is removed (US-AUI-010/011).
+Route::group(['prefix' => 'config'], function () {
+    Route::get('/webhook', GlobalConfigForm::class)->name('admin_config_global.webhook');
 });

@@ -31,7 +31,10 @@ class LoginController extends RootAdminController
             return redirect($this->redirectPath());
         }
 
-        return view('gp247-core::auth.login', ['title'=> gp247_language_render('admin.login')]);
+        // Cutover (PA-1): the legacy login URL now renders the modern TailAdmin
+        // login screen in-place. Presentation only — the form still posts to
+        // admin.post_login, so the guard/throttle/CSRF backend is unchanged.
+        return view('gp247-admin::auth.login', ['title'=> gp247_language_render('admin.login')]);
     }
 
     /**
@@ -144,7 +147,7 @@ class LoginController extends RootAdminController
         $dataUpdate = gp247_clean($dataUpdate, [], true);
         $user->update($dataUpdate);
 
-        return redirect()->route('admin.home')->with('success', gp247_language_render('action.edit_success'));
+        return redirect(gp247_route_admin('admin.home'))->with('success', gp247_language_render('action.edit_success'));
     }
 
     /**

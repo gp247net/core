@@ -1,68 +1,55 @@
-@extends('gp247-core::layout_portable')
+{{--
+    Modern TailAdmin forgot-password (US-AUI-007). Presentation only: posts to the
+    legacy `admin.post_forgot` endpoint (SendsPasswordResetEmails), backend mail
+    flow unchanged.
 
-@section('main')
-@include('gp247-core::component.css_login')
-    <div class="container-login100">
-      <div class="wrap-login100 main-login">
+    @aidlc-unit admin-shell
+    @aidlc-story US-AUI-007
+    @aidlc-adr ADR-002
+--}}
+@extends('gp247-admin::layouts.auth')
 
-          <div class="card-header text-center">
-            <a href="{{ gp247_route_admin('home') }}" class="h1">
-              <img src="{{ gp247_file(gp247_store_info('logo')) }}" alt="logo" class="logo">
-            </a>
-          </div>
-          <div class="login-title-des col-md-12 p-b-41">
-            <a><b>{{gp247_language_render('admin.password_forgot')}}</b></a>
-          </div>
-          <div class="card-body">
-          <form action="{{ gp247_route_admin('admin.post_forgot') }}" method="post">
-            <input type="hidden" name="_token" value="{{ csrf_token() }}">
+@php
+    $input = 'w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100';
+    // Cutover (PA-1): the legacy login URL now renders the modern login screen.
+    $loginUrl = gp247_route_admin('admin.login');
+@endphp
 
-            <div class="input-form {!! !$errors->has('email') ?: 'text-red' !!}">
-              <div class="input-group mb-3">
-                <input class="input100 form-control form-control-sm" type="email" placeholder="{{ gp247_language_render('admin.user.email') }}"
-                name="email" value="{{ old('email') }}">
-                <span class="focus-input100"></span>
-                <span class="symbol-input100">
-                  <i class="fas fa-envelope"></i>
-                </span>
-              </div>
-              @if($errors->has('email'))
-              @foreach($errors->get('email') as $message)
-              <i class="control-label" for="inputError"><i class="fa fa-times-circle-o"></i>{{$message}}</i>
-              @endforeach
-              @endif
+@section('content')
+    <h1 class="mb-6 text-center text-xl font-semibold text-gray-800 dark:text-gray-100">
+        {{ gp247_language_render('admin.password_forgot') }}
+    </h1>
+
+    @if (session('status'))
+        <p class="mb-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300">
+            {{ session('status') }}
+        </p>
+    @endif
+
+    <form action="{{ gp247_route_admin('admin.post_forgot') }}" method="post" class="space-y-4">
+        @csrf
+
+        <div>
+            <label for="email" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                {{ gp247_language_render('admin.user.email') }}
+            </label>
+            <div class="relative">
+                <i class="fas fa-envelope pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400"></i>
+                <input id="email" name="email" type="email" value="{{ old('email') }}" autofocus
+                    class="{{ $input }} pl-9 {{ $errors->has('email') ? 'border-red-500' : 'border-gray-300 dark:border-gray-600' }}">
             </div>
+            @error('email')<p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+        </div>
 
-            <div class="input-form">
-              <div class="col-12">
-                <div class="container-login-btn">
-                  <button class="login-btn" type="submit">
-                    {{ gp247_language_render('action.submit') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </form>
-          <p class="mt-3 mb-1">
-          <a href="{{ gp247_route_admin('admin.login') }}"><b>{{ gp247_language_render('admin.user.login') }}</b></a>
-          </p>
-          @if (session('status'))
-              <p style="color:green">{{ session('status') }}</p>
-          @endif
-          </div>
-      </div>
-    </div>
+        <button type="submit"
+            class="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+            {{ gp247_language_render('action.submit') }}
+        </button>
+    </form>
 
-    @endsection
-
-
-    @push('styles')
-    <style type="text/css">
-      .container-login100 {
-        background-image: url({!! gp247_file('GP247/Core/images/bg-system.jpg') !!});
-      }
-    </style>
-    @endpush
-
-    @push('scripts')
-    @endpush
+    <p class="mt-4 text-center text-sm">
+        <a href="{{ $loginUrl }}" class="font-medium text-blue-600 hover:underline dark:text-blue-400">
+            <i class="fas fa-angle-left"></i> {{ gp247_language_render('admin.user.login') }}
+        </a>
+    </p>
+@endsection

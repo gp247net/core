@@ -1,16 +1,12 @@
 <?php
-if (file_exists(app_path('GP247/Core/Controllers/AdminLanguageController.php'))) {
-    $nameSpaceAdminLang = 'App\GP247\Core\Controllers';
-} else {
-    $nameSpaceAdminLang = 'GP247\Core\Controllers';
-}
-Route::group(['prefix' => 'language'], function () use ($nameSpaceAdminLang) {
-    Route::get('/', $nameSpaceAdminLang.'\AdminLanguageController@index')->name('admin_language.index');
-    Route::get('create', function () {
-        return redirect()->route('admin_language.index');
-    });
-    Route::post('/create', $nameSpaceAdminLang.'\AdminLanguageController@postCreate')->name('admin_language.create');
-    Route::get('/edit/{id}', $nameSpaceAdminLang.'\AdminLanguageController@edit')->name('admin_language.edit');
-    Route::post('/edit/{id}', $nameSpaceAdminLang.'\AdminLanguageController@postEdit')->name('admin_language.post_edit');
-    Route::post('/delete', $nameSpaceAdminLang.'\AdminLanguageController@deleteList')->name('admin_language.delete');
+
+use GP247\Core\AdminShell\Http\Livewire\LanguageManager;
+
+// Cutover PA-1 (modification 20260629T022055): legacy AdminLanguageController is
+// replaced by the LanguageManager panel (TailAdmin/Livewire). Old admin URL + route
+// names kept (canonical); create/edit/delete run inside the component over
+// livewire/update, so legacy POST routes are removed (US-AUI-010/011).
+Route::group(['prefix' => 'language'], function () {
+    Route::get('/', LanguageManager::class)->name('admin_language.index');
+    Route::get('edit/{id}', LanguageManager::class)->name('admin_language.edit');
 });

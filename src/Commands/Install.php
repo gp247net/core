@@ -101,19 +101,20 @@ class Install extends Command
         $this->info('---------------> Migrate default done!');
 
         \DB::connection(GP247_DB_CONNECTION)->table('migrations')->where('migration', '00_00_00_step1_create_tables_admin')->delete();
-        $this->call('migrate', ['--path' => '/vendor/gp247/core/src/DB/migrations/00_00_00_step1_create_tables_admin.php']);
+        $this->call('migrate', ['--path' => '/vendor/gp247/core/src/Database/Migrations/00_00_00_step1_create_tables_admin.php']);
         $this->info('---------------> Migrate schema GP247 done!');
 
-        $this->call('db:seed', ['--class' => '\GP247\Core\DB\seeders\DataDefaultSeeder', '--force' => true]);
+        $this->call('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataDefaultSeeder', '--force' => true]);
         $this->info('---------------> Seeding database GP247 default done!');
-        $this->call('db:seed', ['--class' => '\GP247\Core\DB\seeders\DataStoreSeeder', '--force' => true]);
+        $this->call('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataStoreSeeder', '--force' => true]);
         $this->info('---------------> Seeding database GP247 system done!');
-        $this->call('db:seed', ['--class' => '\GP247\Core\DB\seeders\DataLocaleSeeder', '--force' => true]);
+        $this->call('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataLocaleSeeder', '--force' => true]);
         $this->info('---------------> Seeding database GP247 local done!');
 
-        $this->call('vendor:publish', ['--tag' => 'gp247:public-static']);
-        $this->call('vendor:publish', ['--tag' => 'gp247:public-vendor']);
+        $this->call('vendor:publish', ['--tag' => 'gp247:core-public']);
         $this->call('vendor:publish', ['--tag' => 'gp247:functions-except']);
+        $this->call('vendor:publish', ['--tag' => 'lfm_public', '--force' => true]);
+        $this->info('---------------> Publish laravel-filemanager assets done!');
 
         $this->call('storage:link');
 
