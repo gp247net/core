@@ -159,13 +159,22 @@ class UserManager extends ResourcePanel
     /**
      * Capture raw password before gp247_clean strips special characters.
      *
+     * WHY: the password must stay in $this->form until parent::save() runs
+     * validate() (otherwise the "required" rule would fail even when the user
+     * entered one). It is cleared in `finally` — regardless of success or
+     * validation failure — so it is never echoed back into the re-rendered form.
+     *
      * @return void
      */
     public function save(): void
     {
         $this->rawPassword = (string) ($this->form['password'] ?? '');
-        $this->form['password'] = '';
-        parent::save();
+
+        try {
+            parent::save();
+        } finally {
+            $this->form['password'] = '';
+        }
     }
 
     /**

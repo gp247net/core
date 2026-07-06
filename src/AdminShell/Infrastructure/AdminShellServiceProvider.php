@@ -6,6 +6,7 @@ use GP247\Core\AdminShell\Application\AuthorizeAdminAction;
 use GP247\Core\AdminShell\Application\PermissionResolver;
 use GP247\Core\AdminShell\Domain\AdminActionAuthorizer;
 use GP247\Core\AdminShell\Domain\AdminUserContract;
+use GP247\Core\AdminShell\Domain\AuthorizationException;
 use GP247\Core\AdminShell\Http\Livewire\AdminLogList;
 use GP247\Core\AdminShell\Http\Livewire\HomeLayoutForm;
 use GP247\Core\AdminShell\Http\Livewire\HomeLayoutList;
@@ -31,10 +32,10 @@ use GP247\Core\AdminShell\Http\Livewire\WebsiteInfo;
 use GP247\Core\AdminShell\Http\Livewire\MenuManager;
 use GP247\Core\AdminShell\Http\Livewire\NoticeList;
 use GP247\Core\AdminShell\Http\Livewire\PasswordPolicyForm;
-use GP247\Core\AdminShell\Http\Livewire\UserForm;
-use GP247\Core\AdminShell\Http\Livewire\UserList;
 use GP247\Core\AdminShell\Http\Livewire\UserManager;
 use GP247\Core\Models\AdminUser;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -129,6 +130,32 @@ final class AdminShellServiceProvider extends ServiceProvider
         $this->app['router']->aliasMiddleware('gp247.livewire-guard', LivewireAuthGuard::class);
 
         $this->registerAdminRoutes();
+        $this->registerAuthorizationExceptionRendering();
+    }
+
+    /**
+     * Turn a denied AuthorizationException into a friendly response instead of
+     * the framework's raw error page (US-UI-008): a JSON payload for Livewire's
+     * "livewire/update" AJAX calls (picked up by the `admin.js` request hook,
+     * which shows it as a toast) and a branded "access denied" screen for a
+     * denial hit on the initial full-page GET (e.g. mount()'s authorizeView()).
+     *
+     * @return void
+     */
+    private function registerAuthorizationExceptionRendering(): void
+    {
+        $this->app->make(ExceptionHandler::class)->renderable(
+            static function (AuthorizationException $e, Request $request) {
+                if ($request->hasHeader('X-Livewire')) {
+                    return response()->json([
+                        'gp247_admin_denied' => true,
+                        'message' => gp247_language_render('admin.core.action_denied'),
+                    ], 403);
+                }
+
+                return response()->view('gp247-admin::errors.access-denied', [], 403);
+            }
+        );
     }
 
     /**

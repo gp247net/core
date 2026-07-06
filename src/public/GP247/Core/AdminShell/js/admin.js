@@ -243,3 +243,43 @@ document.addEventListener('alpine:init', () => {
     // Clean up cues when a drag is abandoned (dropped outside any list).
     document.addEventListener('dragend', endDrag);
 })();
+
+/*
+ * Friendly rendering of denied admin actions (US-UI-008). AdminShellServiceProvider's
+ * renderable() handler turns a backend AuthorizationException into a JSON 403
+ * response tagged `gp247_admin_denied` for Livewire's "livewire/update" AJAX
+ * calls (a normal Blade page reload gets the branded access-denied screen
+ * instead, so nothing to do here for that path). Without this hook Livewire
+ * falls back to its default behaviour of showing the raw response as a
+ * full-screen error overlay — intercepted here and shown as a toast instead,
+ * reusing the same `notify` event the rest of the admin UI dispatches.
+ *
+ * @aidlc-unit admin-shell-rbac
+ * @aidlc-story US-UI-008
+ * @aidlc-adr ADR-001, ADR-005
+ */
+document.addEventListener('livewire:init', () => {
+    window.Livewire.hook('request', ({ fail }) => {
+        fail(({ status, content, preventDefault }) => {
+            if (status !== 403) {
+                return;
+            }
+
+            let payload = null;
+            try {
+                payload = JSON.parse(content);
+            } catch (e) {
+                return;
+            }
+
+            if (!payload || !payload.gp247_admin_denied) {
+                return;
+            }
+
+            preventDefault();
+            window.dispatchEvent(new CustomEvent('notify', {
+                detail: { type: 'error', message: payload.message || '' },
+            }));
+        });
+    });
+});
