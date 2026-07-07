@@ -142,11 +142,11 @@
                                 </td>
                                 <td class="px-3 py-2 text-right">
                                     <div class="inline-flex gap-1">
-                                        <x-gp247::button variant="secondary" size="sm" wire:click="editRow({{ $row->id }})">
+                                        <x-gp247::button variant="secondary" size="sm" wire:click="editRow('{{ $row->id }}')">
                                             <i class="fas fa-edit"></i>
                                         </x-gp247::button>
                                         <x-gp247::button variant="danger" size="sm"
-                                            wire:click="deleteRow({{ $row->id }})"
+                                            wire:click="deleteRow('{{ $row->id }}')"
                                             wire:confirm="{{ gp247_language_render('admin.core.confirm_delete') }}">
                                             <i class="fas fa-trash-alt"></i>
                                         </x-gp247::button>

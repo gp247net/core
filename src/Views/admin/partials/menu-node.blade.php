@@ -19,7 +19,7 @@
             <x-gp247::button size="sm" variant="ghost" href="{{ gp247_route_admin('admin_menu.edit', ['id' => $node->id]) }}" wire:navigate>
                 <i class="fas fa-edit"></i>
             </x-gp247::button>
-            <x-gp247::button size="sm" variant="ghost" wire:click="delete({{ $node->id }})" wire:confirm="{{ gp247_language_render('admin.menu.confirm_delete') }}">
+            <x-gp247::button size="sm" variant="ghost" wire:click="delete('{{ $node->id }}')" wire:confirm="{{ gp247_language_render('admin.menu.confirm_delete') }}">
                 <i class="fas fa-trash-alt text-red-600"></i>
             </x-gp247::button>
         </span>

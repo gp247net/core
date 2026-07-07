@@ -72,7 +72,7 @@
                         <div class="flex items-center justify-end gap-1">
                             <x-gp247::button size="sm" variant="ghost" href="{{ gp247_route_admin('admin_language.edit', $row->id) }}" wire:navigate><i class="fas fa-edit"></i></x-gp247::button>
                             @unless ($guarded)
-                                <x-gp247::button size="sm" variant="ghost" wire:click="delete({{ $row->id }})" wire:confirm="{{ gp247_language_render('admin.language.confirm_delete') }}">
+                                <x-gp247::button size="sm" variant="ghost" wire:click="delete('{{ $row->id }}')" wire:confirm="{{ gp247_language_render('admin.language.confirm_delete') }}">
                                     <i class="fas fa-trash-alt text-red-600"></i>
                                 </x-gp247::button>
                             @endunless

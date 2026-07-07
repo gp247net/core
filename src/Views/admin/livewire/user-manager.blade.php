@@ -103,7 +103,7 @@
                                     <i class="fas fa-edit"></i>
                                 </x-gp247::button>
                                 <x-gp247::button size="sm" variant="ghost"
-                                    wire:click="delete({{ $row->id }})"
+                                    wire:click="delete('{{ $row->id }}')"
                                     wire:confirm="{{ gp247_language_render('admin.user.confirm_delete') }}">
                                     <i class="fas fa-trash-alt text-red-600"></i>
                                 </x-gp247::button>
