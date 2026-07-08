@@ -51,6 +51,17 @@ abstract class ResourcePanel extends GP247AdminComponent
      */
     public ?string $editingId = null;
 
+    /**
+     * form.* field names holding admin-authored rich HTML (TinyMCE) that must
+     * survive save() as-is. gp247_clean() htmlspecialchars-escapes its input,
+     * which corrupts real markup (e.g. a Layout Block's `text`); concrete
+     * screens with a rich-editor form field must list it here. Mirrors the
+     * richFields pattern in FormComponent / WebsiteInfo::RICH_FIELDS.
+     *
+     * @var array<int, string>
+     */
+    protected array $richFields = [];
+
     // --- Contract for concrete screens -------------------------------------
 
     /**
@@ -255,7 +266,8 @@ abstract class ResourcePanel extends GP247AdminComponent
     {
         $this->authorizeAction($this->editingId !== null ? 'update' : 'store');
         $this->validate();
-        $this->persist(gp247_clean($this->form));
+        // richFields are excluded so admin-authored rich HTML isn't escaped.
+        $this->persist(gp247_clean($this->form, $this->richFields));
 
         // WHY: navigate back to the base route so the URL clears the edit/{id}
         // segment; the success flash is shown on the next mount (flashNotice).

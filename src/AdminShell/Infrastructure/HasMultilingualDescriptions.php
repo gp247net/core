@@ -40,6 +40,20 @@ trait HasMultilingualDescriptions
     abstract protected function descriptionModelClass(): string;
 
     /**
+     * Description field names holding admin-authored rich HTML (TinyMCE) that
+     * must survive saveDescriptions() as-is. gp247_clean() htmlspecialchars-escapes
+     * its input, which would corrupt real markup (e.g. a product's `content`);
+     * consumers with a rich-editor description field must list it here. Mirrors
+     * the richFields pattern in FormComponent / WebsiteInfo::RICH_FIELDS.
+     *
+     * @return array<int, string>
+     */
+    protected function richDescriptionFields(): array
+    {
+        return [];
+    }
+
+    /**
      * @return string The description table foreign key (e.g. "category_id").
      */
     abstract protected function descriptionForeignKey(): string;
@@ -109,7 +123,9 @@ trait HasMultilingualDescriptions
         foreach ($this->descriptionLanguageCodes() as $code) {
             $row = [$foreignKey => $foreignId, 'lang' => $code];
             foreach ($this->multilingualFields() as $field) {
-                $row[$field] = gp247_clean((string) ($this->desc[$code][$field] ?? ''));
+                $value = (string) ($this->desc[$code][$field] ?? '');
+                // WHY: rich HTML fields keep their markup (raw); plain-text fields are XSS-cleaned.
+                $row[$field] = in_array($field, $this->richDescriptionFields(), true) ? $value : gp247_clean($value);
             }
             $rows[] = $row;
         }

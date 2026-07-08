@@ -65,9 +65,31 @@
         // inline script — Blade parses those as directives even inside JS, which
         // truncates the script and breaks the page.
         (function () {
+            // WHY: TinyMCE proxies focus/blur through its iframe, so its own
+            // 'blur' event fires a tick later than the browser's native
+            // mousedown→blur→click sequence on a Save button. Clicking Save
+            // right after typing races the blur-triggered $wire.set() request:
+            // the in-flight request can flip wire:loading.attr="disabled" on
+            // the button before its click is processed (first click does
+            // nothing), and even when it isn't disabled, wire:submit could
+            // still commit the pre-edit (stale) content. Track every live
+            // editor here and force-flush content into $wire synchronously
+            // during the submit event's CAPTURE phase — before Livewire's own
+            // wire:submit (bubble-phase) listener runs — so the fresh content
+            // is always part of the save() request, first click, every time.
+            const liveEditors = new Set();
+            document.addEventListener('submit', () => {
+                liveEditors.forEach((entry) => {
+                    if (entry.editor && !entry.editor.removed) {
+                        entry.wire.set(entry.model, entry.editor.getContent());
+                    }
+                });
+            }, true);
+
             const define = () => {
                 window.Alpine.data('gp247RichEditor', (model, lfmPrefix, baseUrl, mediaType) => ({
                 editor: null,
+                _entry: null,
 
                 init() {
                     if (typeof tinymce === 'undefined') {
@@ -86,6 +108,12 @@
                         height: 320,
                         plugins: 'lists link image table code',
                         toolbar: 'undo redo | blocks fontsizeinput | bold italic underline | forecolor backcolor | bullist numlist | link image table | code',
+                        // WHY: narrow panels (e.g. the 2-column form/list layout) collapse
+                        // the toolbar into a "..." overflow menu in floating mode, hiding
+                        // the "code" (Source code) button that's the only way to insert
+                        // raw HTML — wrap onto multiple rows instead so every button,
+                        // including code, stays directly visible and discoverable.
+                        toolbar_mode: 'wrap',
                         file_picker_types: 'image file',
 
                         // WHY: route every file pick through the same LFM popup the
@@ -104,14 +132,23 @@
 
                         setup: (editor) => {
                             self.editor = editor;
+                            self._entry = { editor, wire: self.$wire, model };
+                            liveEditors.add(self._entry);
                             editor.on('init', () => editor.setContent(self.$wire.get(model) || ''));
-                            // WHY: persist on blur to match the screens' wire:model.live.blur.
+                            // WHY: persist on blur to match the screens' wire:model.live.blur
+                            // (covers non-submit flows, e.g. WebsiteInfo's live inline save).
+                            // The submit-capture flush above is the authoritative sync for
+                            // form submission — this is a secondary/best-effort path.
                             editor.on('blur', () => self.$wire.set(model, editor.getContent()));
                         },
                     });
                 },
 
                 destroy() {
+                    if (this._entry) {
+                        liveEditors.delete(this._entry);
+                        this._entry = null;
+                    }
                     if (this.editor) {
                         this.editor.remove();
                         this.editor = null;
