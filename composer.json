@@ -39,8 +39,7 @@
           "dont-discover": [
           ],
           "providers": [
-            "GP247\\Core\\CoreServiceProvider",
-            "GP247\\Core\\AdminShell\\Infrastructure\\AdminShellServiceProvider"
+            "GP247\\Core\\CoreServiceProvider"
           ],
           "aliases": {
           }

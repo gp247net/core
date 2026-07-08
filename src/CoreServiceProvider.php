@@ -6,7 +6,12 @@ use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\Request;
 use Laravel\Sanctum\Sanctum;
+use Livewire\Livewire;
 
 use GP247\Core\Commands\MakePlugin;
 use GP247\Core\Commands\Information;
@@ -22,6 +27,17 @@ use GP247\Core\Middleware\PermissionMiddleware;
 use GP247\Core\Middleware\AdminStoreId;
 use GP247\Core\Models\PersonalAccessToken;
 use GP247\Core\Models\AdminStore;
+use GP247\Core\AdminShell\Application\AuthorizeAdminAction;
+use GP247\Core\AdminShell\Application\PermissionResolver;
+use GP247\Core\AdminShell\Domain\AdminActionAuthorizer;
+use GP247\Core\AdminShell\Domain\AdminUserContract;
+use GP247\Core\AdminShell\Domain\AuthorizationException;
+use GP247\Core\AdminShell\Infrastructure\EloquentAdminUserAdapter;
+use GP247\Core\AdminShell\Infrastructure\LivewireAuthGuard;
+use GP247\Core\AdminShell\Http\Livewire\LanguageStringManager;
+use GP247\Core\AdminShell\Http\Livewire\GeneralSettingsForm;
+use GP247\Core\AdminShell\Http\Livewire\EmailSettingsForm;
+use GP247\Core\AdminShell\Http\Livewire\CustomConfigForm;
 
 class CoreServiceProvider extends ServiceProvider
 {
@@ -105,6 +121,20 @@ class CoreServiceProvider extends ServiceProvider
             $this->loadRoutesFrom($installRoute);
         }
 
+        // WHY: merged from AdminShellServiceProvider (modification 20260708T160000).
+        // Must stay outside the gp247-installed.txt gate below because the
+        // installer wizard itself (route registered unconditionally above) is a
+        // Livewire component rendering `gp247-admin::` views (ADR-002 update).
+        $this->loadViewsFrom(__DIR__.'/Views/admin', 'gp247-admin');
+        // `<x-gp247::button>` resolves under the `gp247-admin` namespace above.
+        Blade::anonymousComponentNamespace('gp247-admin::components', 'gp247');
+        // ADR-003: core registers its own prefix so front/shop/plugins never
+        // collide on component names. Class-based components resolve under this.
+        Livewire::addNamespace(
+            'gp247-core',
+            classNamespace: 'GP247\\Core\\AdminShell\\Http\\Livewire',
+        );
+
         if (GP247_ACTIVE == 1 && \Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {
 
             //If env is production, then disable debug mode
@@ -172,6 +202,27 @@ class CoreServiceProvider extends ServiceProvider
                 exit;
             }
 
+            // admin-shell-rbac (ADR-001/002/005, merged 20260708T160000): the admin
+            // route group and persistent middleware depend on the `admin`
+            // middleware-group just registered by registerRouteMiddleware() above,
+            // so they must live inside this installed-gate too (RISK-TECH-022 -
+            // registering them unconditionally crashed pre-install requests with a
+            // 500 BindingResolutionException on the not-yet-registered group).
+            try {
+                Livewire::addPersistentMiddleware([
+                    Authenticate::class,
+                    PermissionMiddleware::class,
+                ]);
+                $this->app['router']->aliasMiddleware('gp247.livewire-guard', LivewireAuthGuard::class);
+                $this->registerAdminRoutes();
+                $this->registerAuthorizationExceptionRendering();
+            } catch (\Throwable $e) {
+                $msg = '#GP247::admin_shell_load:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
+                gp247_report($msg);
+                echo $msg;
+                exit;
+            }
+
             try {
                 $this->commands($this->listCommand);
             } catch (\Throwable $e) {
@@ -229,10 +280,23 @@ class CoreServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        // admin-shell-rbac (ADR-001/002/005): the modern admin shell ships inside
-        // core. Register its provider here so it loads with core regardless of the
-        // host app's installed.json auto-discovery cache.
-        $this->app->register(\GP247\Core\AdminShell\Infrastructure\AdminShellServiceProvider::class);
+        // admin-shell-rbac (ADR-001/002/005, merged 20260708T160000): container
+        // bindings for the authorization core. Not gated on gp247-installed.txt -
+        // no DB access here, same as Core's other bindings below.
+        $this->app->bind(AdminUserContract::class, static function (): AdminUserContract {
+            $user = admin()->user();
+
+            return new EloquentAdminUserAdapter($user);
+        });
+
+        $this->app->singleton(AuthorizeAdminAction::class, static function ($app): AuthorizeAdminAction {
+            $map = (array) config('gp247_admin_shell.permission_map', []);
+
+            return new AuthorizeAdminAction(
+                new PermissionResolver($map),
+                new AdminActionAuthorizer(),
+            );
+        });
 
         // Installer bootstrap: before gp247-installed.txt exists, the DB may not
         // be migrated yet, so a `sessions` table (needed by SESSION_DRIVER=database)
@@ -377,6 +441,56 @@ class CoreServiceProvider extends ServiceProvider
         foreach ($this->middlewareGroups() as $key => $middleware) {
             app('router')->middlewareGroup($key, array_values($middleware));
         }
+    }
+
+    /**
+     * Register the modern admin full-page Livewire routes inside the existing
+     * GP247 admin group (prefix + ['web','admin']), so they inherit admin auth +
+     * URI-based RBAC (Layer-1) without touching the vendor route files (ADR-002).
+     * Merged from AdminShellServiceProvider (modification 20260708T160000).
+     *
+     * @return void
+     */
+    protected function registerAdminRoutes()
+    {
+        if (!defined('GP247_ADMIN_PREFIX') || !defined('GP247_ADMIN_MIDDLEWARE')) {
+            return;
+        }
+
+        Route::prefix(GP247_ADMIN_PREFIX . '/admin-shell')
+            ->middleware(GP247_ADMIN_MIDDLEWARE)
+            ->group(static function () {
+                Route::get('language-strings', LanguageStringManager::class)->name('gp247.admin-shell.language-strings');
+
+                Route::get('config/general', GeneralSettingsForm::class)->name('gp247.admin-shell.config.general');
+                Route::get('config/email', EmailSettingsForm::class)->name('gp247.admin-shell.config.email');
+                Route::get('config/custom', CustomConfigForm::class)->name('gp247.admin-shell.config.custom');
+            });
+    }
+
+    /**
+     * Turn a denied AuthorizationException into a friendly response instead of
+     * the framework's raw error page (US-UI-008): a JSON payload for Livewire's
+     * "livewire/update" AJAX calls and a branded "access denied" screen for a
+     * denial hit on the initial full-page GET. Merged from
+     * AdminShellServiceProvider (modification 20260708T160000).
+     *
+     * @return void
+     */
+    protected function registerAuthorizationExceptionRendering()
+    {
+        $this->app->make(ExceptionHandler::class)->renderable(
+            static function (AuthorizationException $e, Request $request) {
+                if ($request->hasHeader('X-Livewire')) {
+                    return response()->json([
+                        'gp247_admin_denied' => true,
+                        'message' => gp247_language_render('admin.core.action_denied'),
+                    ], 403);
+                }
+
+                return response()->view('gp247-admin::errors.access-denied', [], 403);
+            }
+        );
     }
 
     /**
