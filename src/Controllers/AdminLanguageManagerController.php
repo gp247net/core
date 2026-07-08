@@ -49,7 +49,7 @@ class AdminLanguageManagerController extends RootAdminController
         ];
 
 
-        return view('gp247-core::screen.language_manager')
+        return view('gp247-admin::screen.language_manager')
             ->with($data);
     }
 
@@ -102,7 +102,7 @@ class AdminLanguageManagerController extends RootAdminController
             'positionLang' => $positionLang,
             'languages' => $languages,
         ];
-        return view('gp247-core::screen.language_manager_add')
+        return view('gp247-admin::screen.language_manager_add')
             ->with($data);
     }
 

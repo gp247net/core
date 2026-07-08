@@ -82,7 +82,7 @@ class RoleController extends RootAdminController
 
         $data['listTh'] = $listTh;
         $data['dataTr'] = $dataTr;
-        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-core::component.pagination');
+        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-admin::component.pagination');
         $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
 
         //menuRight
@@ -113,7 +113,7 @@ class RoleController extends RootAdminController
                 </form>';
         //=topMenuRight
 
-        return view('gp247-core::screen.list')
+        return view('gp247-admin::screen.list')
             ->with($data);
     }
 
@@ -134,7 +134,7 @@ class RoleController extends RootAdminController
 
         ];
 
-        return view('gp247-core::auth.role')
+        return view('gp247-admin::auth.role')
             ->with($data);
     }
 
@@ -196,7 +196,7 @@ class RoleController extends RootAdminController
             'userList' => (new AdminUser)->pluck('name', 'id')->all(),
             'url_action' => gp247_route_admin('admin_role.post_edit', ['id' => $role['id']]),
         ];
-        return view('gp247-core::auth.role')
+        return view('gp247-admin::auth.role')
             ->with($data);
     }
 

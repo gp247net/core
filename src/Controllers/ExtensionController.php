@@ -33,7 +33,7 @@ trait  ExtensionController
 
         $listUrlAction = $this->listUrlAction;
 
-        return view('gp247-core::screen.extension')->with(
+        return view('gp247-admin::screen.extension')->with(
             [
                 "title"               => gp247_language_render('admin.extension.management', ['extension' => $this->groupType]),
                 "groupType"           => $this->groupType,
@@ -193,7 +193,7 @@ trait  ExtensionController
             'listUrlAction' => $this->listUrlAction,
             'configExtension' => config('gp247-config.admin.api_'.strtolower($this->groupType)),
         ];
-        return view('gp247-core::screen.extension_upload')
+        return view('gp247-admin::screen.extension_upload')
         ->with($data);
     }
 

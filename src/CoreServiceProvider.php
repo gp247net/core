@@ -190,6 +190,10 @@ class CoreServiceProvider extends ServiceProvider
                 exit;
             }
 
+            // Back-compat alias (modification 20260708T090650): 'gp247-admin' is now the
+            // canonical Blade view namespace (ADR-007). This 'gp247-core' registration is
+            // kept only so third-party plugin scaffolds and previously-seeded DB view
+            // strings (e.g. home-layout) that still reference 'gp247-core::' keep working.
             $this->loadViewsFrom(__DIR__.'/Views/admin', 'gp247-core');
             //Load Plugin Provider
             try {
@@ -399,7 +403,7 @@ class CoreServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->publishes([__DIR__.'/public/GP247' => public_path('GP247')], 'gp247:core-public');
-            $this->publishes([__DIR__.'/Views/admin' => resource_path('views/vendor/gp247-core')], 'gp247:core-view');
+            $this->publishes([__DIR__.'/Views/admin' => resource_path('views/vendor/gp247-admin')], 'gp247:core-view');
             $this->publishes([__DIR__.'/Config/lfm.php' => config_path('lfm.php')], 'gp247:config-lfm');
             $this->publishes([__DIR__.'/Config/gp247_functions_except.stub' => config_path('gp247_functions_except.php')], 'gp247:functions-except');
         }

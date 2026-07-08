@@ -56,7 +56,7 @@ class DataDefaultSeeder extends Seeder
 
         $db->table(GP247_DB_PREFIX.'admin_home')->insertOrIgnore(
             [
-                ['id' => 1,'size' => 12, 'sort'=> 1,'view' => 'gp247-core::component.home_default','status' => 1],
+                ['id' => 1,'size' => 12, 'sort'=> 1,'view' => 'gp247-admin::component.home_default','status' => 1],
             ]
         );
 

@@ -101,7 +101,7 @@ class UsersController extends RootAdminController
 
         $data['listTh'] = $listTh;
         $data['dataTr'] = $dataTr;
-        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-core::component.pagination');
+        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-admin::component.pagination');
         $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
 
         //menuRight
@@ -133,7 +133,7 @@ class UsersController extends RootAdminController
         //=menuSearch
 
 
-        return view('gp247-core::screen.list')
+        return view('gp247-admin::screen.list')
             ->with($data);
     }
 
@@ -153,7 +153,7 @@ class UsersController extends RootAdminController
             'url_action'        => gp247_route_admin('admin_user.post_create'),
         ];
 
-        return view('gp247-core::auth.user')
+        return view('gp247-admin::auth.user')
             ->with($data);
     }
 
@@ -241,7 +241,7 @@ class UsersController extends RootAdminController
             'isAllStore'        => ($user->isAdministrator() || $user->isViewAll()) ? 1: 0,
 
         ];
-        return view('gp247-core::auth.user')
+        return view('gp247-admin::auth.user')
             ->with($data);
     }
 

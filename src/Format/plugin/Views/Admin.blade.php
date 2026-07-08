@@ -1,4 +1,4 @@
-@extends('gp247-core::layouts.admin')
+@extends('gp247-admin::layouts.admin')
 
 @section('main')
 <div class="row">

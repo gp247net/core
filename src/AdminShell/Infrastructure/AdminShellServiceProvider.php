@@ -87,12 +87,11 @@ final class AdminShellServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // ADR-002/005: the modern admin shell's Blade views and UI component
-        // library share the same physical root as the legacy AdminLTE views
-        // (src/Views/admin) — two distinct Blade namespaces over one folder, so
-        // there is a single `Views/` tree to navigate. `gp247-admin::` exposes
-        // layouts/screens/components; the legacy views still resolve under
-        // `gp247-core::` (registered by CoreServiceProvider) from the same root.
+        // ADR-002/005/007: `gp247-admin::` is the canonical Blade view namespace,
+        // sharing the same physical root (src/Views/admin) as the back-compat
+        // `gp247-core::` alias still registered by CoreServiceProvider (kept only
+        // for third-party plugin scaffolds and previously-seeded DB view strings —
+        // modification 20260708T090650). All internal call sites use `gp247-admin::`.
         $this->loadViewsFrom(__DIR__ . '/../../Views/admin', 'gp247-admin');
         // `<x-gp247::button>` resolves to the `components/button.blade.php` view
         // under the `gp247-admin` namespace registered just above.

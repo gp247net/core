@@ -27,13 +27,13 @@ class HomeController extends RootAdminController
         $data                   = [];
         $data['blockDashboard'] = $blockDashboard;
         $data['title']          = gp247_language_render('admin.home');
-        return view('gp247-core::home', $data);
+        return view('gp247-admin::home', $data);
     }
 
     public function default()
     {
         $data['title'] = gp247_language_render('admin.home');
-        return view('gp247-core::default', $data);
+        return view('gp247-admin::default', $data);
     }
 
     /**
@@ -47,7 +47,7 @@ class HomeController extends RootAdminController
             'title' => gp247_language_render('display.data_not_found'),
             'url' => session('url'),
         ];
-        return view('gp247-core::data_not_found', $data);
+        return view('gp247-admin::data_not_found', $data);
     }
 
 
@@ -63,7 +63,7 @@ class HomeController extends RootAdminController
             'method' => session('method'),
             'url' => session('url'),
         ];
-        return view('gp247-core::deny', $data);
+        return view('gp247-admin::deny', $data);
     }
 
     /**
@@ -77,6 +77,6 @@ class HomeController extends RootAdminController
             'method' => session('method'),
             'url' => session('url'),
         ];
-        return view('gp247-core::deny_single', $data);
+        return view('gp247-admin::deny_single', $data);
     }
 }

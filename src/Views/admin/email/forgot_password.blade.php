@@ -1,4 +1,4 @@
-@extends('gp247-core::email.layout')
+@extends('gp247-admin::email.layout')
 
 @section('main')
 

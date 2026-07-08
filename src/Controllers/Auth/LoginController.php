@@ -107,7 +107,7 @@ class LoginController extends RootAdminController
             'permission' => (new AdminPermission)->pluck('name', 'id')->all(),
             'url_action' => gp247_route_admin('admin.post_setting'),
         ];
-        return view('gp247-core::auth.setting')
+        return view('gp247-admin::auth.setting')
             ->with($data);
     }
 

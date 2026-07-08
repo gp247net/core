@@ -73,6 +73,6 @@ if (!function_exists('gp247_mail_admin_send_reset_notification') && !in_array('g
             'subject' => gp247_language_render('email.forgot_password.reset_button'),
         ];
 
-        gp247_mail_send('gp247-core::email.forgot_password', $dataView, $config, $dataAtt = []);
+        gp247_mail_send('gp247-admin::email.forgot_password', $dataView, $config, $dataAtt = []);
     }
 }

@@ -113,7 +113,7 @@ class PermissionController extends RootAdminController
 
         $data['listTh'] = $listTh;
         $data['dataTr'] = $dataTr;
-        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-core::component.pagination');
+        $data['pagination'] = $dataTmp->appends(request()->except(['_token']))->links('gp247-admin::component.pagination');
         $data['resultItems'] = gp247_language_render('admin.result_item', ['item_from' => $dataTmp->firstItem(), 'item_to' => $dataTmp->lastItem(), 'total' =>  $dataTmp->total()]);
 
         //menuRight
@@ -130,7 +130,7 @@ class PermissionController extends RootAdminController
         $data['optionSort'] = $optionSort;
         //=menuSort
 
-        return view('gp247-core::screen.list')
+        return view('gp247-admin::screen.list')
             ->with($data);
     }
 
@@ -150,7 +150,7 @@ class PermissionController extends RootAdminController
 
         ];
 
-        return view('gp247-core::auth.permission')
+        return view('gp247-admin::auth.permission')
             ->with($data);
     }
 
@@ -203,7 +203,7 @@ class PermissionController extends RootAdminController
             'routeAdmin' => $this->routeAdmin,
             'url_action' => gp247_route_admin('admin_permission.post_edit', ['id' => $permission['id']]),
         ];
-        return view('gp247-core::auth.permission')
+        return view('gp247-admin::auth.permission')
             ->with($data);
     }
 

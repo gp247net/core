@@ -158,7 +158,7 @@ trait ExtensionOnlineController
                 break;
         }
 
-        return view('gp247-core::screen.extension_online')->with(
+        return view('gp247-admin::screen.extension_online')->with(
             [
                     "title"              => $title,
                     "arrExtensionsLocal" => gp247_extension_get_all_local(type: $this->groupType),
