@@ -68,7 +68,7 @@ return [
         'GP247_DB_PREFIX'     => env('GP247_DB_PREFIX', 'gp247_'), //Cannot change after install gp247
         'GP247_DB_CONNECTION' => env('DB_CONNECTION', 'mysql'), 
         'GP247_ADMIN_PREFIX'  => env('GP247_ADMIN_PREFIX', 'gp247_admin'), //Prefix url admin, ex: domain.com/gp247_admin
-        'GP247_API_LISENCE'   => env('GP247_API_LISENCE', ''), //License key use connect to API
+        'GP247_API_LICENSE'   => env('GP247_API_LICENSE', ''), //License key use connect to API
     ]
 
 ];

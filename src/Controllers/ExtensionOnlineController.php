@@ -8,7 +8,7 @@ trait ExtensionOnlineController
 {
     public function index()
     {
-        $license = config('gp247-config.env.GP247_API_LISENCE');
+        $license = config('gp247-config.env.GP247_API_LICENSE');
         // Initialize required variables
         $arrExtensions = [];  // Array containing list of extensions
         $resultItems = '';    // String to display search results
@@ -361,16 +361,16 @@ trait ExtensionOnlineController
             // Read .env content
             $envContent = file_get_contents(base_path('.env'));
             
-            // Check if GP247_API_LISENCE exists
-            if (strpos($envContent, 'GP247_API_LISENCE') === false) {
+            // Check if GP247_API_LICENSE exists
+            if (strpos($envContent, 'GP247_API_LICENSE') === false) {
                 if (substr($envContent, -1) !== "\n") {
                     $envContent .= "\n";
                 }
-                $envContent .= "GP247_API_LISENCE=" . $license . "\n";
+                $envContent .= "GP247_API_LICENSE=" . $license . "\n";
             } else {
                 $envContent = preg_replace(
-                    '/GP247_API_LISENCE=.*/',
-                    'GP247_API_LISENCE=' . $license,
+                    '/GP247_API_LICENSE=.*/',
+                    'GP247_API_LICENSE=' . $license,
                     $envContent
                 );
             }
@@ -382,7 +382,7 @@ trait ExtensionOnlineController
                     'message' => 'License registered successfully'
                 ]);
             } catch (\Throwable $e) {
-                $msg = 'GP247_API_LISENCE='.$license;
+                $msg = 'GP247_API_LICENSE='.$license;
                 return response()->json([
                     'status' => 'error',
                     'message' =>  gp247_language_render('admin.extension.error_write_env', ['msg' => $msg])
