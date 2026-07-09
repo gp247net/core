@@ -235,18 +235,49 @@ class WebsiteInfo extends GP247AdminComponent
     }
 
     /**
-     * Whether a composer package (e.g. gp247/shop, gp247/front) is installed.
+     * Whether `gp247/shop`'s currency table is actually queryable: the class must
+     * be autoloadable AND the `shop_currency` table must exist. `gp247/shop` is a
+     * mandatory composer dependency of this app, so its classes are always
+     * autoloadable even when the site never ran `gp247:shop-install` (the command
+     * that migrates the shop-specific tables) — checking only `class_exists()`
+     * (or composer package presence) would still crash on a fresh core-only site
+     * (NFR-MAINT-001). The table check is the only reliable signal.
      *
-     * @param string $package
      * @return bool
      */
-    private function packageInstalled(string $package): bool
+    private function shopCurrencyAvailable(): bool
     {
-        if (!function_exists('gp247_composer_get_package_installed')) {
+        if (!class_exists(\GP247\Shop\Models\ShopCurrency::class)) {
             return false;
         }
 
-        return !empty(gp247_composer_get_package_installed()[$package] ?? '');
+        return \Illuminate\Support\Facades\Schema::connection(GP247_DB_CONNECTION)
+            ->hasTable(GP247_DB_PREFIX . 'shop_currency');
+    }
+
+    /**
+     * Whether `gp247/front`'s template list is actually queryable. Mirrors
+     * {@see shopCurrencyAvailable()}: `gp247/front` is a mandatory composer
+     * dependency, so its helpers are always autoloadable even when the site
+     * never ran `gp247:front-install` (the command that migrates the
+     * front-specific tables and seeds the template list). Without the table
+     * check, a core-only site would still show a template option (built from
+     * the empty `admin_config` "Templates" group) even though front was never
+     * installed (NFR-MAINT-001). `front_layout_block` — which stores each
+     * homepage layout block against its owning `template` — is created by
+     * that same install migration, so its presence is a reliable, template-
+     * relevant install marker (unlike an unrelated table such as banners).
+     *
+     * @return bool
+     */
+    private function frontTemplateAvailable(): bool
+    {
+        if (!function_exists('gp247_front_get_all_template_installed')) {
+            return false;
+        }
+
+        return \Illuminate\Support\Facades\Schema::connection(GP247_DB_CONNECTION)
+            ->hasTable(GP247_DB_PREFIX . 'front_layout_block');
     }
 
     /**
@@ -262,11 +293,11 @@ class WebsiteInfo extends GP247AdminComponent
         }
 
         // Currency needs gp247/shop; template needs gp247/front (empty = row hidden).
-        $currencyOptions = ($this->packageInstalled('gp247/shop') && class_exists(\GP247\Shop\Models\ShopCurrency::class))
+        $currencyOptions = $this->shopCurrencyAvailable()
             ? (array) \GP247\Shop\Models\ShopCurrency::getCodeActive()
             : [];
 
-        $templateOptions = ($this->packageInstalled('gp247/front') && function_exists('gp247_front_get_all_template_installed'))
+        $templateOptions = $this->frontTemplateAvailable()
             ? (array) gp247_front_get_all_template_installed()
             : [];
 
