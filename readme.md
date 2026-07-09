@@ -32,14 +32,14 @@ GP247 is a compact source code built with Laravel, helping users quickly build a
 - GP247 builds a large, open ecosystem (plugin, template), helping users quickly build CMS, PMO, eCommerce, etc., according to your needs.
 
 <p align="center">
-    <img src="https://static.gp247.net/page/gp247-screen.jpg" width="100%">
+    <img src="https://static.gp247.net/page/sc-3.jpg" width="100%">
 </p>
 
 ## Laravel core:
 
-GP247 1.x
+GP247 2.x
 
-> Core laravel framework 12.x 
+> Core laravel framework 13.x 
 
 
 ## Website structure using GP247
@@ -64,11 +64,13 @@ GP247 1.x
     │           └── Templates(+)
     ├── resources
     │            └── views/vendor
-    │                           |── gp247-core(+) //Customize view core
-    │                           └── gp247-front(+) //(IF you have gp247/front installed)//
+    │                           |── gp247-admin(+) //Customize view core
+    │                           |── gp247-front-admin(+) //(IF you have gp247/front installed)//
+    │                           └── gp247-shop-admin(+) //(IF you have gp247/shop installed)//
     ├── vendor
     │     ├── gp247/core
-    │     └── gp247/front
+    │     ├── gp247/front
+    │     └── gp247/shop
     ├── .env
     │     └── GP247_ACTIVE=1 //ON|OFF gp247
     └──...
@@ -176,7 +178,7 @@ To create a zip file template:
 
 **Customize core admin view**
 
->`php artisan vendor:publish --tag=gp247:core-view`
+>`php artisan vendor:publish --tag=gp247:core-view` // -> views/vendor/gp247-admin
 
 **Overwrite gp247_* helper functions**
 

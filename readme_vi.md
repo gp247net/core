@@ -32,14 +32,14 @@ GP247 là một mã nguồn nhỏ gọn được xây dựng với Laravel, giú
 - GP247 xây dựng một hệ sinh thái mở rộng lớn (plugin, template), giúp người dùng nhanh chóng xây dựng CMS, PMO, thương mại điện tử, v.v., theo nhu cầu của bạn.
 
 <p align="center">
-    <img src="https://static.gp247.net/page/gp247-screen.jpg" width="100%">
+    <img src="https://static.gp247.net/page/sc-3.jpg" width="100%">
 </p>
 
 ## Core Laravel:
 
-GP247 1.x
+GP247 2.x
 
-> Core laravel framework 12.x 
+> Core laravel framework 13.x 
 
 
 ## Cấu trúc website sử dụng GP247
@@ -64,11 +64,13 @@ GP247 1.x
     │           └── Templates(+)
     ├── resources
     │            └── views/vendor
-    │                           |── gp247-core(+) //Tùy chỉnh view core
-    │                           └── gp247-front(+) //(NẾU bạn đã cài đặt gp247/front)//
+    │                           |── gp247-admin(+) //Tùy chỉnh view core
+    │                           |── gp247-front-admin(+) //(NẾU bạn đã cài đặt gp247/front)//
+    │                           └── gp247-shop-admin(+) //(NẾU bạn đã cài đặt gp247/shop)//
     ├── vendor
     │     ├── gp247/core
-    │     └── gp247/front
+    │     ├── gp247/front
+    │     └── gp247/shop
     ├── .env
     │     └── GP247_ACTIVE=1 //BẬT|TẮT gp247
     └──...
@@ -176,7 +178,7 @@ Sau đó, chạy lệnh:
 
 **Tùy chỉnh view của core admin**
 
->`php artisan vendor:publish --tag=gp247:core-view`
+>`php artisan vendor:publish --tag=gp247:core-view` // -> views/vendor/gp247-admin
 
 
 **Ghi đè các hàm helper gp247_***
