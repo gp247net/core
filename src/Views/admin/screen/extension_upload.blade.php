@@ -61,7 +61,7 @@
 
                     <p class="text-xs text-gray-500 dark:text-gray-400"
                        x-show="!fileName" x-cloak>
-                        {{ gp247_language_render('admin.extension.import_note') }}
+                        {!! gp247_language_render('admin.extension.import_note') !!}
                     </p>
                     <p class="text-xs font-medium"
                        x-show="fileName && !fileError" x-cloak
