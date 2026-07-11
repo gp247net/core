@@ -88,6 +88,13 @@ class MakePlugin extends Command
             $model      = str_replace('ExtensionUrlKey', $extensionUrlKey, $model);
             file_put_contents(storage_path($tmp.'/Models/ExtensionModel.php'), $model);
 
+            // US-PLG-007: sitemap.xml provider scaffold (ADR seo_plugin-sitemap-extension).
+            if (file_exists(storage_path($tmp.'/Seo.php'))) {
+                $seo = file_get_contents(storage_path($tmp.'/Seo.php'));
+                $seo      = str_replace('Extension_Key', $extensionKey, $seo);
+                file_put_contents(storage_path($tmp.'/Seo.php'), $seo);
+            }
+
 
             $appConfigJson = file_get_contents(storage_path($tmp.'/gp247.json'));
             $appConfigJson      = str_replace('Extension_Key', $extensionKey, $appConfigJson);
