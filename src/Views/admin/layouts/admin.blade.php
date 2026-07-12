@@ -98,7 +98,9 @@
                     <strong>Core</strong> {{ config('gp247.core') }}
                     @if (gp247_composer_get_package_installed()['gp247/s-cart'] ?? false)
                         &nbsp;&nbsp;
-                        <strong>S-Cart</strong> ({{ gp247_composer_get_package_installed()['gp247/s-cart'] }})
+                        <a href="https://github.com/gp247net/s-cart" target="_blank" class="hover:text-gray-600 dark:hover:text-gray-300">
+                            <strong>S-Cart</strong> ({{ gp247_composer_get_package_installed()['gp247/s-cart'] }})
+                        </a>
                     @endif
                 </p>
             </footer>
