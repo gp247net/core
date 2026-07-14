@@ -10,7 +10,9 @@ class AdminConfig extends Model
     protected $guarded = [];
 
     protected static $getAllGlobal = null;
-    protected static $getAllConfigOfStore = null;
+
+    /** @var array<int|string, array<string, mixed>> Per-storeId memoized result of getAllConfigOfStore(). */
+    protected static $getAllConfigOfStore = [];
 
     /**
      * get Plugin installed
@@ -127,12 +129,12 @@ class AdminConfig extends Model
      */
     public static function getAllConfigOfStore($storeId):array
     {
-        if (self::$getAllConfigOfStore === null) {
-            self::$getAllConfigOfStore = self::where('store_id', $storeId)
+        if (!array_key_exists($storeId, self::$getAllConfigOfStore)) {
+            self::$getAllConfigOfStore[$storeId] = self::where('store_id', $storeId)
                 ->pluck('value', 'key')
                 ->all();
         }
-        return self::$getAllConfigOfStore;
+        return self::$getAllConfigOfStore[$storeId];
     }
 
     /**
