@@ -7,7 +7,7 @@
     @aidlc-story US-UI-005
     @aidlc-adr ADR-005
 
-    Variables: $key (string), $type (bool|number|text).
+    Variables: $key (string), $type (bool|number|select|text), $options (array, for "select").
 --}}
 @if ($type === 'toggle')
     {{-- On/off switch (same boolean binding as a checkbox, styled as a slider).
@@ -23,6 +23,13 @@
 @elseif ($type === 'number')
     <input type="number" wire:model.live.blur="values.{{ $key }}"
         class="w-28 rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
+@elseif ($type === 'select')
+    <select wire:model.live="values.{{ $key }}"
+        class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
+        @foreach ($options ?? [] as $value => $label)
+            <option value="{{ $value }}">{{ $label }}</option>
+        @endforeach
+    </select>
 @else
     <input type="text" wire:model.live.blur="values.{{ $key }}"
         class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">

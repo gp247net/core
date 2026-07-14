@@ -10,7 +10,8 @@
     Variables:
       - $configs (Collection of AdminConfig)
       - $heading (string) — first column header
-      - $types (array<string,string>) — key => bool|number|text
+      - $types (array<string,string>) — key => bool|number|select|text
+      - $options (array<string,array>) — key => [value => label, ...], for "select" keys
 --}}
 <div class="max-w-3xl">
     {{-- Save feedback is shown by the global top-right notifications block
@@ -31,7 +32,7 @@
                             {!! $config->detail ? gp247_language_render($config->detail) : e($config->key) !!}
                         </td>
                         <td class="px-5 py-3 align-middle">
-                            @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type])
+                            @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type, 'options' => $options[$config->key] ?? []])
                         </td>
                     </tr>
                 @empty

@@ -60,12 +60,23 @@ abstract class ConfigForm extends GP247AdminComponent
     }
 
     /**
-     * Per-key widget type: "bool" (checkbox), "number" (numeric input) or "text".
-     * Keys not listed default to "text".
+     * Per-key widget type: "bool" (checkbox), "number" (numeric input), "select"
+     * (dropdown, see fieldOptions()) or "text". Keys not listed default to "text".
      *
      * @return array<string, string>
      */
     protected function fieldTypes(): array
+    {
+        return [];
+    }
+
+    /**
+     * Per-key option list for "select"-typed fields: key => [value => label, ...].
+     * Keys not listed (or non-"select" keys) render an empty option list.
+     *
+     * @return array<string, array<int|string, string>>
+     */
+    protected function fieldOptions(): array
     {
         return [];
     }
@@ -77,6 +88,15 @@ abstract class ConfigForm extends GP247AdminComponent
     public function typeOf(string $key): string
     {
         return $this->fieldTypes()[$key] ?? 'text';
+    }
+
+    /**
+     * @param string $key Config key.
+     * @return array<int|string, string> The select options for the key.
+     */
+    public function optionsOf(string $key): array
+    {
+        return $this->fieldOptions()[$key] ?? [];
     }
 
     /**
@@ -157,6 +177,7 @@ abstract class ConfigForm extends GP247AdminComponent
             'configs' => $configs,
             'heading' => $this->heading(),
             'types' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->typeOf($c->key)])->all(),
+            'options' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->optionsOf($c->key)])->all(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->heading()]);
     }
 }
