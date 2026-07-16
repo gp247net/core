@@ -20,7 +20,7 @@
 
             <div>
                 <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                    {{ gp247_language_render('admin.role.permissions') }} ({{ gp247_language_render('admin.core.selected', ['count' => count($form['permissions'])]) }})
+                    {{ gp247_language_render('admin.role.permissions') }} ({{ gp247_language_render('admin.selected', ['count' => count($form['permissions'])]) }})
                 </label>
                 <div x-data="{ q: '' }" class="rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="border-b border-gray-200 p-2 dark:border-gray-700">
@@ -43,7 +43,7 @@
 
             <div>
                 <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                    {{ gp247_language_render('admin.role.users_in_role') }} ({{ gp247_language_render('admin.core.selected', ['count' => count($form['administrators'])]) }})
+                    {{ gp247_language_render('admin.role.users_in_role') }} ({{ gp247_language_render('admin.selected', ['count' => count($form['administrators'])]) }})
                 </label>
                 <div x-data="{ q: '' }" class="rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="border-b border-gray-200 p-2 dark:border-gray-700">
@@ -64,8 +64,8 @@
             </div>
 
             <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
-                <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_role.index') }}" wire:navigate>{{ gp247_language_render('admin.core.cancel') }}</x-gp247::button>
-                <x-gp247::button type="submit" wire:loading.attr="disabled"><i class="fas fa-save"></i> {{ gp247_language_render('admin.core.save') }}</x-gp247::button>
+                <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_role.index') }}" wire:navigate>{{ gp247_language_render('admin.cancel') }}</x-gp247::button>
+                <x-gp247::button type="submit" wire:loading.attr="disabled"><i class="fas fa-save"></i> {{ gp247_language_render('admin.save') }}</x-gp247::button>
             </div>
         </form>
     </x-gp247::card>

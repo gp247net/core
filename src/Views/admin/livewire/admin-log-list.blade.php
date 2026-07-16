@@ -13,7 +13,7 @@
     <x-gp247::list-toolbar :placeholder="gp247_language_render('admin.log.ip') . ', ' . gp247_language_render('admin.log.path')"
         :selected-count="count($selected)" :bulk-confirm="gp247_language_render('action.delete_confirm')" />
 
-    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.core.no_records') : null">
+    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.no_records') : null">
         <x-slot:head>
             <tr>
                 <th class="w-10 px-4 py-3"></th>
@@ -23,7 +23,7 @@
                 <x-gp247::th-sort field="ip" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.log.ip') }}</x-gp247::th-sort>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.log.user_agent') }}</th>
                 <x-gp247::th-sort field="created_at" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.log.created_at') }}</x-gp247::th-sort>
-                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.actions') }}</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.actions') }}</th>
             </tr>
         </x-slot:head>
 

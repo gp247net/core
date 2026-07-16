@@ -64,7 +64,7 @@ trait  ExtensionController
             if (method_exists($namespace, 'install')) {
                 $response = (new $namespace)->install();
                 if (is_array($response) && $response['error'] == 0) {
-                    gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
+                    gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
                     gp247_extension_after_update();
                 }
             } else {
@@ -97,7 +97,7 @@ trait  ExtensionController
             if (method_exists($namespace, 'uninstall')) {
                 $response = (new $namespace)->uninstall();
                 if (is_array($response) && $response['error'] == 0) {
-                gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_uninstall::name__'.$key);
+                gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_uninstall::name__'.$key);
                     gp247_extension_after_update();
                 }
             } else {
@@ -130,7 +130,7 @@ trait  ExtensionController
         if (method_exists($namespace, 'enable')) {
             $response = (new $namespace)->enable();
             if (is_array($response) && $response['error'] == 0) {
-                gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
+                gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
                 gp247_extension_after_update();
             }
         } else {
@@ -156,7 +156,7 @@ trait  ExtensionController
         if (method_exists($namespace, 'disable')) {
             $response = (new $namespace)->disable();
         if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_disable::name__'.$key);
+            gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_disable::name__'.$key);
                 gp247_extension_after_update();
             }
         } else {
@@ -376,7 +376,7 @@ trait  ExtensionController
             return redirect()->back()->with('error', $msg);
         }
 
-        gp247_notice_add(type:$this->groupType, typeId: $configKey, content:'admin_notice.gp247_'.strtolower($this->groupType).'_import::name__'.$configKey);
+        gp247_notice_add(type:$this->groupType, typeId: $configKey, content:'admin.notice.gp247_'.strtolower($this->groupType).'_import::name__'.$configKey);
         gp247_extension_after_update();
 
         if ($linkRedirect) {

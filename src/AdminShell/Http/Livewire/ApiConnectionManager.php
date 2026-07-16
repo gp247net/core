@@ -208,7 +208,7 @@ class ApiConnectionManager extends GP247AdminComponent
             ->where('store_id', $this->globalStoreId())
             ->update(['value' => $this->apiConnectionRequired ? '1' : '0']);
 
-        $this->notify('success', gp247_language_render('admin.core.setting_saved'));
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**

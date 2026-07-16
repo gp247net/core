@@ -266,7 +266,7 @@ trait ExtensionOnlineController
             $response = ['error' => 1, 'msg' => $msg];
         }
         if (is_array($response) && $response['error'] == 0) {
-            gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin_notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
+            gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
             gp247_extension_after_update();
         }
         

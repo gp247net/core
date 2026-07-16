@@ -33,7 +33,7 @@
                 @endif
                 @if (Route::has('admin_config.index'))
                     <x-gp247::button href="{{ gp247_route_admin('admin_config.index') }}" wire:navigate size="sm" variant="secondary">
-                        <i class="fas fa-sliders-h"></i> {{ gp247_language_render('admin.core.cfg_title') }}
+                        <i class="fas fa-sliders-h"></i> {{ gp247_language_render('admin.cfg_title') }}
                     </x-gp247::button>
                 @endif
                 @if (Route::has('admin_user.index'))

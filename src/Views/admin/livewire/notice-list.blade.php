@@ -11,25 +11,25 @@
     Variables: $rows (AdminNotice paginator), $sortField, $sortDir, $selected.
 --}}
 <div>
-    <x-gp247::list-toolbar :placeholder="gp247_language_render('admin_notice.content')"
+    <x-gp247::list-toolbar :placeholder="gp247_language_render('admin.notice.content')"
         :selected-count="count($selected)" :bulk-confirm="gp247_language_render('action.delete_confirm')">
         <x-slot:actions>
             <x-gp247::button variant="secondary" size="sm" wire:click="markRead">
-                <i class="fas fa-check-double"></i> {{ gp247_language_render('admin_notice.mark_read') }}
+                <i class="fas fa-check-double"></i> {{ gp247_language_render('admin.notice.mark_read') }}
             </x-gp247::button>
         </x-slot:actions>
     </x-gp247::list-toolbar>
 
-    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin_notice.empty') : null">
+    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.notice.empty') : null">
         <x-slot:head>
             <tr>
                 <th class="w-10 px-4 py-3"></th>
-                <x-gp247::th-sort field="type" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin_notice.type') }}</x-gp247::th-sort>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin_notice.content') }}</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin_notice.admin_created') }}</th>
+                <x-gp247::th-sort field="type" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.notice.type') }}</x-gp247::th-sort>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.notice.content') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.notice.admin_created') }}</th>
                 <x-gp247::th-sort field="status" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('order.status') }}</x-gp247::th-sort>
-                <x-gp247::th-sort field="created_at" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin_notice.created_at') }}</x-gp247::th-sort>
-                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.actions') }}</th>
+                <x-gp247::th-sort field="created_at" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.notice.created_at') }}</x-gp247::th-sort>
+                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.actions') }}</th>
             </tr>
         </x-slot:head>
 
@@ -59,9 +59,9 @@
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $row->admin->name ?? $row->admin_created }}</td>
                 <td class="px-4 py-3">
                     @if ($row->status)
-                        <x-gp247::badge color="gray">{{ gp247_language_render('admin_notice.read') }}</x-gp247::badge>
+                        <x-gp247::badge color="gray">{{ gp247_language_render('admin.notice.read') }}</x-gp247::badge>
                     @else
-                        <x-gp247::badge color="blue">{{ gp247_language_render('admin_notice.unread') }}</x-gp247::badge>
+                        <x-gp247::badge color="blue">{{ gp247_language_render('admin.notice.unread') }}</x-gp247::badge>
                     @endif
                 </td>
                 <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $row->created_at }}</td>

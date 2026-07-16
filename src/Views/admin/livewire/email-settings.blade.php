@@ -17,7 +17,7 @@
 --}}
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
     {{-- Email mode --}}
-    <x-gp247::card :title="gp247_language_render('admin.core.email_mode')">
+    <x-gp247::card :title="gp247_language_render('admin.email_mode')">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 @foreach ($modeKeys as $key)
@@ -37,7 +37,7 @@
                 {{-- Global SMTP-mode toggle: controls visibility of the SMTP card. --}}
                 <tr wire:key="cfg-smtp_mode">
                     <td class="py-3 pr-4 align-middle text-sm text-gray-700 dark:text-gray-200">
-                        {{ gp247_language_render('admin.core.use_smtp') }}
+                        {{ gp247_language_render('admin.use_smtp') }}
                     </td>
                     <td class="py-3 align-middle">
                         <x-gp247::checkbox wire:model.live="smtpMode" />
@@ -45,14 +45,14 @@
                 </tr>
             </tbody>
             <tfoot>
-                <tr><td colspan="2" class="pt-3 text-xs text-gray-400 dark:text-gray-500">{{ gp247_language_render('admin.core.smtp_help') }}</td></tr>
+                <tr><td colspan="2" class="pt-3 text-xs text-gray-400 dark:text-gray-500">{{ gp247_language_render('admin.smtp_help') }}</td></tr>
             </tfoot>
         </table>
     </x-gp247::card>
 
     {{-- SMTP configuration (shown only while SMTP mode is on) --}}
     <div x-show="$wire.smtpMode" x-cloak x-transition>
-        <x-gp247::card :title="gp247_language_render('admin.core.smtp_config')">
+        <x-gp247::card :title="gp247_language_render('admin.smtp_config')">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                     @foreach ($smtpKeys as $key)

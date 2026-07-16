@@ -75,7 +75,7 @@
             "
             class="inline-flex shrink-0 items-center gap-1.5 rounded-r-lg border border-l-0 border-gray-300 bg-white px-4 py-2 text-sm font-medium text-blue-600 whitespace-nowrap transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-400 dark:hover:bg-gray-600">
             <i class="fa fa-image text-xs"></i>
-            <span>{{ gp247_language_render('admin.core.choose_image') }}</span>
+            <span>{{ gp247_language_render('admin.choose_image') }}</span>
         </button>
     </div>
 

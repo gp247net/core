@@ -28,6 +28,6 @@ class SettingsHub extends GP247AdminComponent
     public function render(): View
     {
         return view('gp247-admin::livewire.settings-hub')
-            ->layout('gp247-admin::layouts.admin', ['title' => gp247_language_render('admin.core.cfg_title')]);
+            ->layout('gp247-admin::layouts.admin', ['title' => gp247_language_render('admin.cfg_title')]);
     }
 }

@@ -45,7 +45,7 @@
                     @if ($hasError)
                         {{-- WHY: visible cue when a hidden tab contains validation errors. --}}
                         <span class="inline-block h-2 w-2 rounded-full bg-red-500" aria-hidden="true"></span>
-                        <span class="sr-only">{{ gp247_language_render('admin.core.error') ?: 'error' }}</span>
+                        <span class="sr-only">{{ gp247_language_render('admin.error') ?: 'error' }}</span>
                     @endif
                 </button>
             @endforeach

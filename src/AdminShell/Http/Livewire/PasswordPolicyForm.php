@@ -60,6 +60,6 @@ class PasswordPolicyForm extends ConfigForm
      */
     protected function heading(): string
     {
-        return gp247_language_render('admin.core.cfg_password');
+        return gp247_language_render('admin.cfg_password');
     }
 }

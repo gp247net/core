@@ -271,7 +271,7 @@ abstract class ResourcePanel extends GP247AdminComponent
 
         // WHY: navigate back to the base route so the URL clears the edit/{id}
         // segment; the success flash is shown on the next mount (flashNotice).
-        session()->flash('gp247_admin_success', gp247_language_render('admin.core.save_success'));
+        session()->flash('gp247_admin_success', gp247_language_render('admin.save_success'));
         $this->redirect(route($this->baseRoute()), navigate: true);
     }
 
@@ -290,14 +290,14 @@ abstract class ResourcePanel extends GP247AdminComponent
         // Deleting the row currently open in the edit form → return to the base
         // route so the stale edit/{id} URL is cleared.
         if ((string) $id === (string) $this->editingId) {
-            session()->flash('gp247_admin_success', gp247_language_render('admin.core.delete_success'));
+            session()->flash('gp247_admin_success', gp247_language_render('admin.delete_success'));
             $this->redirect(route($this->baseRoute()), navigate: true);
 
             return;
         }
 
         $this->resetPage();
-        $this->notify('success', gp247_language_render('admin.core.delete_success'));
+        $this->notify('success', gp247_language_render('admin.delete_success'));
     }
 
     /**

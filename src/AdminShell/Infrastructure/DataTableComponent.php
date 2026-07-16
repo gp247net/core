@@ -69,7 +69,7 @@ abstract class DataTableComponent extends GP247AdminComponent
     protected ?string $pageTitle = null;
 
     /** @var string Language key for the "row is protected" warning. */
-    protected string $guardedKey = 'admin.core.protected_item';
+    protected string $guardedKey = 'admin.protected_item';
 
     /** @var string Layout used for full-page rendering. */
     protected string $adminLayout = 'gp247-admin::layouts.admin';
@@ -226,7 +226,7 @@ abstract class DataTableComponent extends GP247AdminComponent
 
         $this->deleteRows([$id]);
         $this->resetPage();
-        $this->notify('success', gp247_language_render('admin.core.delete_success'));
+        $this->notify('success', gp247_language_render('admin.delete_success'));
     }
 
     /**
@@ -246,7 +246,7 @@ abstract class DataTableComponent extends GP247AdminComponent
         $this->deleteRows($this->selected);
         $this->selected = [];
         $this->resetPage();
-        $this->notify('success', gp247_language_render('admin.core.delete_selected_success'));
+        $this->notify('success', gp247_language_render('admin.delete_selected_success'));
     }
 
     /**

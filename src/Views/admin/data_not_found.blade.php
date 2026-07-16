@@ -15,7 +15,7 @@
     <span class="flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-500 dark:bg-amber-500/10">
         <i class="fas fa-exclamation text-xl"></i>
     </span>
-    <h4 class="text-lg font-semibold text-gray-700 dark:text-gray-200">{{ gp247_language_render('display.data_not_found_msg') }}</h4>
+    <h4 class="text-lg font-semibold text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.display.data_not_found_msg') }}</h4>
     @if ($url)
         <code class="rounded bg-gray-100 px-2 py-1 text-sm text-gray-600 dark:bg-gray-700 dark:text-gray-300">{{ $url }}</code>
     @endif

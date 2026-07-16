@@ -32,12 +32,12 @@
             <x-gp247::input :label="gp247_language_render('admin.menu.icon_field')" name="icon" wire:model="form.icon"
                 :help="gp247_language_render('admin.menu.icon_help')" :error="$errors->first('form.icon')" />
 
-            <x-gp247::input :label="gp247_language_render('admin.core.sort')" name="sort" type="number" wire:model="form.sort"
+            <x-gp247::input :label="gp247_language_render('admin.sort')" name="sort" type="number" wire:model="form.sort"
                 :error="$errors->first('form.sort')" />
 
             <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
-                <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_menu.index') }}" wire:navigate>{{ gp247_language_render($editingId ? 'admin.core.cancel' : 'admin.core.reset') }}</x-gp247::button>
-                <x-gp247::button type="submit" wire:loading.attr="disabled"><i class="fas fa-save"></i> {{ gp247_language_render($editingId ? 'admin.core.update' : 'admin.core.submit') }}</x-gp247::button>
+                <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_menu.index') }}" wire:navigate>{{ gp247_language_render($editingId ? 'admin.cancel' : 'admin.reset') }}</x-gp247::button>
+                <x-gp247::button type="submit" wire:loading.attr="disabled"><i class="fas fa-save"></i> {{ gp247_language_render($editingId ? 'admin.update' : 'admin.submit') }}</x-gp247::button>
             </div>
         </form>
     </x-gp247::card>

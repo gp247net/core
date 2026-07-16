@@ -54,7 +54,7 @@
     <label class="inline-flex cursor-pointer items-center gap-3">
         <input type="checkbox" wire:model.live="active" class="peer sr-only">
         <span class="relative h-6 w-11 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-blue-600 peer-checked:after:translate-x-5 dark:bg-gray-600"></span>
-        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.core.active') }}</span>
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.active') }}</span>
     </label>
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">

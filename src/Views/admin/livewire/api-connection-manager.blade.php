@@ -135,9 +135,9 @@
                                 <td class="px-3 py-2 text-gray-500 dark:text-gray-400">{{ $row->expire }}</td>
                                 <td class="px-3 py-2">
                                     @if ($row->status)
-                                        <x-gp247::badge color="green">{{ gp247_language_render('admin.core.on') }}</x-gp247::badge>
+                                        <x-gp247::badge color="green">{{ gp247_language_render('admin.on') }}</x-gp247::badge>
                                     @else
-                                        <x-gp247::badge color="red">{{ gp247_language_render('admin.core.off') }}</x-gp247::badge>
+                                        <x-gp247::badge color="red">{{ gp247_language_render('admin.off') }}</x-gp247::badge>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2 text-right">
@@ -147,14 +147,14 @@
                                         </x-gp247::button>
                                         <x-gp247::button variant="danger" size="sm"
                                             wire:click="deleteRow('{{ $row->id }}')"
-                                            wire:confirm="{{ gp247_language_render('admin.core.confirm_delete') }}">
+                                            wire:confirm="{{ gp247_language_render('admin.confirm_delete') }}">
                                             <i class="fas fa-trash-alt"></i>
                                         </x-gp247::button>
                                     </div>
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-3 py-4 text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.no_records') }}</td></tr>
+                            <tr><td colspan="6" class="px-3 py-4 text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.no_records') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

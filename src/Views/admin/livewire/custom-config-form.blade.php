@@ -42,13 +42,13 @@
                         <td class="px-5 py-3 align-middle text-right">
                             <x-gp247::button variant="danger" size="sm"
                                 wire:click="deleteKey('{{ $row->key }}')"
-                                wire:confirm="{{ gp247_language_render('admin.core.confirm_delete') }}">
+                                wire:confirm="{{ gp247_language_render('admin.confirm_delete') }}">
                                 <i class="fas fa-trash-alt"></i>
                             </x-gp247::button>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.no_settings') }}</td></tr>
+                    <tr><td colspan="4" class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.no_settings') }}</td></tr>
                 @endforelse
 
                 {{-- Add-new row --}}

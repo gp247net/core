@@ -9,9 +9,9 @@
 --}}
 <div>
     <x-gp247::tabs :tabs="[
-        'general' => gp247_language_render('admin.core.cfg_general'),
-        'email'   => gp247_language_render('admin.core.cfg_email'),
-        'custom'  => gp247_language_render('admin.core.cfg_custom'),
+        'general' => gp247_language_render('admin.cfg_general'),
+        'email'   => gp247_language_render('admin.cfg_email'),
+        'custom'  => gp247_language_render('admin.cfg_custom'),
     ]">
         <div x-show="tab === 'general'" x-cloak>
             <livewire:gp247-core::general-settings-form />

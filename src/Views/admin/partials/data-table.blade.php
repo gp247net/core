@@ -16,7 +16,7 @@
 <div>
     <x-gp247::list-toolbar :selected-count="count($selected)" />
 
-    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.core.no_records') : null">
+    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.no_records') : null">
         <x-slot:head>
             <tr>
                 <th class="w-10 px-4 py-3"></th>

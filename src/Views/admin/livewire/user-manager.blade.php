@@ -33,28 +33,28 @@
                 wire:model="form.avatar" :value="$form['avatar'] ?? null"
                 :error="$errors->first('form.avatar')" />
 
-            <x-gp247::checkbox :label="gp247_language_render('admin.core.active')" wire:model="form.status" value="1" />
+            <x-gp247::checkbox :label="gp247_language_render('admin.active')" wire:model="form.status" value="1" />
 
             <x-gp247::searchable-select
                 model="form.roles"
                 :options="$roleOptions"
                 :multiple="true"
-                :label="gp247_language_render('admin.user.roles') . ' (' . gp247_language_render('admin.core.selected', ['count' => count($form['roles'])]) . ')'"
+                :label="gp247_language_render('admin.user.roles') . ' (' . gp247_language_render('admin.selected', ['count' => count($form['roles'])]) . ')'"
                 :help="gp247_language_render('admin.user.role_override_note')" />
 
             <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
                 @if ($editingId)
                     <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_user.index') }}" wire:navigate>
-                        {{ gp247_language_render('admin.core.cancel') }}
+                        {{ gp247_language_render('admin.cancel') }}
                     </x-gp247::button>
                 @else
                     <x-gp247::button variant="secondary" wire:click="resetForm" type="button">
-                        {{ gp247_language_render('admin.core.reset') }}
+                        {{ gp247_language_render('admin.reset') }}
                     </x-gp247::button>
                 @endif
                 <x-gp247::button type="submit" wire:loading.attr="disabled">
                     <i class="fas fa-save"></i>
-                    {{ gp247_language_render($editingId ? 'admin.core.update' : 'admin.core.submit') }}
+                    {{ gp247_language_render($editingId ? 'admin.update' : 'admin.submit') }}
                 </x-gp247::button>
             </div>
         </form>
@@ -68,13 +68,13 @@
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
         </div>
 
-        <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.core.no_records') : null">
+        <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.no_records') : null">
             <x-slot:head>
                 <tr>
                     <x-gp247::th-sort field="username" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.user.username') }}</x-gp247::th-sort>
                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.user.roles') }}</th>
-                    <x-gp247::th-sort field="status" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.core.status') }}</x-gp247::th-sort>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.actions') }}</th>
+                    <x-gp247::th-sort field="status" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.status') }}</x-gp247::th-sort>
+                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.actions') }}</th>
                 </tr>
             </x-slot:head>
 
@@ -93,7 +93,7 @@
                     </td>
                     <td class="px-4 py-3">
                         <x-gp247::badge :color="$row->status ? 'green' : 'gray'">
-                            {{ $row->status ? gp247_language_render('admin.core.active') : gp247_language_render('admin.core.inactive') }}
+                            {{ $row->status ? gp247_language_render('admin.active') : gp247_language_render('admin.inactive') }}
                         </x-gp247::badge>
                     </td>
                     <td class="px-4 py-3">

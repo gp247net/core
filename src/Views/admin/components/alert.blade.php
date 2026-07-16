@@ -44,7 +44,7 @@
 
     @if ($dismissible)
         <button type="button" x-on:click="show = false"
-            class="shrink-0 opacity-70 transition hover:opacity-100" aria-label="{{ gp247_language_render('admin.core.close') }}">
+            class="shrink-0 opacity-70 transition hover:opacity-100" aria-label="{{ gp247_language_render('admin.close') }}">
             &times;
         </button>
     @endif

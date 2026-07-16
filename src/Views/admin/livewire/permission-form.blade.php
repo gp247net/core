@@ -23,7 +23,7 @@
             <div>
                 <div class="mb-1 flex items-center justify-between">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                        {{ gp247_language_render('admin.permission.allowed_routes') }} ({{ gp247_language_render('admin.core.selected', ['count' => count($form['http_uri'])]) }})
+                        {{ gp247_language_render('admin.permission.allowed_routes') }} ({{ gp247_language_render('admin.selected', ['count' => count($form['http_uri'])]) }})
                     </label>
                 </div>
 
@@ -55,8 +55,8 @@
             </div>
 
             <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
-                <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_permission.index') }}" wire:navigate>{{ gp247_language_render('admin.core.cancel') }}</x-gp247::button>
-                <x-gp247::button type="submit" wire:loading.attr="disabled"><i class="fas fa-save"></i> {{ gp247_language_render('admin.core.save') }}</x-gp247::button>
+                <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_permission.index') }}" wire:navigate>{{ gp247_language_render('admin.cancel') }}</x-gp247::button>
+                <x-gp247::button type="submit" wire:loading.attr="disabled"><i class="fas fa-save"></i> {{ gp247_language_render('admin.save') }}</x-gp247::button>
             </div>
         </form>
     </x-gp247::card>

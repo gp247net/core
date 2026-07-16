@@ -21,7 +21,7 @@
             <thead class="bg-gray-50 dark:bg-gray-800">
                 <tr>
                     <th class="px-5 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $heading }}</th>
-                    <th class="w-48 px-5 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.core.value') }}</th>
+                    <th class="w-48 px-5 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.value') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -36,7 +36,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="2" class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.no_settings') }}</td></tr>
+                    <tr><td colspan="2" class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.no_settings') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

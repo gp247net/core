@@ -71,7 +71,7 @@ class EmailSettingsForm extends StoreConfigForm
      */
     protected function heading(): string
     {
-        return gp247_language_render('admin.core.cfg_email');
+        return gp247_language_render('admin.cfg_email');
     }
 
     /**
@@ -111,7 +111,7 @@ class EmailSettingsForm extends StoreConfigForm
             ->where('store_id', $globalStore)
             ->update(['value' => $this->smtpMode ? '1' : '0']);
 
-        $this->notify('success', gp247_language_render('admin.core.setting_saved'));
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**

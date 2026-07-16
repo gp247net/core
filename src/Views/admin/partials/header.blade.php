@@ -28,7 +28,7 @@
 <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-800 sm:px-6">
     <button type="button" x-on:click="$store.gp247.toggleSidebar()"
         class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-        aria-label="{{ gp247_language_render('admin.core.toggle_sidebar') }}">
+        aria-label="{{ gp247_language_render('admin.toggle_sidebar') }}">
         <i class="fas fa-bars"></i>
     </button>
 
@@ -36,7 +36,7 @@
         @if ($hasStorefront)
             <a href="{{ gp247_route_front('front.home') }}" target="_blank" rel="noopener"
                 class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                title="{{ gp247_language_render('admin.core.go_to_shop') }}">
+                title="{{ gp247_language_render('admin.go_to_shop') }}">
                 <i class="fas fa-store-alt"></i>
             </a>
         @endif
@@ -76,7 +76,7 @@
         <div class="relative" x-data="{ open: false }">
             <button type="button" x-on:click="open = ! open"
                 class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                aria-label="{{ gp247_language_render('admin_notice.title') }}">
+                aria-label="{{ gp247_language_render('admin.notice.title') }}">
                 <i class="far fa-bell"></i>
                 @if ($noticeCount)
                     <span class="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">{{ $noticeCount > 99 ? '99+' : $noticeCount }}</span>
@@ -86,10 +86,10 @@
             <div x-show="open" x-on:click.outside="open = false" x-cloak
                 class="absolute right-0 mt-2 w-80 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                 <div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5 dark:border-gray-700">
-                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin_notice.title') }}</span>
+                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.notice.title') }}</span>
                     @if ($noticeList->count())
                         <a href="{{ gp247_route_admin('admin_notice.mark_read') }}"
-                            class="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400">{{ gp247_language_render('admin_notice.mark_read') }}</a>
+                            class="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400">{{ gp247_language_render('admin.notice.mark_read') }}</a>
                     @endif
                 </div>
 
@@ -124,14 +124,14 @@
                     <a href="{{ $noticeIndexUrl }}"
                         class="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-medium text-blue-600 hover:bg-gray-50 dark:border-gray-700 dark:text-blue-400 dark:hover:bg-gray-700/50">{{ gp247_language_render('action.view_more') }}</a>
                 @else
-                    <p class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin_notice.empty') }}</p>
+                    <p class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.notice.empty') }}</p>
                 @endif
             </div>
         </div>
 
         <button type="button" x-on:click="$store.gp247.toggleTheme()"
             class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-            aria-label="{{ gp247_language_render('admin.core.toggle_dark') }}">
+            aria-label="{{ gp247_language_render('admin.toggle_dark') }}">
             <i class="fas" :class="dark ? 'fa-sun' : 'fa-moon'"></i>
         </button>
 

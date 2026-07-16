@@ -33,15 +33,15 @@
             </div>
 
             {{-- Status --}}
-            <x-gp247::checkbox :label="gp247_language_render('admin.core.active')" wire:model="form.status" value="1" />
+            <x-gp247::checkbox :label="gp247_language_render('admin.active')" wire:model="form.status" value="1" />
 
             {{-- Actions --}}
             <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
                 <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_home_layout.index') }}" wire:navigate>
-                    {{ gp247_language_render('admin.core.cancel') }}
+                    {{ gp247_language_render('admin.cancel') }}
                 </x-gp247::button>
                 <x-gp247::button type="submit" wire:loading.attr="disabled">
-                    <i class="fas fa-save"></i> {{ gp247_language_render('admin.core.save') }}
+                    <i class="fas fa-save"></i> {{ gp247_language_render('admin.save') }}
                 </x-gp247::button>
             </div>
         </form>

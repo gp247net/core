@@ -13,10 +13,10 @@
     x-data="{
         toasts: [],
         styles: {
-            success: { ring: 'border-l-green-500',  icon: 'fa-circle-check',        iconColor: 'text-green-500',  title: '{{ gp247_language_render('admin.core.toast_success') }}' },
-            error:   { ring: 'border-l-red-500',    icon: 'fa-circle-xmark',        iconColor: 'text-red-500',    title: '{{ gp247_language_render('admin.core.toast_error') }}' },
-            warning: { ring: 'border-l-amber-500',  icon: 'fa-triangle-exclamation', iconColor: 'text-amber-500', title: '{{ gp247_language_render('admin.core.toast_warning') }}' },
-            info:    { ring: 'border-l-blue-500',   icon: 'fa-circle-info',         iconColor: 'text-blue-500',   title: '{{ gp247_language_render('admin.core.toast_info') }}' },
+            success: { ring: 'border-l-green-500',  icon: 'fa-circle-check',        iconColor: 'text-green-500',  title: '{{ gp247_language_render('admin.toast_success') }}' },
+            error:   { ring: 'border-l-red-500',    icon: 'fa-circle-xmark',        iconColor: 'text-red-500',    title: '{{ gp247_language_render('admin.toast_error') }}' },
+            warning: { ring: 'border-l-amber-500',  icon: 'fa-triangle-exclamation', iconColor: 'text-amber-500', title: '{{ gp247_language_render('admin.toast_warning') }}' },
+            info:    { ring: 'border-l-blue-500',   icon: 'fa-circle-info',         iconColor: 'text-blue-500',   title: '{{ gp247_language_render('admin.toast_info') }}' },
         },
         push(raw) {
             // Tolerate Livewire detail shapes: {type,message}, [ {..} ] or a string.
@@ -53,7 +53,7 @@
                 <p class="text-sm text-gray-600 dark:text-gray-300" x-text="toast.message"></p>
             </div>
             <button type="button" class="text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-200"
-                x-on:click="dismiss(toast.id)" aria-label="{{ gp247_language_render('admin.core.close') }}">&times;</button>
+                x-on:click="dismiss(toast.id)" aria-label="{{ gp247_language_render('admin.close') }}">&times;</button>
         </div>
     </template>
 </div>

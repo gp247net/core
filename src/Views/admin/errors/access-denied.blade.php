@@ -16,13 +16,13 @@
     <div class="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white px-6 py-16 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <i class="fas fa-lock mb-4 text-4xl text-amber-500"></i>
         <h1 class="mb-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
-            {{ gp247_language_render('admin.core.access_denied_title') }}
+            {{ gp247_language_render('admin.access_denied_title') }}
         </h1>
         <p class="mb-6 max-w-md text-sm text-gray-500 dark:text-gray-400">
-            {{ gp247_language_render('admin.core.access_denied_message') }}
+            {{ gp247_language_render('admin.access_denied_message') }}
         </p>
         <x-gp247::button href="{{ gp247_route_admin('admin.home') }}">
-            {{ gp247_language_render('admin.core.back_to_dashboard') }}
+            {{ gp247_language_render('admin.back_to_dashboard') }}
         </x-gp247::button>
     </div>
 @endsection

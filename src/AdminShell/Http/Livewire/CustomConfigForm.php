@@ -105,7 +105,7 @@ class CustomConfigForm extends GP247AdminComponent
             ->where('store_id', $this->storeId())
             ->update(['value' => gp247_clean((string) $value)]);
 
-        $this->notify('success', gp247_language_render('admin.core.setting_saved'));
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**
@@ -180,7 +180,7 @@ class CustomConfigForm extends GP247AdminComponent
      */
     public function render(): View
     {
-        $heading = gp247_language_render('admin.core.cfg_custom');
+        $heading = gp247_language_render('admin.cfg_custom');
 
         return view('gp247-admin::livewire.custom-config-form', [
             'rows' => $this->rows(),

@@ -59,6 +59,6 @@ class GlobalConfigForm extends ConfigForm
      */
     protected function heading(): string
     {
-        return gp247_language_render('admin.core.cfg_global');
+        return gp247_language_render('admin.cfg_global');
     }
 }

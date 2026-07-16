@@ -19,14 +19,14 @@
         </x-slot:actions>
     </x-gp247::list-toolbar>
 
-    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.core.no_records') : null">
+    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.no_records') : null">
         <x-slot:head>
             <tr>
                 <th class="w-10 px-4 py-3"></th>
                 <x-gp247::th-sort field="name" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.role.name') }}</x-gp247::th-sort>
                 <x-gp247::th-sort field="slug" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.role.slug') }}</x-gp247::th-sort>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.role.permissions') }}</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.actions') }}</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.actions') }}</th>
             </tr>
         </x-slot:head>
 
@@ -38,7 +38,7 @@
                 </td>
                 <td class="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
                     {{ $row->name }}
-                    @if ($guarded)<x-gp247::badge color="slate" class="ml-1">{{ gp247_language_render('admin.core.built_in') }}</x-gp247::badge>@endif
+                    @if ($guarded)<x-gp247::badge color="slate" class="ml-1">{{ gp247_language_render('admin.built_in') }}</x-gp247::badge>@endif
                 </td>
                 <td class="px-4 py-3 text-sm"><code class="rounded bg-gray-100 px-1.5 py-0.5 text-xs dark:bg-gray-700">{{ $row->slug }}</code></td>
                 <td class="px-4 py-3">

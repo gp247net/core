@@ -22,21 +22,21 @@
     'locked' => false,
 ])
 
-@php $deleteConfirm = $deleteConfirm ?? gp247_language_render('admin.core.confirm_delete'); @endphp
+@php $deleteConfirm = $deleteConfirm ?? gp247_language_render('admin.confirm_delete'); @endphp
 
 <div class="flex items-center justify-end gap-1">
     {{ $slot }}
 
     @if ($edit)
-        <x-gp247::button size="sm" variant="ghost" href="{{ $edit }}" wire:navigate title="{{ gp247_language_render('admin.core.edit') }}">
+        <x-gp247::button size="sm" variant="ghost" href="{{ $edit }}" wire:navigate title="{{ gp247_language_render('admin.edit') }}">
             <i class="fas fa-edit"></i>
         </x-gp247::button>
     @endif
 
     @if ($locked)
-        <span class="px-2 text-xs text-gray-400">{{ gp247_language_render('admin.core.locked') }}</span>
+        <span class="px-2 text-xs text-gray-400">{{ gp247_language_render('admin.locked') }}</span>
     @elseif (!is_null($deleteId))
-        <x-gp247::button size="sm" variant="ghost" wire:click="delete('{{ $deleteId }}')" wire:confirm="{{ $deleteConfirm }}" title="{{ gp247_language_render('admin.core.delete') }}">
+        <x-gp247::button size="sm" variant="ghost" wire:click="delete('{{ $deleteId }}')" wire:confirm="{{ $deleteConfirm }}" title="{{ gp247_language_render('admin.delete') }}">
             <i class="fas fa-trash-alt text-red-600"></i>
         </x-gp247::button>
     @endif

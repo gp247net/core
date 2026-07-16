@@ -7,7 +7,7 @@
     pointer events and change/input events reach Livewire directly.
 
     Usage — standalone with label:
-      <x-gp247::checkbox :label="gp247_language_render('admin.core.active')"
+      <x-gp247::checkbox :label="gp247_language_render('admin.active')"
           wire:model="form.status" value="1" />
 
     Usage — bare box inside an existing <label> wrapper (list items, table cells):

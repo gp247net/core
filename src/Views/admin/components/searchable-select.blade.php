@@ -47,7 +47,7 @@
 
 @php
     $id          = $attributes->get('id', $name ?? ('ss_' . uniqid()));
-    $placeholder = $placeholder ?? gp247_language_render('admin.core.search');
+    $placeholder = $placeholder ?? gp247_language_render('admin.search');
     // Seed value: prefer $wire when model is bound; fall back to the `value` prop.
     // The Alpine init() re-seeds from $wire anyway, so this is only for SSR preview.
     $seedValue   = $model ? null : $value;
@@ -404,7 +404,7 @@
                     <button type="button" class="gp247-ss-btn"
                         x-show="single"
                         @click.stop="clear()"
-                        title="{{ gp247_language_render('admin.core.delete') }}">×</button>
+                        title="{{ gp247_language_render('admin.delete') }}">×</button>
                 @endif
 
                 <span class="gp247-ss-arrow">
@@ -421,7 +421,7 @@
             <div class="gp247-ss-list">
                 <template x-if="filtered.length === 0">
                     <div class="gp247-ss-empty">
-                        {{ gp247_language_render('admin.core.no_records') }}
+                        {{ gp247_language_render('admin.no_records') }}
                     </div>
                 </template>
                 <template x-for="opt in filtered" :key="opt.id">

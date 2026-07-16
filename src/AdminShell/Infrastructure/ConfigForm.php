@@ -163,7 +163,7 @@ abstract class ConfigForm extends GP247AdminComponent
             ->where('store_id', $this->storeId())
             ->update(['value' => $stored]);
 
-        $this->notify('success', gp247_language_render('admin.core.setting_saved'));
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**

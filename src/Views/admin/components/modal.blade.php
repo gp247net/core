@@ -37,7 +37,7 @@
         <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
             <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100">{{ $title }}</h3>
             <button type="button" x-on:click="open = false"
-                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="{{ gp247_language_render('admin.core.close') }}">&times;</button>
+                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="{{ gp247_language_render('admin.close') }}">&times;</button>
         </div>
 
         <div class="p-5">{{ $slot }}</div>

@@ -33,14 +33,14 @@
                     wire:model="form.sort" :error="$errors->first('form.sort')" required />
             </div>
 
-            <x-gp247::checkbox :label="gp247_language_render('admin.core.active')" wire:model="form.status" value="1" />
+            <x-gp247::checkbox :label="gp247_language_render('admin.active')" wire:model="form.status" value="1" />
 
             <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
                 <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_home_layout.index') }}" wire:navigate>
-                    {{ gp247_language_render($editingId ? 'admin.core.cancel' : 'admin.core.reset') }}
+                    {{ gp247_language_render($editingId ? 'admin.cancel' : 'admin.reset') }}
                 </x-gp247::button>
                 <x-gp247::button type="submit" wire:loading.attr="disabled">
-                    <i class="fas fa-save"></i> {{ gp247_language_render($editingId ? 'admin.core.update' : 'admin.core.submit') }}
+                    <i class="fas fa-save"></i> {{ gp247_language_render($editingId ? 'admin.update' : 'admin.submit') }}
                 </x-gp247::button>
             </div>
         </form>
@@ -54,7 +54,7 @@
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
         </div>
 
-        <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.core.no_records') : null">
+        <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.no_records') : null">
             <x-slot:head>
                 <tr>
                     <th class="cursor-pointer px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" wire:click="setSort('view')">
@@ -64,12 +64,12 @@
                         {{ gp247_language_render('admin.admin_home_layout.size') }} @if ($sortField === 'size')<span class="text-[10px]">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>@endif
                     </th>
                     <th class="cursor-pointer px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" wire:click="setSort('status')">
-                        {{ gp247_language_render('admin.core.status') }} @if ($sortField === 'status')<span class="text-[10px]">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>@endif
+                        {{ gp247_language_render('admin.status') }} @if ($sortField === 'status')<span class="text-[10px]">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>@endif
                     </th>
                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         {{ gp247_language_render('admin.admin_home_layout.view_status') }}
                     </th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.action') }}</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.action') }}</th>
                 </tr>
             </x-slot:head>
 
@@ -84,13 +84,13 @@
                         <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">{{ $row->size }}/12</span>
                     </td>
                     <td class="px-4 py-3">
-                        <x-gp247::badge :color="$row->status ? 'green' : 'gray'">{{ $row->status ? gp247_language_render('admin.core.active') : gp247_language_render('admin.core.inactive') }}</x-gp247::badge>
+                        <x-gp247::badge :color="$row->status ? 'green' : 'gray'">{{ $row->status ? gp247_language_render('admin.active') : gp247_language_render('admin.inactive') }}</x-gp247::badge>
                     </td>
                     <td class="px-4 py-3">
                         @if ($viewExists)
                             <x-gp247::badge color="green"><i class="fas fa-check mr-1"></i>OK</x-gp247::badge>
                         @else
-                            <x-gp247::badge color="red"><i class="fas fa-times mr-1"></i>{{ gp247_language_render('display.data_not_found') }}</x-gp247::badge>
+                            <x-gp247::badge color="red"><i class="fas fa-times mr-1"></i>{{ gp247_language_render('admin.display.data_not_found') }}</x-gp247::badge>
                         @endif
                     </td>
                     <td class="px-4 py-3">

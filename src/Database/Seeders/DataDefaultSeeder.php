@@ -174,12 +174,12 @@ class DataDefaultSeeder extends Seeder
             ['group' => 'global','code' => 'cache','key' => 'cache_page','value' => '0','sort' => '8','detail' => 'admin.cache.cache_page','store_id' => 0],
             ['group' => 'global','code' => 'cache','key' => 'cache_country','value' => '0','sort' => '10','detail' => 'admin.cache.cache_country','store_id' => 0],
             ['group' => 'global','code' => 'env_mail','key' => 'smtp_mode','value' => '','sort' => '0','detail' => 'email.smtp_mode','store_id' => 0],
-            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_min','value' => '6','sort' => '0','detail' => 'password_policy.admin.min','store_id' => 0],
-            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_max','value' => '16','sort' => '0','detail' => 'password_policy.admin.max','store_id' => 0],
-            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_letter','value' => '0','sort' => '1','detail' => 'password_policy.admin.letter','store_id' => 0],
-            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_mixedcase','value' => '0','sort' => '2','detail' => 'password_policy.admin.mixed','store_id' => 0],
-            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_number','value' => '0','sort' => '3','detail' => 'password_policy.admin.number','store_id' => 0],
-            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_symbol','value' => '0','sort' => '4','detail' => 'password_policy.admin.symbol','store_id' => 0],
+            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_min','value' => '6','sort' => '0','detail' => 'admin.password_policy.min','store_id' => 0],
+            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_max','value' => '16','sort' => '0','detail' => 'admin.password_policy.max','store_id' => 0],
+            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_letter','value' => '0','sort' => '1','detail' => 'admin.password_policy.letter','store_id' => 0],
+            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_mixedcase','value' => '0','sort' => '2','detail' => 'admin.password_policy.mixed','store_id' => 0],
+            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_number','value' => '0','sort' => '3','detail' => 'admin.password_policy.number','store_id' => 0],
+            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_symbol','value' => '0','sort' => '4','detail' => 'admin.password_policy.symbol','store_id' => 0],
         ];
         return $dataAdminConfig;
     }

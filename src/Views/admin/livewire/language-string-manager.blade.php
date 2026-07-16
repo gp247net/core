@@ -210,7 +210,7 @@
                 </h3>
                 <button type="button" wire:click="closeAdd"
                     class="text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none"
-                    aria-label="{{ gp247_language_render('admin.core.close') }}">&times;</button>
+                    aria-label="{{ gp247_language_render('admin.close') }}">&times;</button>
             </div>
 
             {{-- Modal body --}}
@@ -278,11 +278,11 @@
             {{-- Modal footer --}}
             <div class="flex justify-end gap-2 border-t border-gray-200 px-5 py-4 dark:border-gray-700">
                 <x-gp247::button variant="secondary" wire:click="closeAdd">
-                    {{ gp247_language_render('admin.core.reset') }}
+                    {{ gp247_language_render('admin.reset') }}
                 </x-gp247::button>
                 <x-gp247::button wire:click="addString" wire:loading.attr="disabled">
                     <i class="fas fa-save"></i>
-                    {{ gp247_language_render('admin.core.submit') }}
+                    {{ gp247_language_render('admin.submit') }}
                 </x-gp247::button>
             </div>
         </div>

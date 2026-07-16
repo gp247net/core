@@ -23,7 +23,7 @@ class NoticeList extends DataTableComponent
 {
     protected ?string $permission = 'admin_notice';
 
-    protected ?string $titleKey = 'admin_notice.title';
+    protected ?string $titleKey = 'admin.notice.title';
 
     /**
      * @return AdminNotice
@@ -42,10 +42,10 @@ class NoticeList extends DataTableComponent
     protected function columns(): array
     {
         return [
-            'type' => gp247_language_render('admin_notice.type'),
-            'type_id' => gp247_language_render('admin_notice.type_id'),
+            'type' => gp247_language_render('admin.notice.type'),
+            'type_id' => gp247_language_render('admin.notice.type_id'),
             'status' => gp247_language_render('order.status'),
-            'created_at' => gp247_language_render('admin_notice.created_at'),
+            'created_at' => gp247_language_render('admin.notice.created_at'),
         ];
     }
 
@@ -158,6 +158,6 @@ class NoticeList extends DataTableComponent
 
         AdminNotice::where('admin_id', $this->currentAdminId())->update(['status' => 1]);
 
-        $this->notify('success', gp247_language_render('admin.core.setting_saved'));
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 }

@@ -40,6 +40,6 @@ class GeneralSettingsForm extends StoreConfigForm
      */
     protected function heading(): string
     {
-        return gp247_language_render('admin.core.cfg_general');
+        return gp247_language_render('admin.cfg_general');
     }
 }

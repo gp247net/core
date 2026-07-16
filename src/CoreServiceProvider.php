@@ -484,7 +484,7 @@ class CoreServiceProvider extends ServiceProvider
                 if ($request->hasHeader('X-Livewire')) {
                     return response()->json([
                         'gp247_admin_denied' => true,
-                        'message' => gp247_language_render('admin.core.action_denied'),
+                        'message' => gp247_language_render('admin.action_denied'),
                     ], 403);
                 }
 

@@ -17,7 +17,7 @@
 @php
     $crumbs = [];
     $crumbs[] = [
-        'label' => gp247_language_render('admin.core.home'),
+        'label' => gp247_language_render('admin.home'),
         'url'   => gp247_route_admin('admin.home'),
         'icon'  => 'fas fa-home',
     ];
@@ -42,7 +42,7 @@
         </div>
 
         {{-- Breadcrumb trail --}}
-        <nav aria-label="{{ gp247_language_render('admin.core.breadcrumb') }}">
+        <nav aria-label="{{ gp247_language_render('admin.breadcrumb') }}">
             <ol class="flex flex-wrap items-center gap-1 text-sm"
                 itemscope itemtype="https://schema.org/BreadcrumbList">
 

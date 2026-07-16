@@ -25,8 +25,8 @@
 ])
 
 @php
-    $placeholder = $placeholder ?? gp247_language_render('admin.core.search');
-    $bulkConfirm = $bulkConfirm ?? gp247_language_render('admin.core.confirm_delete_selected');
+    $placeholder = $placeholder ?? gp247_language_render('admin.search');
+    $bulkConfirm = $bulkConfirm ?? gp247_language_render('admin.confirm_delete_selected');
 @endphp
 
 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -42,7 +42,7 @@
 
         @if ($selectedCount)
             <x-gp247::button variant="danger" size="sm" wire:click="bulkDelete" wire:confirm="{{ $bulkConfirm }}">
-                <i class="fas fa-trash"></i> {{ gp247_language_render('admin.core.selected', ['count' => $selectedCount]) }}
+                <i class="fas fa-trash"></i> {{ gp247_language_render('admin.selected', ['count' => $selectedCount]) }}
             </x-gp247::button>
         @endif
 
@@ -54,7 +54,7 @@
             <select wire:model.live="perPage"
                 class="rounded-lg border border-gray-300 px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
                 @foreach ([10, 20, 50, 100] as $size)
-                    <option value="{{ $size }}">{{ $size }} {{ gp247_language_render('admin.core.per_page') }}</option>
+                    <option value="{{ $size }}">{{ $size }} {{ gp247_language_render('admin.per_page') }}</option>
                 @endforeach
             </select>
         @endif

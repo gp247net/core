@@ -146,7 +146,7 @@ class WebsiteInfo extends GP247AdminComponent
             AdminStore::where('id', $this->storeId())->update([$key => $clean]);
         }
 
-        $this->notify('success', gp247_language_render('admin.core.setting_saved'));
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**
@@ -199,7 +199,7 @@ class WebsiteInfo extends GP247AdminComponent
         $this->authorizeAction('update');
 
         AdminStore::where('id', $this->storeId())->update(['active' => $this->active ? 1 : 0]);
-        $this->notify('success', gp247_language_render('admin.core.setting_saved'));
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**
@@ -231,7 +231,7 @@ class WebsiteInfo extends GP247AdminComponent
             'value' => $value,
         ]);
 
-        $this->notify('success', gp247_language_render('admin.core.setting_saved'));
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**

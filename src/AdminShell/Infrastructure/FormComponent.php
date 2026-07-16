@@ -93,7 +93,7 @@ abstract class FormComponent extends GP247AdminComponent
 
         $this->persist($clean);
 
-        $this->notify('success', gp247_language_render('admin.core.save_success'));
+        $this->notify('success', gp247_language_render('admin.save_success'));
         $this->dispatch('saved');
     }
 }

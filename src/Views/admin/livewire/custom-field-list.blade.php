@@ -18,7 +18,7 @@
         </x-slot:actions>
     </x-gp247::list-toolbar>
 
-    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.core.no_records') : null">
+    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.no_records') : null">
         <x-slot:head>
             <tr>
                 <th class="w-10 px-4 py-3"></th>
@@ -27,7 +27,7 @@
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.custom_field.type') }}</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.custom_field.required') }}</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.custom_field.status') }}</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.core.actions') }}</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.actions') }}</th>
             </tr>
         </x-slot:head>
 
@@ -37,8 +37,8 @@
                 <td class="px-4 py-3 text-sm"><code class="rounded bg-gray-100 px-1.5 py-0.5 text-xs dark:bg-gray-700">{{ $row->code }}</code></td>
                 <td class="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">{{ $row->name }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $tables[$row->type] ?? $row->type }}</td>
-                <td class="px-4 py-3"><x-gp247::badge :color="$row->required ? 'amber' : 'gray'">{{ $row->required ? gp247_language_render('admin.core.yes') : gp247_language_render('admin.core.no') }}</x-gp247::badge></td>
-                <td class="px-4 py-3"><x-gp247::badge :color="$row->status ? 'green' : 'gray'">{{ $row->status ? gp247_language_render('admin.core.on') : gp247_language_render('admin.core.off') }}</x-gp247::badge></td>
+                <td class="px-4 py-3"><x-gp247::badge :color="$row->required ? 'amber' : 'gray'">{{ $row->required ? gp247_language_render('admin.yes') : gp247_language_render('admin.no') }}</x-gp247::badge></td>
+                <td class="px-4 py-3"><x-gp247::badge :color="$row->status ? 'green' : 'gray'">{{ $row->status ? gp247_language_render('admin.on') : gp247_language_render('admin.off') }}</x-gp247::badge></td>
                 <td class="px-4 py-3">
                     <x-gp247::row-actions
                         :edit="gp247_route_admin('admin_custom_field.edit', ['id' => $row->id])"

@@ -14,7 +14,7 @@ class AdminNoticeController extends RootAdminController
     public function index()
     {
         $data = [
-            'title'         => gp247_language_render('admin_notice.title'),
+            'title'         => gp247_language_render('admin.notice.title'),
             'subTitle'      => '',
             'urlDeleteItem' => gp247_route_admin('admin_notice.delete'),
             'removeList'    => 1, // 1 - Enable function delete list item
@@ -22,11 +22,11 @@ class AdminNoticeController extends RootAdminController
         ];
 
         $listTh = [
-            'type'    => gp247_language_render('admin_notice.type'),
-            'type_id' => gp247_language_render('admin_notice.type_id'),
-            'content' => gp247_language_render('admin_notice.content'),
-            'admin_created' => gp247_language_render('admin_notice.admin_created'),
-            'date'    => gp247_language_render('admin_notice.created_at'),
+            'type'    => gp247_language_render('admin.notice.type'),
+            'type_id' => gp247_language_render('admin.notice.type_id'),
+            'content' => gp247_language_render('admin.notice.content'),
+            'admin_created' => gp247_language_render('admin.notice.admin_created'),
+            'date'    => gp247_language_render('admin.notice.created_at'),
         ];
         $dataTmp = (new AdminNotice)->getNoticeListAdmin();
 

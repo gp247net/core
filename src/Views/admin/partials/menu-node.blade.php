@@ -10,7 +10,7 @@
 <li wire:key="menu-{{ $node->id }}" class="py-2" data-gp247-item data-id="{{ $node->id }}" draggable="true">
     <div class="flex items-center justify-between" style="padding-left: {{ $depth * 1.5 }}rem">
         <span class="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-100">
-            <i class="fas fa-grip-vertical cursor-move text-gray-300 dark:text-gray-600" title="{{ gp247_language_render('admin.core.drag_to_reorder') }}"></i>
+            <i class="fas fa-grip-vertical cursor-move text-gray-300 dark:text-gray-600" title="{{ gp247_language_render('admin.drag_to_reorder') }}"></i>
             @if ($node->icon)<i class="{{ $node->icon }} w-4 text-center text-gray-400"></i>@endif
             <span>{!! gp247_language_render($node->title) !!}</span>
             @if ($node->uri)<code class="text-xs text-gray-400">{{ $node->uri }}</code>@endif
