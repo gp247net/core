@@ -47,6 +47,7 @@ File declaring basic plugin information:
 - configKey: Configuration key, must be unique and match the plugin folder name
 - version: Version
 - requireCore: Compatible Gp247/Core version
+- requireUpdateFrom: Minimum currently-installed version allowed to 1-click update to this release. Defaults to the scaffold version (no restriction in practice); raise it when shipping a major release whose update() hook cannot migrate from older lines — e.g. set "2.0" on a 2.9 release to block updating from a 1.x install. Omit for no floor.
 - requirePackages: Required packages from packagist.org
 - requireExtensions: Required GP247 extensions (plugins, templates). Example: Shop, Front, News,...
 

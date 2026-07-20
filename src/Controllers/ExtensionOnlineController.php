@@ -1,6 +1,7 @@
 <?php
 namespace GP247\Core\Controllers;
 
+use GP247\Core\Library\ExtensionUpdateManager;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -146,23 +147,32 @@ trait ExtensionOnlineController
                     'install' => gp247_route_admin('admin_template_online.install'),
                     'local' => gp247_route_admin('admin_template.index'),
                     'urlImport' => gp247_route_admin('admin_template.import'),
+                    'update' => gp247_route_admin('admin_template_online.update'),
+                    'checkUpdate' => gp247_route_admin('admin_template_online.check-update'),
                 ];
                 break;
-            
+
             default:
                 $urlAction = [
                     'install' => gp247_route_admin('admin_plugin_online.install'),
                     'local' => gp247_route_admin('admin_plugin.index'),
                     'urlImport' => gp247_route_admin('admin_plugin.import'),
+                    'update' => gp247_route_admin('admin_plugin_online.update'),
+                    'checkUpdate' => gp247_route_admin('admin_plugin_online.check-update'),
                 ];
                 break;
         }
 
+        // Updates already discovered for this extension group ("<Type>|<key>" map)
+        $arrUpdates = (new ExtensionUpdateManager)->checkUpdates();
+
         return view('gp247-admin::screen.extension_online')->with(
             [
                     "title"              => $title,
+                    "groupType"          => $this->groupType,
                     "arrExtensionsLocal" => gp247_extension_get_all_local(type: $this->groupType),
                     "arrExtensions"      => $arrExtensions,
+                    "arrUpdates"         => $arrUpdates,
                     "keyword"            => $keyword ?? '',
                     "type_sort"          => $type_sort ?? '',
                     "is_free"            => $is_free ?? '',
@@ -174,6 +184,55 @@ trait ExtensionOnlineController
                     "errorMessage"       => $errorMessage,
                 ]
         );
+    }
+
+    /**
+     * Apply an available update for one installed extension (1-click update).
+     * The download URL is resolved server-side from the cached check-update
+     * result — the client only sends the extension key.
+     *
+     * @return \Illuminate\Http\JsonResponse ['error' => 0|1, 'msg' => string]
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     */
+    public function update()
+    {
+        $key = request('key');
+        if (!$key || !array_key_exists($key, gp247_extension_get_all_local(type: $this->groupType))) {
+            return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.update_not_found', ['key' => (string) $key])]);
+        }
+
+        $response = (new ExtensionUpdateManager)->update($this->groupType, $key);
+
+        if (($response['error'] ?? 1) == 0) {
+            gp247_notice_add(type: $this->groupType, typeId: $key, content: 'admin.notice.gp247_'.strtolower($this->groupType).'_update::name__'.$key);
+        }
+
+        return response()->json($response);
+    }
+
+    /**
+     * Force a fresh check-update API call (bypass cache) and report how many
+     * updates are available for this extension group.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     */
+    public function checkUpdate()
+    {
+        $updates = (new ExtensionUpdateManager)->checkUpdates(force: true);
+        $countGroup = count(array_filter($updates, fn ($item) => ($item['type'] ?? '') === $this->groupType));
+
+        return response()->json([
+            'error' => 0,
+            'count' => $countGroup,
+            'msg' => $countGroup
+                ? gp247_language_render('admin.extension.update_found', ['count' => $countGroup])
+                : gp247_language_render('admin.extension.update_none'),
+        ]);
     }
 
     public function install()

@@ -47,6 +47,7 @@ File khai báo thông tin cơ bản của plugin:
 - configKey: Khóa cấu hình, là giá trị duy nhất, trùng vói tên folder Plugin
 - version: Phiên bản
 - requireCore: Là phiên bản Gp247/Core phù hợp với extension.
+- requireUpdateFrom: Phiên bản đang cài tối thiểu được phép cập nhật 1-click lên bản này. Mặc định bằng version của scaffold (thực tế không giới hạn gì); hãy nâng lên khi phát hành bản major mà hook update() không migrate được từ dòng cũ — ví dụ đặt "2.0" cho bản 2.9 để chặn cập nhật từ bản 1.x. Bỏ trống nếu không giới hạn.
 - requirePackages: Các package (từ packagist.org) được yêu cầu cài đặt
 - requireExtensions: Tên các extension của GP247 (plugin, template) được yêu cầu cài đặt. Ví dụ: Shop, Front,News,...
 

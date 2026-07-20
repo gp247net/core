@@ -33,6 +33,9 @@ trait  ExtensionController
 
         $listUrlAction = $this->listUrlAction;
 
+        // WHY: cache only — the local screen must never block on the marketplace API
+        $arrUpdates = (new \GP247\Core\Library\ExtensionUpdateManager)->getAvailableUpdates();
+
         return view('gp247-admin::screen.extension')->with(
             [
                 "title"               => gp247_language_render('admin.extension.management', ['extension' => $this->groupType]),
@@ -42,6 +45,7 @@ trait  ExtensionController
                 "extensions"          => $extensions,
                 "extensionProtected"  => $extensionProtected,
                 "listUrlAction"       => $listUrlAction,
+                "arrUpdates"          => $arrUpdates,
             ]
         );
     }

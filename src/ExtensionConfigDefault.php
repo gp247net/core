@@ -31,6 +31,25 @@ abstract class  ExtensionConfigDefault
     abstract public function uninstall();
 
     /**
+     * Update app after its files have been replaced with a newer version.
+     *
+     * Non-abstract on purpose: extensions built before the update mechanism
+     * (plugin format 1.0) must keep working without code changes — for them a
+     * plain file replacement is a complete update. Extensions that need data
+     * migrations per version should override this method.
+     *
+     * @param string|null $fromVersion Version installed before the file replacement.
+     * @return array ['error' => 0|1, 'msg' => string]
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     */
+    public function update(?string $fromVersion = null)
+    {
+        return ['error' => 0, 'msg' => ''];
+    }
+
+    /**
      * Enable app
      */
     abstract public function enable();

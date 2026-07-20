@@ -79,6 +79,12 @@
                     <i class="fas fa-filter text-xs"></i>
                     {{ gp247_language_render('admin.extension.sort') }}
                 </button>
+
+                <button type="button" onclick="checkUpdateOnline()"
+                    class="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-amber-500 px-4 text-sm font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1">
+                    <i class="fas fa-sync text-xs"></i>
+                    {{ gp247_language_render('admin.extension.check_update') }}
+                </button>
             </form>
         </div>
 
@@ -115,6 +121,11 @@
                                 $isLocal = array_key_exists($extension['key'], $arrExtensionsLocal);
                                 $isFree  = $extension['is_free'] || $extension['price_final'] == 0;
                                 $hasDiscount = !$isFree && $extension['price_final'] != $extension['price'];
+                                $updateItem = $arrUpdates[$groupType.'|'.$extension['key']] ?? null;
+                                // Current installed version too old for this update (require_update_from gate)
+                                $updateBlocked = $updateItem
+                                    && !empty($updateItem['require_update_from'])
+                                    && version_compare($updateItem['version_local'] ?? '0.0.0', $updateItem['require_update_from'], '<');
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
 
@@ -199,7 +210,32 @@
                                 {{-- Actions --}}
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-end gap-1.5">
-                                        @if ($isLocal)
+                                        @if ($isLocal && $updateItem)
+                                            @if ($updateBlocked)
+                                                {{-- Newer version exists but the installed version is too old to 1-click update --}}
+                                                <span title="{{ gp247_language_render('admin.extension.update_from_too_low', ['from' => $updateItem['require_update_from'], 'local' => $updateItem['version_local']]) }}"
+                                                    class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                                    <i class="fas fa-triangle-exclamation"></i>
+                                                    {{ gp247_language_render('admin.extension.update_available', ['version' => $updateItem['version']]) }}
+                                                    · {{ gp247_language_render('admin.extension.update_blocked', ['from' => $updateItem['require_update_from']]) }}
+                                                </span>
+                                            @elseif (!empty($updateItem['path']))
+                                                <button type="button"
+                                                    title="{{ gp247_language_render('admin.extension.update_available', ['version' => $updateItem['version']]) }}"
+                                                    onclick="updateOnline('{{ $updateItem['key'] }}', '{{ $updateItem['version_local'] }}', '{{ $updateItem['version'] }}')"
+                                                    class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1">
+                                                    <i class="fas fa-arrow-circle-up"></i>
+                                                    {{ gp247_language_render('admin.extension.update') }} {{ $updateItem['version'] }}
+                                                </button>
+                                            @else
+                                                {{-- Paid extension: new version exists but must be downloaded from its product page --}}
+                                                <span title="{{ gp247_language_render('admin.extension.update_paid_manual', ['key' => $updateItem['key']]) }}"
+                                                    class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                                    <i class="fas fa-arrow-circle-up"></i>
+                                                    {{ gp247_language_render('admin.extension.update_available', ['version' => $updateItem['version']]) }}
+                                                </span>
+                                            @endif
+                                        @elseif ($isLocal)
                                             <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
                                                 <i class="fas fa-check"></i>
                                                 {{ gp247_language_render('admin.extension.located') }}
@@ -243,6 +279,11 @@
 <script>
 (function () {
     const _installUrl = @js($urlAction['install']);
+    const _updateUrl = @js($urlAction['update'] ?? '');
+    const _checkUpdateUrl = @js($urlAction['checkUpdate'] ?? '');
+    const _isTemplate = @js($groupType === 'Templates');
+    const _msgUpdateConfirm = @js(gp247_language_render('admin.extension.update_confirm', ['key' => ':key', 'old' => ':old', 'new' => ':new']));
+    const _msgUpdateConfirmTemplate = @js(gp247_language_render('admin.extension.update_confirm_template', ['key' => ':key']));
     const _csrf = @js(csrf_token());
 
     function notify(type, msg) {
@@ -261,6 +302,59 @@
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 body,
+            });
+            const data = await res.json();
+            if (parseInt(data.error) === 0) {
+                notify('success', data.msg);
+                location.reload();
+            } else {
+                notify('error', data.msg);
+                loading(false);
+            }
+        } catch (e) {
+            notify('error', e.message);
+            loading(false);
+        }
+    };
+
+    window.updateOnline = async function (key, versionLocal, versionNew) {
+        let msg = _msgUpdateConfirm
+            .replace(':key', key)
+            .replace(':old', versionLocal)
+            .replace(':new', versionNew);
+        if (_isTemplate) {
+            msg = _msgUpdateConfirmTemplate.replace(':key', key) + '\n\n' + msg;
+        }
+        if (!confirm(msg)) return;
+
+        loading(true);
+        try {
+            const res  = await fetch(_updateUrl, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ _token: _csrf, key }),
+            });
+            const data = await res.json();
+            if (parseInt(data.error) === 0) {
+                notify('success', data.msg);
+                location.reload();
+            } else {
+                notify('error', data.msg);
+                loading(false);
+            }
+        } catch (e) {
+            notify('error', e.message);
+            loading(false);
+        }
+    };
+
+    window.checkUpdateOnline = async function () {
+        loading(true);
+        try {
+            const res  = await fetch(_checkUpdateUrl, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ _token: _csrf }),
             });
             const data = await res.json();
             if (parseInt(data.error) === 0) {

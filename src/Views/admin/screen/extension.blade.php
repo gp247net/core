@@ -118,6 +118,21 @@
                             {{-- Version --}}
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
                                 {{ $pluginClass->version ?? '' }}
+                                @if (!empty($arrUpdates[$groupType.'|'.$keyExtension]))
+                                    @if ($configExtension)
+                                        <a href="{{ $listUrlAction['urlOnline'] }}"
+                                            title="{{ gp247_language_render('admin.extension.update') }}"
+                                            class="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                            <i class="fas fa-arrow-circle-up"></i>
+                                            {{ gp247_language_render('admin.extension.update_available', ['version' => $arrUpdates[$groupType.'|'.$keyExtension]['version']]) }}
+                                        </a>
+                                    @else
+                                        <span class="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                            <i class="fas fa-arrow-circle-up"></i>
+                                            {{ gp247_language_render('admin.extension.update_available', ['version' => $arrUpdates[$groupType.'|'.$keyExtension]['version']]) }}
+                                        </span>
+                                    @endif
+                                @endif
                             </td>
 
                             {{-- Author --}}

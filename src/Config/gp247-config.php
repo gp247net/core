@@ -20,7 +20,8 @@ return [
                 'Plugins' => explode(',', env('GP247_PROTECTED_PLUGINS', '')), // List plugins cannot remove, ex: 'Plugin1','Plugin2'
                 'Templates' => explode(',', env('GP247_PROTECTED_TEMPLATES', '')), // List templates cannot remove, ex: 'Template1','Template2'
             ],
-        
+            // Cache lifetime (seconds) of the marketplace check-update result
+            'update_check_ttl' => env('GP247_EXTENSION_UPDATE_CHECK_TTL', 21600),
         ],
 
         // Middleware for admin

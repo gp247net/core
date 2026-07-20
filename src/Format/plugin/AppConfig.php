@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin format 1.0
+ * Plugin format 2.0
  */
 #App\GP247\Plugins\Extension_Key\AppConfig.php
 namespace App\GP247\Plugins\Extension_Key;

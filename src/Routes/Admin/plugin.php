@@ -29,6 +29,10 @@ Route::group(['prefix' => 'plugin'], function () use ($pluginController) {
         ->name('admin_plugin_online.index');
         Route::post('/install/online', $pluginOnlineController.'@install')
             ->name('admin_plugin_online.install');
+        Route::post('/update/online', $pluginOnlineController.'@update')
+            ->name('admin_plugin_online.update');
+        Route::post('/check-update/online', $pluginOnlineController.'@checkUpdate')
+            ->name('admin_plugin_online.check-update');
         // Route register api license
         Route::post('/register-license', $pluginOnlineController.'@registerLicense')
             ->name('admin_plugin_online.register-license');

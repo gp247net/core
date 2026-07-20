@@ -9,6 +9,7 @@
     "configKey": "Extension_Key",
     "version": "1.0",
     "requireCore": ["2.0"],
+    "requireUpdateFrom": "1.0",
     "requirePackages": [],
     "requireExtensions": []
 }
