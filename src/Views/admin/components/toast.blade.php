@@ -15,7 +15,7 @@
         styles: {
             success: { ring: 'border-l-green-500',  icon: 'fa-circle-check',        iconColor: 'text-green-500',  title: '{{ gp247_language_render('admin.toast_success') }}' },
             error:   { ring: 'border-l-red-500',    icon: 'fa-circle-xmark',        iconColor: 'text-red-500',    title: '{{ gp247_language_render('admin.toast_error') }}' },
-            warning: { ring: 'border-l-amber-500',  icon: 'fa-triangle-exclamation', iconColor: 'text-amber-500', title: '{{ gp247_language_render('admin.toast_warning') }}' },
+            warning: { ring: 'border-l-amber-500',  icon: 'fa-exclamation-triangle', iconColor: 'text-amber-500', title: '{{ gp247_language_render('admin.toast_warning') }}' },
             info:    { ring: 'border-l-blue-500',   icon: 'fa-circle-info',         iconColor: 'text-blue-500',   title: '{{ gp247_language_render('admin.toast_info') }}' },
         },
         push(raw) {

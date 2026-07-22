@@ -69,6 +69,7 @@ class ExtensionUpdateManager
                         'GP247-API-Domain'  => url('/'),
                         'Accept'            => 'application/json',
                     ])
+                    ->withOptions(['verify' => $this->verifySsl()])
                     ->timeout(self::CHECK_TIMEOUT)
                     ->post(config('gp247-config.env.GP247_LIBRARY_API').'/check-update', [
                         'gp247_version' => config('gp247.core'),
@@ -94,7 +95,16 @@ class ExtensionUpdateManager
                                 'checksum_sha256'     => $item['checksum_sha256'] ?? '',
                                 'link'                => $item['link'] ?? '',
                                 'require_update_from' => $item['require_update_from'] ?? '',
+                                'require_license'     => (bool) ($item['require_license'] ?? false),
+                                'license_reason'      => $item['license_reason'] ?? 'none',
+                                'license_expire_at'   => $item['license_expire_at'] ?? null,
                             ];
+                            // Sync license status from the check verdict, but only
+                            // when a license was actually sent (else 'required' from
+                            // an un-entered key would clobber nothing meaningful).
+                            if (!empty($item['require_license']) && !empty($local['license'])) {
+                                $this->syncLicenseStatus($type, $key, $item['license_reason'] ?? 'none', $item['license_expire_at'] ?? null);
+                            }
                         }
                     }
                 } else {
@@ -149,7 +159,13 @@ class ExtensionUpdateManager
             return ['error' => 1, 'msg' => gp247_language_render('admin.extension.update_from_too_low', ['from' => $requireUpdateFrom, 'local' => $oldVersion])];
         }
         if (empty($item['path'])) {
-            // Paid extensions cannot be auto-downloaded (filev3 serves free items only)
+            // Paid extension without a usable download path: either it needs a
+            // per-plugin license (entitlement failed) or it is a manual-only paid item.
+            if (!empty($item['require_license'])) {
+                $reason = $item['license_reason'] ?? 'required';
+                $this->syncLicenseStatus($type, $key, $reason, $item['license_expire_at'] ?? null);
+                return ['error' => 1, 'msg' => $this->licenseMessage($reason, $key, $item)];
+            }
             return ['error' => 1, 'msg' => gp247_language_render('admin.extension.update_paid_manual', ['key' => $key])];
         }
 
@@ -234,10 +250,115 @@ class ExtensionUpdateManager
         $this->forgetUpdate($type, $key);
         gp247_extension_after_update();
 
+        // A successful paid update means the server accepted the license — record
+        // the valid status (server-truth) so a stale/edited flag self-heals.
+        if (!empty($item['require_license'])) {
+            $this->syncLicenseStatus($type, $key, 'none', $item['license_expire_at'] ?? null);
+        }
+
         return [
             'error' => 0,
             'msg' => gp247_language_render('admin.extension.update_success', ['key' => $key, 'version' => $newVersion]),
         ];
+    }
+
+    /**
+     * Verify a per-plugin license against the marketplace at entry time.
+     *
+     * Unlike the update-time check, no target version is sent — the server just
+     * confirms the key belongs to this plugin and reports the covered expiry.
+     * Degrades softly: an unreachable server yields checked=false (unverified).
+     *
+     * @param string $type    'Plugins' or 'Templates'.
+     * @param string $key     Extension key.
+     * @param string $license License key entered by the admin.
+     * @return array{valid:bool, reason:string, expire:?string, checked:bool}
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    public function verifyLicense(string $type, string $key, string $license): array
+    {
+        if (trim($license) === '') {
+            return ['valid' => false, 'reason' => 'required', 'expire' => null, 'checked' => true];
+        }
+        try {
+            $response = Http::withHeaders([
+                    'GP247-API-License' => config('gp247-config.env.GP247_API_LICENSE'),
+                    'GP247-API-Domain'  => url('/'),
+                    'Accept'            => 'application/json',
+                ])
+                ->withOptions(['verify' => $this->verifySsl()])
+                ->timeout(self::CHECK_TIMEOUT)
+                ->post(config('gp247-config.env.GP247_LIBRARY_API').'/license/validate', [
+                    'key'     => $key,
+                    'license' => $license,
+                ]);
+
+            $body = $response->json();
+            if ($response->successful() && ($body['status'] ?? '') === 'success') {
+                return [
+                    'valid'   => (bool) ($body['allowed'] ?? false),
+                    'reason'  => $body['reason'] ?? 'invalid',
+                    'expire'  => $body['expire_at'] ?? null,
+                    'checked' => true,
+                ];
+            }
+            gp247_report(msg: 'License verify API error: '.json_encode($body ?? $response->body()), channel: null);
+        } catch (\Throwable $e) {
+            gp247_report(msg: 'License verify error: '.$e->getMessage(), channel: null);
+        }
+        return ['valid' => false, 'reason' => 'unverified', 'expire' => null, 'checked' => false];
+    }
+
+    /**
+     * Whether to verify the marketplace API's TLS certificate.
+     *
+     * Safe default (true) keeps NFR-SEC-extension-update-integrity in production;
+     * a local/dev marketplace with a self-signed certificate can opt out via
+     * GP247_UPDATE_VERIFY_SSL=false.
+     *
+     * @return bool
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     */
+    protected function verifySsl(): bool
+    {
+        return (bool) config('gp247-config.admin.extension.update_verify_ssl', true);
+    }
+
+    /**
+     * Sync the per-plugin license status in admin_config from an authoritative
+     * server reason.
+     *
+     * The stored status is only a cache of server-truth (the site could have
+     * edited it, or it could be stale), so any API verdict — a denial OR a
+     * success (`none`) — overwrites it. No-op when no license row exists (nothing
+     * to attach the status to).
+     *
+     * @param string      $type   'Plugins' or 'Templates'.
+     * @param string      $key    Extension key.
+     * @param string      $reason required|invalid|version|expired|none.
+     * @param string|null $expire Expiry from the server, when known.
+     * @return void
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    protected function syncLicenseStatus(string $type, string $key, string $reason, ?string $expire = null): void
+    {
+        if (!function_exists('gp247_extension_set_license_status')) {
+            return;
+        }
+        gp247_extension_set_license_status($type, $key, [
+            'valid'   => $reason === 'none',
+            'reason'  => $reason,
+            'expire'  => $expire,
+            'checked' => true,
+        ]);
     }
 
     /**
@@ -260,7 +381,14 @@ class ExtensionUpdateManager
                 }
                 $version = json_decode(file_get_contents($configFile), true)['version'] ?? '';
                 if ($version) {
-                    $items[$type.'|'.$key] = ['type' => $type, 'key' => $key, 'version' => $version];
+                    $entry = ['type' => $type, 'key' => $key, 'version' => $version];
+                    // Send the per-plugin license (paid extensions) so the server
+                    // can return entitlement state for the UI.
+                    $license = gp247_extension_get_license($type, $key);
+                    if ($license) {
+                        $entry['license'] = $license;
+                    }
+                    $items[$type.'|'.$key] = $entry;
                 }
             }
         }
@@ -281,12 +409,23 @@ class ExtensionUpdateManager
      */
     protected function download(array $item, string $pathTmp): string
     {
+        $url = $item['path'];
+        // Paid extensions: append the per-plugin license so the extension/download
+        // endpoint can check entitlement before proxying (NFR-SEC-plugin-license-entitlement).
+        if (!empty($item['require_license'])) {
+            $license = gp247_extension_get_license($item['type'], $item['key']);
+            if ($license) {
+                $url .= (strpos($url, '?') === false ? '?' : '&').'license='.urlencode($license);
+            }
+        }
+
         $response = Http::withHeaders([
                 'GP247-API-License' => config('gp247-config.env.GP247_API_LICENSE'),
                 'GP247-API-Domain'  => url('/'),
             ])
+            ->withOptions(['verify' => $this->verifySsl()])
             ->timeout(self::DOWNLOAD_TIMEOUT)
-            ->get($item['path']);
+            ->get($url);
 
         if (!$response->successful()) {
             throw new \Exception('Download failed: HTTP '.$response->status());
@@ -296,6 +435,12 @@ class ExtensionUpdateManager
         // The download endpoint answers HTTP 200 with a JSON body on failure
         $jsonData = json_decode($data, true);
         if (json_last_error() === JSON_ERROR_NONE && isset($jsonData['error']) && $jsonData['error'] == 1) {
+            // Map per-plugin license denials to friendly messages, and sync the
+            // authoritative reason into admin_config (cache of server-truth).
+            if (in_array($jsonData['detail'] ?? '', ['required', 'invalid', 'version', 'expired', 'domain'], true)) {
+                $this->syncLicenseStatus($item['type'], $item['key'], $jsonData['detail'], $item['license_expire_at'] ?? null);
+                throw new \Exception($this->licenseMessage($jsonData['detail'], $item['key'], $item));
+            }
             $detail = isset($jsonData['detail']) ? ' - '.$jsonData['detail'] : '';
             throw new \Exception(($jsonData['msg'] ?? 'Download error').$detail);
         }
@@ -310,6 +455,35 @@ class ExtensionUpdateManager
             throw new \Exception('Cannot write file '.$zipFile);
         }
         return $zipFile;
+    }
+
+    /**
+     * Build the admin-facing message for a per-plugin license denial reason.
+     *
+     * @param string $reason required|invalid|version|expired.
+     * @param string $key    Extension key.
+     * @param array  $item   Update item (for expiry / link context).
+     * @return string Localized message.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    protected function licenseMessage(string $reason, string $key, array $item = []): string
+    {
+        switch ($reason) {
+            case 'version':
+                return gp247_language_render('admin.extension.license_invalid_version', ['key' => $key, 'version' => $item['version'] ?? '']);
+            case 'expired':
+                return gp247_language_render('admin.extension.license_expired', ['key' => $key, 'date' => $item['license_expire_at'] ?? '']);
+            case 'invalid':
+                return gp247_language_render('admin.extension.license_invalid', ['key' => $key]);
+            case 'domain':
+                return gp247_language_render('admin.extension.license_domain', ['key' => $key]);
+            case 'required':
+            default:
+                return gp247_language_render('admin.extension.license_required', ['key' => $key]);
+        }
     }
 
     /**

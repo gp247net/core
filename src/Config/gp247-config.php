@@ -22,6 +22,10 @@ return [
             ],
             // Cache lifetime (seconds) of the marketplace check-update result
             'update_check_ttl' => env('GP247_EXTENSION_UPDATE_CHECK_TTL', 21600),
+            // Verify the marketplace API's TLS certificate on check-update/download.
+            // Safe default = true (production). Set GP247_UPDATE_VERIFY_SSL=false only
+            // for local/dev marketplaces that use a self-signed certificate.
+            'update_verify_ssl' => env('GP247_UPDATE_VERIFY_SSL', true),
         ],
 
         // Middleware for admin

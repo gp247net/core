@@ -253,3 +253,126 @@ if (!function_exists('gp247_extension_get_via_code') && !in_array('gp247_extensi
         return $pluginsActived;
     }
 }
+
+
+if (!function_exists('gp247_extension_get_license') && !in_array('gp247_extension_get_license', config('gp247_functions_except', []))) {
+    /**
+     * Get the per-plugin license stored for a paid extension.
+     *
+     * This is the license tied to the plugin purchase (order), stored in
+     * admin_config under group 'ExtensionLicense' — distinct from the
+     * API-connection license (GP247_API_LICENSE in .env).
+     *
+     * @param string $type Plugins|Templates.
+     * @param string $key  Extension key.
+     * @return string The stored license key, or '' when none.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    function gp247_extension_get_license(string $type, string $key): string
+    {
+        $type = $type === 'Templates' ? 'Templates' : 'Plugins';
+        $row = AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)
+            ->where('group', 'ExtensionLicense')
+            ->where('key', $type.'.'.$key)
+            ->first();
+        return $row->value ?? '';
+    }
+}
+
+
+if (!function_exists('gp247_extension_save_license') && !in_array('gp247_extension_save_license', config('gp247_functions_except', []))) {
+    /**
+     * Persist the per-plugin license for a paid extension.
+     *
+     * @param string $type    Plugins|Templates.
+     * @param string $key     Extension key.
+     * @param string $license License key entered by the admin.
+     * @return void
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    function gp247_extension_save_license(string $type, string $key, string $license): void
+    {
+        $type = $type === 'Templates' ? 'Templates' : 'Plugins';
+        $row = AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)
+            ->where('group', 'ExtensionLicense')
+            ->where('key', $type.'.'.$key)
+            ->first();
+        // Set attributes individually to avoid mass-assignment concerns.
+        if (!$row) {
+            $row = new AdminConfig();
+            $row->store_id = GP247_STORE_ID_GLOBAL;
+            $row->group = 'ExtensionLicense';
+            $row->code = 'license';
+            $row->key = $type.'.'.$key;
+            $row->sort = 0;
+        }
+        $row->value = trim($license);
+        $row->save();
+    }
+}
+
+
+if (!function_exists('gp247_extension_set_license_status') && !in_array('gp247_extension_set_license_status', config('gp247_functions_except', []))) {
+    /**
+     * Persist the server-verified status of a per-plugin license.
+     *
+     * Stored as JSON in the admin_config `detail` column of the license row so
+     * the admin UI can flag an invalid/expired key without re-calling the API.
+     *
+     * @param string $type   Plugins|Templates.
+     * @param string $key    Extension key.
+     * @param array  $status {valid:bool, reason:string, expire:?string, checked:bool}.
+     * @return void
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    function gp247_extension_set_license_status(string $type, string $key, array $status): void
+    {
+        $type = $type === 'Templates' ? 'Templates' : 'Plugins';
+        $row = AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)
+            ->where('group', 'ExtensionLicense')
+            ->where('key', $type.'.'.$key)
+            ->first();
+        if (!$row) {
+            return;
+        }
+        $row->detail = json_encode($status);
+        $row->save();
+    }
+}
+
+
+if (!function_exists('gp247_extension_get_license_status') && !in_array('gp247_extension_get_license_status', config('gp247_functions_except', []))) {
+    /**
+     * Read the stored verification status of a per-plugin license.
+     *
+     * @param string $type Plugins|Templates.
+     * @param string $key  Extension key.
+     * @return array Decoded status, or [] when none stored.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    function gp247_extension_get_license_status(string $type, string $key): array
+    {
+        $type = $type === 'Templates' ? 'Templates' : 'Plugins';
+        $row = AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)
+            ->where('group', 'ExtensionLicense')
+            ->where('key', $type.'.'.$key)
+            ->first();
+        if (!$row || !$row->detail) {
+            return [];
+        }
+        $decoded = json_decode($row->detail, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+}

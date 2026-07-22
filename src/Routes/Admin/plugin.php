@@ -33,6 +33,9 @@ Route::group(['prefix' => 'plugin'], function () use ($pluginController) {
             ->name('admin_plugin_online.update');
         Route::post('/check-update/online', $pluginOnlineController.'@checkUpdate')
             ->name('admin_plugin_online.check-update');
+        // Per-plugin license (paid extensions) — distinct from the API license below
+        Route::post('/save-license/online', $pluginOnlineController.'@saveLicense')
+            ->name('admin_plugin_online.save-license');
         // Route register api license
         Route::post('/register-license', $pluginOnlineController.'@registerLicense')
             ->name('admin_plugin_online.register-license');

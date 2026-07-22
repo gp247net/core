@@ -6,7 +6,7 @@
     {{-- API error banner --}}
     @if ($errorCode)
         <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/40 dark:bg-amber-900/20">
-            <i class="fas fa-triangle-exclamation mt-0.5 text-amber-500"></i>
+            <i class="fas fa-exclamation-triangle mt-0.5 text-amber-500"></i>
             <div class="flex-1 text-sm">
                 <p class="font-semibold text-amber-800 dark:text-amber-300">
                     {{ gp247_language_render('admin.extension.api_error') }}
@@ -126,6 +126,30 @@
                                 $updateBlocked = $updateItem
                                     && !empty($updateItem['require_update_from'])
                                     && version_compare($updateItem['version_local'] ?? '0.0.0', $updateItem['require_update_from'], '<');
+                                // All paid items expose a per-plugin license input
+                                // (installed → for update; not installed → for first install).
+                                $showLicense = !$isFree;
+                                $licenseValue = $showLicense ? gp247_extension_get_license($groupType, $extension['key']) : '';
+                                // Verified status stored in admin_config.detail (JSON).
+                                $licenseStatus = ($showLicense && $licenseValue) ? gp247_extension_get_license_status($groupType, $extension['key']) : [];
+                                $licState = 'none';
+                                if ($licenseValue) {
+                                    if (($licenseStatus['checked'] ?? true) === false) {
+                                        $licState = 'unverified';
+                                    } elseif (($licenseStatus['valid'] ?? null) === true) {
+                                        $licState = 'valid';
+                                    } elseif (($licenseStatus['valid'] ?? null) === false && ($licenseStatus['reason'] ?? '') !== 'required') {
+                                        $licState = 'problem';
+                                    } else {
+                                        $licState = 'unverified';
+                                    }
+                                }
+                                $licBtn = [
+                                    'valid'      => ['cls' => 'border-gray-300 bg-green-100 text-green-700 dark:border-gray-600 dark:bg-green-900/30 dark:text-green-300', 'title' => gp247_language_render('admin.extension.license_status_valid', ['date' => !empty($licenseStatus['expire']) ? ' ('.$licenseStatus['expire'].')' : ''])],
+                                    'problem'    => ['cls' => 'border-gray-300 bg-amber-100 text-amber-700 dark:border-gray-600 dark:bg-amber-900 dark:text-amber-300', 'title' => gp247_language_render('admin.extension.license_status_invalid', ['reason' => $licenseStatus['reason'] ?? ''])],
+                                    'unverified' => ['cls' => 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600', 'title' => gp247_language_render('admin.extension.license_unverified', ['key' => $extension['key']])],
+                                    'none'       => ['cls' => 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600', 'title' => gp247_language_render('admin.extension.license_label')],
+                                ][$licState];
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
 
@@ -215,7 +239,7 @@
                                                 {{-- Newer version exists but the installed version is too old to 1-click update --}}
                                                 <span title="{{ gp247_language_render('admin.extension.update_from_too_low', ['from' => $updateItem['require_update_from'], 'local' => $updateItem['version_local']]) }}"
                                                     class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                                    <i class="fas fa-triangle-exclamation"></i>
+                                                    <i class="fas fa-exclamation-triangle"></i>
                                                     {{ gp247_language_render('admin.extension.update_available', ['version' => $updateItem['version']]) }}
                                                     · {{ gp247_language_render('admin.extension.update_blocked', ['from' => $updateItem['require_update_from']]) }}
                                                 </span>
@@ -248,6 +272,28 @@
                                                 <i class="fas fa-download"></i>
                                                 {{ gp247_language_render('admin.extension.install') }}
                                             </button>
+                                        @elseif ($licenseValue)
+                                            {{-- Paid, not installed, license entered: install via the license-gated endpoint.
+                                                 Without a saved license only the key icon shows (enter the key first). --}}
+                                            <button type="button"
+                                                title="{{ gp247_language_render('admin.extension.install') }}"
+                                                onclick="installPaidOnline('{{ $extension['key'] }}')"
+                                                class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1">
+                                                <i class="fas fa-download"></i>
+                                                {{ gp247_language_render('admin.extension.install') }}
+                                            </button>
+                                        @endif
+                                        @if ($showLicense)
+                                            {{-- Per-plugin license (paid item): collapsed to a key icon; click to reveal --}}
+                                            <button type="button" onclick="toggleLicense('{{ $extension['key'] }}')"
+                                                title="{{ $licBtn['title'] }}"
+                                                class="inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition focus:outline-none {{ $licBtn['cls'] }}">
+                                                {{-- Always show the key so the warning is clearly about the license key --}}
+                                                <i class="fas fa-key"></i>
+                                                @if ($licState === 'problem')
+                                                    <i class="fas fa-exclamation-triangle"></i>
+                                                @endif
+                                            </button>
                                         @endif
                                         <a href="{{ $extension['link'] }}" target="_blank" rel="noopener"
                                             title="{{ gp247_language_render('admin.extension.link') }}"
@@ -256,6 +302,22 @@
                                             {{ gp247_language_render('admin.extension.link') }}
                                         </a>
                                     </div>
+
+                                    @if ($showLicense)
+                                        {{-- Per-plugin license input — hidden until the key icon is clicked --}}
+                                        <div id="lic-row-{{ $extension['key'] }}" class="mt-2 hidden items-center justify-end gap-1.5">
+                                            <input type="text" id="lic-{{ $extension['key'] }}" value="{{ $licenseValue }}"
+                                                placeholder="{{ gp247_language_render('admin.extension.license_placeholder') }}"
+                                                title="{{ gp247_language_render('admin.extension.license_label') }}"
+                                                class="w-40 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                                            <button type="button" onclick="saveLicense('{{ $extension['key'] }}')"
+                                                title="{{ gp247_language_render('admin.extension.license_save') }}"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                                                <i class="fas fa-key"></i>
+                                                {{ gp247_language_render('admin.extension.license_save') }}
+                                            </button>
+                                        </div>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -281,6 +343,7 @@
     const _installUrl = @js($urlAction['install']);
     const _updateUrl = @js($urlAction['update'] ?? '');
     const _checkUpdateUrl = @js($urlAction['checkUpdate'] ?? '');
+    const _saveLicenseUrl = @js($urlAction['saveLicense'] ?? '');
     const _isTemplate = @js($groupType === 'Templates');
     const _msgUpdateConfirm = @js(gp247_language_render('admin.extension.update_confirm', ['key' => ':key', 'old' => ':old', 'new' => ':new']));
     const _msgUpdateConfirmTemplate = @js(gp247_language_render('admin.extension.update_confirm_template', ['key' => ':key']));
@@ -333,6 +396,72 @@
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 body: new URLSearchParams({ _token: _csrf, key }),
+            });
+            const data = await res.json();
+            if (parseInt(data.error) === 0) {
+                notify('success', data.msg);
+                location.reload();
+            } else {
+                notify('error', data.msg);
+                loading(false);
+            }
+        } catch (e) {
+            notify('error', e.message);
+            loading(false);
+        }
+    };
+
+    const _msgLicenseEnter = @js(gp247_language_render('admin.extension.license_enter', ['key' => ':key']));
+
+    window.installPaidOnline = async function (key) {
+        const input = document.getElementById('lic-' + key);
+        const license = input ? input.value.trim() : '';
+        if (!license) {
+            toggleLicense(key); // reveal the license input
+            notify('error', _msgLicenseEnter.replace(':key', key));
+            return;
+        }
+        loading(true);
+        try {
+            const res = await fetch(_installUrl, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ _token: _csrf, key, license, paid: 1 }),
+            });
+            const data = await res.json();
+            if (parseInt(data.error) === 0) {
+                notify('success', data.msg);
+                location.reload();
+            } else {
+                notify('error', data.msg);
+                loading(false);
+            }
+        } catch (e) {
+            notify('error', e.message);
+            loading(false);
+        }
+    };
+
+    window.toggleLicense = function (key) {
+        const row = document.getElementById('lic-row-' + key);
+        if (!row) return;
+        row.classList.toggle('hidden');
+        row.classList.toggle('flex');
+        if (!row.classList.contains('hidden')) {
+            const input = document.getElementById('lic-' + key);
+            if (input) input.focus();
+        }
+    };
+
+    window.saveLicense = async function (key) {
+        const input = document.getElementById('lic-' + key);
+        const license = input ? input.value.trim() : '';
+        loading(true);
+        try {
+            const res  = await fetch(_saveLicenseUrl, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ _token: _csrf, key, license }),
             });
             const data = await res.json();
             if (parseInt(data.error) === 0) {

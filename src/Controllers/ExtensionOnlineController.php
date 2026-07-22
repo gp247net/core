@@ -149,6 +149,7 @@ trait ExtensionOnlineController
                     'urlImport' => gp247_route_admin('admin_template.import'),
                     'update' => gp247_route_admin('admin_template_online.update'),
                     'checkUpdate' => gp247_route_admin('admin_template_online.check-update'),
+                    'saveLicense' => gp247_route_admin('admin_template_online.save-license'),
                 ];
                 break;
 
@@ -159,6 +160,7 @@ trait ExtensionOnlineController
                     'urlImport' => gp247_route_admin('admin_plugin.import'),
                     'update' => gp247_route_admin('admin_plugin_online.update'),
                     'checkUpdate' => gp247_route_admin('admin_plugin_online.check-update'),
+                    'saveLicense' => gp247_route_admin('admin_plugin_online.save-license'),
                 ];
                 break;
         }
@@ -235,10 +237,98 @@ trait ExtensionOnlineController
         ]);
     }
 
+    /**
+     * Persist the per-plugin license entered for a paid extension.
+     *
+     * The license is stored per plugin (admin_config group 'ExtensionLicense'),
+     * distinct from the API-connection license (GP247_API_LICENSE). The cached
+     * update map is dropped so the next check re-evaluates entitlement.
+     *
+     * @return \Illuminate\Http\JsonResponse ['error' => 0|1, 'msg' => string]
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    public function saveLicense()
+    {
+        // Accept any non-empty key: paid items can have their license entered
+        // BEFORE install (first-time paid install), not only when already local.
+        $key = request('key');
+        if (!$key) {
+            return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.update_not_found', ['key' => (string) $key])]);
+        }
+
+        $license = trim((string) request('license', ''));
+
+        // Empty input clears the stored license.
+        if ($license === '') {
+            gp247_extension_save_license($this->groupType, $key, '');
+            gp247_extension_set_license_status($this->groupType, $key, ['valid' => false, 'reason' => 'required', 'expire' => null, 'checked' => true]);
+            \Illuminate\Support\Facades\Cache::forget('gp247_extension_updates');
+            return response()->json(['error' => 0, 'valid' => false, 'msg' => gp247_language_render('admin.extension.license_saved', ['key' => $key])]);
+        }
+
+        // Verify the key BEFORE persisting it: a key the server affirms invalid is
+        // NOT saved, and any previously stored (valid / manually-set) license is
+        // left untouched. A verified-valid key — or one that could not be verified
+        // (server unreachable) — is saved.
+        $status = (new ExtensionUpdateManager)->verifyLicense($this->groupType, $key, $license);
+        if (($status['checked'] ?? false) && !($status['valid'] ?? false)) {
+            return response()->json(['error' => 1, 'valid' => false, 'msg' => $this->licenseStatusMessage($status, $key)]);
+        }
+
+        gp247_extension_save_license($this->groupType, $key, $license);
+        gp247_extension_set_license_status($this->groupType, $key, $status);
+
+        // Drop the cached check-update map so entitlement is re-evaluated next time.
+        \Illuminate\Support\Facades\Cache::forget('gp247_extension_updates');
+
+        return response()->json([
+            'error' => 0,
+            'valid' => $status['valid'],
+            'msg' => $this->licenseStatusMessage($status, $key),
+        ]);
+    }
+
+    /**
+     * Build the admin message describing a just-verified license status.
+     *
+     * @param array  $status Result from ExtensionUpdateManager::verifyLicense().
+     * @param string $key    Extension key.
+     * @return string Localized message.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    protected function licenseStatusMessage(array $status, string $key): string
+    {
+        if (!empty($status['valid'])) {
+            return gp247_language_render('admin.extension.license_saved', ['key' => $key]);
+        }
+        switch ($status['reason'] ?? '') {
+            case 'expired':
+                return gp247_language_render('admin.extension.license_expired', ['key' => $key, 'date' => $status['expire'] ?? '']);
+            case 'invalid':
+                return gp247_language_render('admin.extension.license_invalid', ['key' => $key]);
+            case 'domain':
+                return gp247_language_render('admin.extension.license_domain', ['key' => $key]);
+            case 'unverified':
+                return gp247_language_render('admin.extension.license_unverified', ['key' => $key]);
+            default: // required / empty — treated as cleared
+                return gp247_language_render('admin.extension.license_saved', ['key' => $key]);
+        }
+    }
+
     public function install()
     {
         $key = request('key');
         $path = request('path');
+        // Paid items (first-time install) are fetched from the license-gated
+        // extension/download endpoint instead of the public filev3 path.
+        $isPaid = request('paid') == 1;
+        $license = (string) request('license', '');
         $appPath = 'GP247/'.$this->groupType.'/'.$key;
 
         if (!is_writable(public_path('GP247/'.$this->groupType))) {
@@ -260,16 +350,30 @@ trait ExtensionOnlineController
         }
 
         try {
-            $data = file_get_contents($path);
-            
+            if ($isPaid) {
+                // Persist the entered license, then fetch the zip through the
+                // license-gated download endpoint (sends API-License header).
+                gp247_extension_save_license($this->groupType, $key, $license);
+                $data = $this->fetchPaidExtensionZip($key, $license);
+            } else {
+                $data = file_get_contents($path);
+            }
+
             // Check if response is JSON error instead of zip file
             $jsonData = json_decode($data, true);
             if (json_last_error() === JSON_ERROR_NONE && isset($jsonData['error']) && $jsonData['error'] == 1) {
                 $errorMsg = $jsonData['msg'] ?? 'Unknown error';
-                $errorDetail = isset($jsonData['detail']) ? ' - ' . $jsonData['detail'] : '';
+                $detail = $jsonData['detail'] ?? '';
+                // Sync the authoritative license verdict into admin_config so the
+                // key icon flags the problem (cache of server-truth).
+                if ($isPaid && in_array($detail, ['required', 'invalid', 'version', 'expired', 'domain'], true)) {
+                    gp247_extension_set_license_status($this->groupType, $key, ['valid' => false, 'reason' => $detail, 'expire' => null, 'checked' => true]);
+                    return response()->json(['error' => 1, 'msg' => $this->licenseStatusMessage(['valid' => false, 'reason' => $detail], $key)]);
+                }
+                $errorDetail = $detail !== '' ? ' - '.$detail : '';
                 return response()->json(['error' => 1, 'msg' => $errorMsg . $errorDetail]);
             }
-            
+
             $pathTmp = $key.'_'.time();
             $fileTmp = $pathTmp.'.zip';
             Storage::disk('tmp')->put($pathTmp.'/'.$fileTmp, $data);
@@ -325,11 +429,52 @@ trait ExtensionOnlineController
             $response = ['error' => 1, 'msg' => $msg];
         }
         if (is_array($response) && $response['error'] == 0) {
+            if ($isPaid) {
+                // Server accepted the license (the zip was served) — record valid.
+                gp247_extension_set_license_status($this->groupType, $key, ['valid' => true, 'reason' => 'none', 'expire' => null, 'checked' => true]);
+            }
             gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
             gp247_extension_after_update();
         }
-        
+
         return response()->json($response);
+    }
+
+    /**
+     * Fetch a paid extension zip from the license-gated download endpoint.
+     *
+     * Sends the API-connection license header and the per-plugin license so the
+     * server (api-247) can validate entitlement before proxying the private repo.
+     * Returns the raw body — either zip bytes or a JSON error (handled by caller).
+     *
+     * @param string $key     Extension key.
+     * @param string $license Per-plugin license.
+     * @return string Response body (zip bytes or JSON error).
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    protected function fetchPaidExtensionZip(string $key, string $license): string
+    {
+        $url = config('gp247-config.env.GP247_LIBRARY_API').'/extension/download'
+            .'?type='.rawurlencode($this->groupType)
+            .'&key='.rawurlencode($key)
+            .'&gp247_version='.rawurlencode((string) config('gp247.core'))
+            .'&license='.rawurlencode($license);
+
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'GP247-API-License' => config('gp247-config.env.GP247_API_LICENSE'),
+                'GP247-API-Domain'  => url('/'),
+            ])
+            ->withOptions(['verify' => (bool) config('gp247-config.admin.extension.update_verify_ssl', true)])
+            ->timeout(120)
+            ->get($url);
+
+        if (!$response->successful()) {
+            return json_encode(['error' => 1, 'msg' => 'Download failed: HTTP '.$response->status()]);
+        }
+        return $response->body();
     }
 
     public function registerLicense()
