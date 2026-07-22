@@ -376,3 +376,28 @@ if (!function_exists('gp247_extension_get_license_status') && !in_array('gp247_e
         return is_array($decoded) ? $decoded : [];
     }
 }
+
+
+if (!function_exists('gp247_extension_delete_license') && !in_array('gp247_extension_delete_license', config('gp247_functions_except', []))) {
+    /**
+     * Remove the stored per-plugin license row entirely (value + status).
+     *
+     * Used when the admin clears the license input — no empty row is left behind.
+     *
+     * @param string $type Plugins|Templates.
+     * @param string $key  Extension key.
+     * @return void
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_per-plugin-license
+     */
+    function gp247_extension_delete_license(string $type, string $key): void
+    {
+        $type = $type === 'Templates' ? 'Templates' : 'Plugins';
+        AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)
+            ->where('group', 'ExtensionLicense')
+            ->where('key', $type.'.'.$key)
+            ->delete();
+    }
+}

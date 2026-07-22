@@ -261,10 +261,9 @@ trait ExtensionOnlineController
 
         $license = trim((string) request('license', ''));
 
-        // Empty input clears the stored license.
+        // Empty input removes the stored license record entirely.
         if ($license === '') {
-            gp247_extension_save_license($this->groupType, $key, '');
-            gp247_extension_set_license_status($this->groupType, $key, ['valid' => false, 'reason' => 'required', 'expire' => null, 'checked' => true]);
+            gp247_extension_delete_license($this->groupType, $key);
             \Illuminate\Support\Facades\Cache::forget('gp247_extension_updates');
             return response()->json(['error' => 0, 'valid' => false, 'msg' => gp247_language_render('admin.extension.license_saved', ['key' => $key])]);
         }
