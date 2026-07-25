@@ -211,8 +211,13 @@ if (!function_exists('gp247_handle_exception') && !in_array('gp247_handle_except
      */
     function gp247_handle_exception(\Throwable $exception, $channel = 'slack')
     {
+        if (function_exists('gp247_get_real_ip_client')) {
+            $ip = gp247_get_real_ip_client();
+        } else {
+            $ip = request()->ip();
+        }
         $msg = "```". $exception->getMessage().'```'.PHP_EOL;
-        $msg .= "```IP:```".gp247_get_real_ip_client().PHP_EOL;
+        $msg .= "```IP:```".$ip.PHP_EOL;
         $msg .= "*File* `".$exception->getFile()."`, *Line:* ".$exception->getLine().", *Code:* ".$exception->getCode().PHP_EOL.'URL= '.url()->current();
         if (function_exists('gp247_report') && $msg) {
             gp247_report(msg:$msg, channel:$channel);
