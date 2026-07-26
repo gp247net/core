@@ -34,6 +34,15 @@ class WebsiteInfo extends GP247AdminComponent
     /** @var array<string, array<string, string>> Descriptions keyed by lang => field. */
     public array $desc = [];
 
+    /**
+     * Template key awaiting confirmation. Set when the admin picks a different
+     * template; the destructive switch (removeStore/setupStore) only runs after
+     * confirmTemplateSwitch(). Null when no switch is pending.
+     *
+     * @var string|null
+     */
+    public ?string $pendingTemplate = null;
+
     /** Store scalar text fields editable on this screen (excludes domain, handled separately). */
     private const FIELDS = ['phone', 'long_phone', 'email', 'time_active', 'address', 'office', 'warehouse'];
 
@@ -141,12 +150,71 @@ class WebsiteInfo extends GP247AdminComponent
             $this->store['domain'] = $domain;
             AdminStore::where('id', $this->storeId())->update(['domain' => $domain]);
         } elseif ($key === 'template') {
-            $this->activateTemplate($clean);
+            // WHY: switching template runs removeStore()/setupStore(), which DELETE
+            // the current template's homepage layout blocks + banners and reseed
+            // sample data — destructive and irreversible (RISK-OPS-template-switch-
+            // data-loss). Defer behind an explicit confirmation modal instead of
+            // firing on select (ADR admin-shell-rbac_template-switch-confirmation).
+            $current = (string) (AdminStore::where('id', $this->storeId())->value('template') ?? '');
+            if ($clean === '' || $clean === $current) {
+                return; // no-op: cleared, or re-picked the already-active template
+            }
+            // WHY: opening the modal is driven off this property (a client-side
+            // Alpine bridge in the view watches $wire.pendingTemplate), NOT a
+            // server $this->dispatch('open-modal') — Livewire wraps dispatched
+            // params so the modal's `$event.detail === name` check would never
+            // match. pendingTemplate is the single source of truth for the gate.
+            $this->pendingTemplate = $clean;
+
+            return; // do NOT persist or notify — wait for confirmTemplateSwitch()
         } else {
             AdminStore::where('id', $this->storeId())->update([$key => $clean]);
         }
 
         $this->notify('success', gp247_language_render('admin.setting_saved'));
+    }
+
+    /**
+     * Execute the deferred template switch after the admin confirms in the modal.
+     * Runs the same activateTemplate() (removeStore + setupStore) the field used
+     * to run directly on change, now gated behind explicit confirmation.
+     *
+     * @return void
+     * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-AUI-008
+     * @aidlc-adr admin-shell-rbac_template-switch-confirmation
+     */
+    public function confirmTemplateSwitch(): void
+    {
+        $this->authorizeAction('update');
+
+        if ($this->pendingTemplate === null || $this->pendingTemplate === '') {
+            return;
+        }
+
+        $this->activateTemplate($this->pendingTemplate);
+        $this->store['template'] = $this->pendingTemplate;
+        $this->pendingTemplate = null; // closes the modal via the client bridge
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
+    }
+
+    /**
+     * Abort a pending template switch: reset the bound value back to the persisted
+     * template so the searchable-select ($wire.$watch) snaps the dropdown back to
+     * the current template. Nothing destructive is executed.
+     *
+     * @return void
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-AUI-008
+     * @aidlc-adr admin-shell-rbac_template-switch-confirmation
+     */
+    public function cancelTemplateSwitch(): void
+    {
+        $this->store['template'] = (string) (AdminStore::where('id', $this->storeId())->value('template') ?? '');
+        $this->pendingTemplate = null; // closes the modal via the client bridge
     }
 
     /**

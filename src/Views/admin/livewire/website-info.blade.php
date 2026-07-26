@@ -143,4 +143,36 @@
             </x-gp247::tabs>
         </div>
     </div>
+
+    {{-- Confirm dialog before running the destructive template switch
+         (removeStore/setupStore). Visibility is driven off the server property
+         $wire.pendingTemplate: this Alpine bridge re-dispatches a raw-string
+         open-modal/close-modal browser event (which <x-gp247::modal> matches via
+         $event.detail === name) whenever pendingTemplate changes. WHY not a
+         server $this->dispatch('open-modal'): Livewire wraps dispatched params so
+         the modal's strict $event.detail === name check never matches — the same
+         reason language-string-manager binds its modal to a wire property.
+         Cancel resets store.template so the searchable-select snaps back.
+         @aidlc-adr admin-shell-rbac_template-switch-confirmation --}}
+    <div x-data x-effect="$wire.pendingTemplate
+            ? $dispatch('open-modal', 'confirm-template')
+            : $dispatch('close-modal', 'confirm-template')"></div>
+
+    <x-gp247::modal name="confirm-template" :title="gp247_language_render('admin.store.template_switch_title')">
+        <div class="flex items-start gap-3">
+            <i class="fas fa-triangle-exclamation mt-0.5 text-xl text-amber-500"></i>
+            <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                {{ gp247_language_render('admin.store.template_switch_warning') }}
+            </p>
+        </div>
+
+        <x-slot:footer>
+            <x-gp247::button variant="secondary" size="sm" wire:click="cancelTemplateSwitch">
+                {{ gp247_language_render('admin.store.template_switch_cancel') }}
+            </x-gp247::button>
+            <x-gp247::button variant="danger" size="sm" wire:click="confirmTemplateSwitch">
+                {{ gp247_language_render('admin.store.template_switch_confirm') }}
+            </x-gp247::button>
+        </x-slot:footer>
+    </x-gp247::modal>
 </div>
