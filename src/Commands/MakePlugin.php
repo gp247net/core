@@ -106,6 +106,23 @@ class MakePlugin extends Command
             $appConfig      = str_replace('Extension_Key', $extensionKey, $appConfig);
             file_put_contents(storage_path($tmp.'/AppConfig.php'), $appConfig);
 
+            // Plugin standard #7 (ADR plugin-manager_extension-update-flow): the
+            // config.php / function.php scaffolds carry the update-safe config
+            // pattern (defaults in config.php, site-owner overrides in
+            // admin_config `<key>_config`). Template the same "Extension_Key"
+            // placeholder so the example helpers resolve to the real plugin key.
+            if (file_exists(storage_path($tmp.'/config.php'))) {
+                $configFile = file_get_contents(storage_path($tmp.'/config.php'));
+                $configFile      = str_replace('Extension_Key', $extensionKey, $configFile);
+                file_put_contents(storage_path($tmp.'/config.php'), $configFile);
+            }
+
+            if (file_exists(storage_path($tmp.'/function.php'))) {
+                $functionFile = file_get_contents(storage_path($tmp.'/function.php'));
+                $functionFile      = str_replace('Extension_Key', $extensionKey, $functionFile);
+                file_put_contents(storage_path($tmp.'/function.php'), $functionFile);
+            }
+
             // US-PLG-004: Livewire scaffold — sample admin component + its view.
             // Both reference the "Extension_Key" placeholder (namespace + view
             // path) so they are templated the same way as the legacy controller.

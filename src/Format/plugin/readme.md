@@ -68,6 +68,13 @@ Plugin service provider, registers services and middleware.
 ### 4. Route.php
 Defines plugin routes.
 
+### 5. config.php & function.php — Update-safe user configuration (standard #7)
+1-click plugin update **overwrites every file** of the plugin but **preserves `admin_config` (DB)** — see ADR `plugin-manager_extension-update-flow`, RISK-OPS-plugin-config-file-overwrite. Therefore:
+- **`config.php` = DEFAULTS only** (package-owned, overwritten on update). Put immutable defaults and developer-level settings here.
+- **Any value a SITE OWNER edits** (toggles, tunables) must be stored in `admin_config` and overlaid on the defaults at runtime — otherwise those choices are reset to the new package's defaults on every update.
+- The scaffold's `AppConfig::uninstall()` already cleans the `admin_config` row whose `code` is `<configKey>_config`; that is the conventional slot for the override blob. `function.php` ships commented `*_effective_config()` / `*_save_config()` helpers implementing the `default(file) ⊕ override(DB)` overlay — uncomment and adapt them when your plugin has site-owner-editable settings, or delete them if it has none.
+- Reference implementation: the `MFA` plugin (guard `enabled`/`forced` + tunables live in `admin_config`; `config.php` keeps only the model/redirect defaults).
+
 ## Usage
 
 1. Create new plugin:

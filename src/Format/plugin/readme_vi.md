@@ -68,6 +68,13 @@ Service provider của plugin, đăng ký các service và middleware.
 ### 4. Route.php
 Định nghĩa các route cho plugin.
 
+### 5. config.php & function.php — Cấu hình người dùng an toàn khi update (chuẩn #7)
+Cập nhật plugin 1-click **ghi đè toàn bộ file** của plugin nhưng **giữ nguyên `admin_config` (DB)** — xem ADR `plugin-manager_extension-update-flow`, RISK-OPS-plugin-config-file-overwrite. Do đó:
+- **`config.php` = chỉ chứa DEFAULT** (do package sở hữu, bị ghi đè khi update). Đặt giá trị mặc định bất biến và cấu hình cấp-dev ở đây.
+- **Mọi giá trị do CHỦ SITE chỉnh** (bật/tắt, tinh chỉnh) phải lưu ở `admin_config` và overlay lên default lúc runtime — nếu không, các lựa chọn đó sẽ bị reset về default của bản mới sau mỗi lần update.
+- `AppConfig::uninstall()` của scaffold đã dọn sẵn row `admin_config` có `code` là `<configKey>_config`; đó là slot quy ước cho blob override. `function.php` ship sẵn helper (đang comment) `*_effective_config()` / `*_save_config()` cài đặt overlay `default(file) ⊕ override(DB)` — bỏ comment và chỉnh lại khi plugin của bạn có cấu hình chủ-site sửa được, hoặc xoá nếu không có.
+- Bản tham chiếu: plugin `MFA` (guard `enabled`/`forced` + tunables ở `admin_config`; `config.php` chỉ giữ default model/redirect).
+
 ## Cách sử dụng
 
 1. Tạo plugin mới:
