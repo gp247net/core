@@ -29,6 +29,12 @@
         selection back to empty. Default true. Set false for fields that must
         always hold a value (e.g. store language/currency/template) — only
         picking a different option is then allowed, never clearing to empty.
+      - allowCustom (bool): multi-mode only — let the user commit a typed value
+        that is NOT in `options` as a new tag (Enter key, or click the "+ …" row
+        in the empty dropdown). Default false. Used by the LayoutBlock page-scope
+        field so an admin can target a page-type not registered in the registry
+        (e.g. a page from a plugin that did not register it). ADR
+        front-admin_layout-page-enum-catalog.
 --}}
 @props([
     'model'       => null,
@@ -43,6 +49,7 @@
     'required'    => false,
     'disabled'    => false,
     'clearable'   => true,
+    'allowCustom' => false,
 ])
 
 @php
@@ -181,13 +188,14 @@
         // truncates the script and breaks the page.
         (function () {
             const define = () => {
-                window.Alpine.data('gp247SearchableSelect', (model, opts, multiple, ph) => ({
+                window.Alpine.data('gp247SearchableSelect', (model, opts, multiple, ph, allowCustom) => ({
                 open:     false,
                 query:    '',
                 opts:     opts,
                 single:   null,   // single-mode: {id, label} | null
                 multi:    [],     // multi-mode:  [{id, label}, ...]
                 ph:       ph,
+                allowCustom: allowCustom,   // multi-mode: commit typed value not in opts as a new tag
                 dropStyle: '',    // fixed-position coords for .gp247-ss-drop, computed on open
 
                 // ── Seed + watch ──────────────────────────────────────────────
@@ -225,7 +233,13 @@
                 _seed(val) {
                     if (multiple) {
                         const ids = Array.isArray(val) ? val : (val ? [val] : []);
-                        this.multi = ids.map(id => this.opts.find(o => o.id == id)).filter(Boolean);
+                        // WHY: with allowCustom, a stored id may be a custom token
+                        // not present in opts (e.g. a plugin page-type). Keep it as
+                        // its own {id,label} tag instead of dropping it on edit.
+                        this.multi = ids
+                            .map(id => this.opts.find(o => o.id == id)
+                                || (allowCustom && id !== '' && id != null ? { id: String(id), label: String(id) } : null))
+                            .filter(Boolean);
                     } else {
                         this.single = val != null ? (this.opts.find(o => o.id == val) ?? null) : null;
                         this.query  = this.single ? this.single.label : '';
@@ -265,6 +279,22 @@
 
                 removeTag(id) {
                     this.multi = this.multi.filter(s => s.id !== id);
+                    this._commit(this.multi.map(s => s.id));
+                },
+
+                // Commit the typed query as a new tag (multi + allowCustom only).
+                // If it matches an existing option, select that instead of duplicating.
+                addCustom() {
+                    if (!allowCustom || !multiple) return;
+                    const val = this.query.trim();
+                    if (!val) return;
+                    if (this.multi.find(s => String(s.id) === val)) { this.query = ''; return; }
+                    const existing = this.opts.find(
+                        o => String(o.id) === val || o.label.toLowerCase() === val.toLowerCase()
+                    );
+                    if (existing) { this.select(existing); return; }
+                    this.multi = [...this.multi, { id: val, label: val }];
+                    this.query = '';
                     this._commit(this.multi.map(s => s.id));
                 },
 
@@ -356,7 +386,8 @@
             @js($model),
             @js($options),
             @js($multiple),
-            @js($placeholder)
+            @js($placeholder),
+            @js($allowCustom)
         )"
         x-bind:data-open="open || undefined"
         @click.outside="open = false"
@@ -383,6 +414,7 @@
                     @focus="onInputFocus"
                     @blur="onInputBlur"
                     @keydown.backspace="onBackspace"
+                    @keydown.enter.prevent="allowCustom && addCustom()"
                     autocomplete="off"
                     id="{{ $id }}" />
             </div>
@@ -421,7 +453,16 @@
             <div class="gp247-ss-list">
                 <template x-if="filtered.length === 0">
                     <div class="gp247-ss-empty">
-                        {{ gp247_language_render('admin.no_records') }}
+                        {{-- allowCustom: offer to add the typed value as a new tag --}}
+                        <template x-if="allowCustom && query.trim()">
+                            <span @mousedown.prevent="addCustom()"
+                                style="cursor:pointer;color:rgb(29 78 216);font-weight:500">
+                                + <span x-text="query.trim()"></span>
+                            </span>
+                        </template>
+                        <template x-if="!(allowCustom && query.trim())">
+                            <span>{{ gp247_language_render('admin.no_records') }}</span>
+                        </template>
                     </div>
                 </template>
                 <template x-for="opt in filtered" :key="opt.id">

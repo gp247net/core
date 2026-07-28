@@ -36,4 +36,19 @@
          ];
          config(['gp247-config.front.seo_sitemap_providers' => $sitemapProviders]);
      }
+
+     // US-PLG-008 (optional — only for plugins that render their OWN storefront
+     // page): register the plugin's page-type token(s) into gp247/front's
+     // LayoutBlock "Page" scope registry so an admin can target a LayoutBlock to
+     // those pages (ADR front-admin_layout-page-enum-catalog). Store the i18n
+     // KEY (not a pre-rendered string) so the admin dropdown renders it in the
+     // viewer's locale. The token must equal the $layout_page value your
+     // controller emits to view() for that page. Uncomment + fill in for
+     // producer plugins; leave removed for admin-only plugins. See the News
+     // plugin (app/GP247/Plugins/News/Provider.php) as a reference.
+     // if (class_exists('GP247\Front\Controllers\RootFrontController')) {
+     //     $layoutPage = config('gp247-config.front.layout_page', []);
+     //     $layoutPage['myplugin_index'] = $extensionPath.'::lang.layout_block_page.myplugin_index';
+     //     config(['gp247-config.front.layout_page' => $layoutPage]);
+     // }
  }
