@@ -152,6 +152,26 @@ Sau đó, chạy lệnh:
 
 >`php artisan gp247:core-update`
 
+**Tùy chọn — cập nhật lại asset/view đã publish lên bản mới nhất.**
+`composer update` chỉ cập nhật package trong `vendor/`; các file đã publish ra
+`public/GP247` và `resources/views/vendor/gp247-admin` **không** tự động được ghi
+đè. Nếu bản phát hành mới có thay đổi CSS/JS đã build sẵn hoặc view admin và bạn
+muốn áp dụng lên site, hãy publish lại kèm `--force`:
+
+>`php artisan vendor:publish --tag=gp247:core-public --force` // -> public/GP247 (build admin: CSS/JS, ...)
+
+>`php artisan vendor:publish --tag=gp247:core-view --force` // -> resources/views/vendor/gp247-admin
+
+`NẾU bạn đã cài đặt gp247/front`, publish lại thêm asset/view của front:
+
+>`php artisan vendor:publish --tag=gp247:front-public --force` // -> public/GP247/Templates/GP247Front (CSS/JS storefront)
+
+>`php artisan vendor:publish --tag=gp247:front-view --force` // -> app/GP247/Templates/GP247Front (view template mặc định)
+
+> ⚠️ `--force` sẽ **ghi đè** các file ở thư mục đích, bao gồm cả những tùy chỉnh
+> cục bộ đã sửa ở đó. **Hãy backup `public/GP247` và thư mục view đã publish
+> trước**, và chỉ publish đúng tag bạn thực sự cần.
+
 **Để tạo plugin:**
 
 >`php artisan gp247:make-plugin  --name=TenPlugin`

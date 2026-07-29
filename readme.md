@@ -153,6 +153,26 @@ Then, run the command:
 
 >`php artisan gp247:core-update`
 
+**Optional — refresh published assets/views to the latest version.**
+`composer update` only refreshes the package under `vendor/`; the files already
+published to `public/GP247` and `resources/views/vendor/gp247-admin` are **not**
+overwritten automatically. If a new release ships updated compiled CSS/JS or
+admin views and you want them live, re-publish with `--force`:
+
+>`php artisan vendor:publish --tag=gp247:core-public --force` // -> public/GP247 (admin build: CSS/JS, ...)
+
+>`php artisan vendor:publish --tag=gp247:core-view --force` // -> resources/views/vendor/gp247-admin
+
+`IF you have gp247/front installed`, also re-publish the front assets/views:
+
+>`php artisan vendor:publish --tag=gp247:front-public --force` // -> public/GP247/Templates/GP247Front (storefront CSS/JS)
+
+>`php artisan vendor:publish --tag=gp247:front-view --force` // -> app/GP247/Templates/GP247Front (default template views)
+
+> ⚠️ `--force` **overwrites** the destination files, including any local
+> customizations made there. **Back up `public/GP247` and the published view
+> folder first**, and publish only the tag you actually need.
+
 **To create a plugin:**
 
 >`php artisan gp247:make-plugin  --name=PluginName`
