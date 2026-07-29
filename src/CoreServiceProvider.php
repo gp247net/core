@@ -17,6 +17,7 @@ use GP247\Core\Commands\MakePlugin;
 use GP247\Core\Commands\Information;
 use GP247\Core\Commands\Update;
 use GP247\Core\Commands\Install;
+use GP247\Core\Commands\LangUpdate;
 use GP247\Core\Middleware\Localization;
 use GP247\Core\Api\Middleware\ApiConnection;
 use GP247\Core\Api\Middleware\ForceJsonResponse;
@@ -45,6 +46,7 @@ class CoreServiceProvider extends ServiceProvider
         MakePlugin::class,
         Information::class,
         Update::class,
+        LangUpdate::class,
     ];
     
     protected function initial()
