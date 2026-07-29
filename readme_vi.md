@@ -1,18 +1,15 @@
-<p align="center">
-    <img src="https://static.gp247.net/logo/logo.png" width="150">
-</p>
-<p align="center">Core Laravel admin cho tất cả các hệ thống (thương mại điện tử, cms, pmo...)<br>
-    <code><b>composer require gp247/core</b></code></p>
-<p align="center">
- <a href="https://gp247.net">Hướng dẫn cài đặt và tài liệu</a> | <a href="https://www.facebook.com/GP247.official/">Facebook Official</a>
-</p>
+![GP247](https://static.gp247.net/logo/logo.png)
 
-<p align="center">
-<a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/d/total.svg" alt="Tổng lượt tải"></a>
-<a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/v/stable.svg" alt="Phiên bản ổn định mới nhất"></a>
-<a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/license.svg" alt="Giấy phép"></a>
-<a href="https://deepwiki.com/gp247net/core"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
-</p>
+Core Laravel admin cho tất cả các hệ thống (thương mại điện tử, cms, pmo...)
+
+`composer require gp247/core`
+
+[Hướng dẫn cài đặt và tài liệu](https://gp247.net) | [Facebook Official](https://www.facebook.com/GP247.official/)
+
+[![Tổng lượt tải](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
+[![Phiên bản ổn định mới nhất](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
+[![Giấy phép](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
 
 ## Giới thiệu về GP247
 GP247 là một mã nguồn nhỏ gọn được xây dựng với Laravel, giúp người dùng nhanh chóng xây dựng một trang web quản trị mạnh mẽ. Dù hệ thống của bạn đơn giản hay phức tạp, GP247 sẽ giúp bạn vận hành và mở rộng nó một cách dễ dàng.
@@ -31,9 +28,7 @@ GP247 là một mã nguồn nhỏ gọn được xây dựng với Laravel, giú
 
 - GP247 xây dựng một hệ sinh thái mở rộng lớn (plugin, template), giúp người dùng nhanh chóng xây dựng CMS, PMO, thương mại điện tử, v.v., theo nhu cầu của bạn.
 
-<p align="center">
-    <img src="https://static.gp247.net/page/sc-3.jpg" width="100%">
-</p>
+![Ảnh minh họa GP247](https://static.gp247.net/page/sc-3.jpg)
 
 ## Core Laravel:
 

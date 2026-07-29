@@ -1,18 +1,15 @@
-<p align="center">
-    <img src="https://static.gp247.net/logo/logo.png" width="150">
-</p>
-<p align="center">Core Laravel admin for all systems (ecommerce, cms, pmo...)<br>
-    <code><b>composer require gp247/core</b></code></p>
-<p align="center">
- <a href="https://gp247.net">Installation and documentation</a> | <a href="https://www.facebook.com/GP247.official/">Facebook Official</a>
-</p>
+![GP247](https://static.gp247.net/logo/logo.png)
 
-<p align="center">
-<a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/d/total.svg" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/v/stable.svg" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/gp247/core"><img src="https://poser.pugx.org/gp247/core/license.svg" alt="License"></a>
-<a href="https://deepwiki.com/gp247net/core"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
-</p>
+Core Laravel admin for all systems (ecommerce, cms, pmo...)
+
+`composer require gp247/core`
+
+[Installation and documentation](https://gp247.net) | [Facebook Official](https://www.facebook.com/GP247.official/)
+
+[![Total Downloads](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
+[![Latest Stable Version](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
+[![License](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
 
 ## About GP247
 GP247 is a compact source code built with Laravel, helping users quickly build a powerful admin website. Whether your system is simple or complex, GP247 will help you operate and scale it easily.
@@ -31,9 +28,7 @@ GP247 is a compact source code built with Laravel, helping users quickly build a
 
 - GP247 builds a large, open ecosystem (plugin, template), helping users quickly build CMS, PMO, eCommerce, etc., according to your needs.
 
-<p align="center">
-    <img src="https://static.gp247.net/page/sc-3.jpg" width="100%">
-</p>
+![GP247 screenshot](https://static.gp247.net/page/sc-3.jpg)
 
 ## Laravel core:
 
