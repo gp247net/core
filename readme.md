@@ -1,10 +1,13 @@
-![GP247](https://static.gp247.net/logo/logo.png)
+```
+  _____  _____     ___  _  _   _____ 
+ / ____|  __ \   |__ \| || | |___  |
+| |  __| |__) |     ) | || |_   / / 
+| | |_ |  ___/     / /|__   _| / /  
+| |__| | |        / /_   | |  / /   
+ \_____|_|       |____|  |_| /_/    
+```
 
 > 🌐 **Language:** 🇬🇧 English (current) · [🇻🇳 Tiếng Việt](readme_vi.md)
-
-Core Laravel admin for all systems (ecommerce, cms, pmo...)
-
-`composer require gp247/core`
 
 [Home page](https://gp247.net) | [Official documentation](https://github.com/gp247net/gp247-docs) | [Official agent skills](https://github.com/gp247net/gp247-skills) | [Official fanpage](https://www.facebook.com/GP247.official/)
 
@@ -16,13 +19,17 @@ Core Laravel admin for all systems (ecommerce, cms, pmo...)
 ## About GP247
 GP247 is a powerful, secure, flexible, and AI-agent-friendly open-source system built on the Laravel framework.
 
+Install the core (Laravel already set up):
+
+> **composer require gp247/core**
+
 Main components in the GP247 ecosystem:
 
 - **[Package] GP247/core**: The core of the entire ecosystem. GP247/core can operate independently as a Laravel admin.
 - **[Package] GP247/front**: A package that provides the basic features for a business CMS.
 - **[Package] GP247/shop**: Provides the full features of an e-commerce website.
 
-> **[Project] S-Cart = GP247/core + GP247/front + GP247/shop**
+> **[Project] S-Cart** = GP247/core + GP247/front + GP247/shop
 
 **What can GP247 do?**
 

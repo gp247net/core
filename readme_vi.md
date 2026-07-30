@@ -1,10 +1,14 @@
-![GP247](https://static.gp247.net/logo/logo.png)
+```
+  _____  _____     ___  _  _   _____ 
+ / ____|  __ \   |__ \| || | |___  |
+| |  __| |__) |     ) | || |_   / / 
+| | |_ |  ___/     / /|__   _| / /  
+| |__| | |        / /_   | |  / /   
+ \_____|_|       |____|  |_| /_/    
+```
 
 > 🌐 **Ngôn ngữ:** 🇻🇳 Tiếng Việt (hiện tại) · [🇬🇧 English](readme.md)
 
-Core Laravel admin cho tất cả các hệ thống (thương mại điện tử, cms, pmo...)
-
-`composer require gp247/core`
 
 [Trang chủ](https://gp247.net) | [Tài liệu chính thức](https://github.com/gp247net/gp247-docs) | [Skill agent chính thức](https://github.com/gp247net/gp247-skills) | [Fanpage chính thức](https://www.facebook.com/GP247.official/)
 
@@ -16,13 +20,17 @@ Core Laravel admin cho tất cả các hệ thống (thương mại điện tử
 ## Giới thiệu về GP247
 GP247 là một hệ thống mã nguồn mở mạnh mẽ, an toàn, linh hoạt, thân thiện với AI agent, được xây dựng trên nền tảng Laravel.
 
+Cài đặt core (đã có laravel):
+
+> **composer require gp247/core**
+
 Các thành phần chính trong hệ sinh thái của GP247:
 
 - **[Package] GP247/core**: Là core của toàn bộ hệ sinh thái. GP247/core có thể hoạt động độc lập như 1 laravel admin.
 - **[Package] GP247/front**: Gói cung cấp các chức năng cơ bản cho một cms của doanh nghiệp.
 - **[Package] GP247/shop**: Cung cấp đầy đủ chức năng của một website bán hàng.
 
-> **[Project] S-Cart = GP247/core + GP247/front + GP247/shop**
+> **[Project] S-Cart** = GP247/core + GP247/front + GP247/shop
 
 **GP247 có thể làm gì?**
 
