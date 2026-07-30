@@ -1,5 +1,7 @@
 ![GP247](https://static.gp247.net/logo/logo.png)
 
+> 🌐 **Language:** 🇬🇧 English (current) · [🇻🇳 Tiếng Việt](readme_vi.md)
+
 Core Laravel admin for all systems (ecommerce, cms, pmo...)
 
 `composer require gp247/core`
