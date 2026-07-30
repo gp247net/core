@@ -9,6 +9,9 @@
 
 > 🌐 **Ngôn ngữ:** 🇻🇳 Tiếng Việt (hiện tại) · [🇬🇧 English](readme.md)
 
+Cài đặt core (khi đã có laravel):
+
+> composer require gp247/core
 
 [Trang chủ](https://gp247.net) | [Tài liệu chính thức](https://github.com/gp247net/gp247-docs) | [Skill agent chính thức](https://github.com/gp247net/gp247-skills) | [Fanpage chính thức](https://www.facebook.com/GP247.official/)
 
@@ -20,33 +23,14 @@
 ## Giới thiệu về GP247
 GP247 là một hệ thống mã nguồn mở mạnh mẽ, an toàn, linh hoạt, thân thiện với AI agent, được xây dựng trên nền tảng Laravel.
 
-Cài đặt core (đã có laravel):
-
-> **composer require gp247/core**
-
 Các thành phần chính trong hệ sinh thái của GP247:
 
 - **[Package] GP247/core**: Là core của toàn bộ hệ sinh thái. GP247/core có thể hoạt động độc lập như 1 laravel admin.
 - **[Package] GP247/front**: Gói cung cấp các chức năng cơ bản cho một cms của doanh nghiệp.
 - **[Package] GP247/shop**: Cung cấp đầy đủ chức năng của một website bán hàng.
 
-> **[Project] S-Cart** = GP247/core + GP247/front + GP247/shop
+ `[Project] S-Cart = GP247/core + GP247/front + GP247/shop`
 
-**GP247 có thể làm gì?**
-
-- GP247 đáp ứng hầu hết các nhu cầu của doanh nghiệp: Nền tảng thương mại điện tử, cổng thông tin, hệ thống quản lý nội bộ
-- Thư viện Plugin/Template liên tục cập nhật, mở rộng
-- Hệ thống luôn được giám sát và cập nhật vá lỗi, bảo mật
-- GP247 là MIỄN PHÍ
-
-**Các repo chính thức:**
-
-- GP247/core: https://github.com/gp247net/core
-- GP247/front: https://github.com/gp247net/front
-- GP247/shop: https://github.com/gp247net/shop
-- GP247/s-cart: https://github.com/gp247net/s-cart
-
-![Ảnh minh họa GP247](https://static.gp247.net/page/gp247-system.png)
 
 ## Core Laravel:
 
