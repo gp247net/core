@@ -105,9 +105,16 @@
                         menubar: false,
                         promotion: false,
                         branding: false,
-                        height: 320,
-                        plugins: 'lists link image table code',
-                        toolbar: 'undo redo | blocks fontsizeinput | bold italic underline | forecolor backcolor | bullist numlist | link image table | code',
+                        // WHY: 480 (not the old fixed 320) gives a roomier default
+                        // writing area; combined with the `fullscreen` button below,
+                        // long content no longer has to be edited inside a cramped box.
+                        height: 480,
+                        // WHY: `fullscreen` lets the user expand the editor to the whole
+                        // viewport for long-form content, then collapse back. The plugin
+                        // ships in the self-hosted TinyMCE build (no Node/CDN needed —
+                        // ADR-004 / NFR-AVAIL-001), so enabling it is config-only.
+                        plugins: 'lists link image table code fullscreen',
+                        toolbar: 'undo redo | blocks fontsizeinput | bold italic underline | forecolor backcolor | bullist numlist | link image table | code fullscreen',
                         // WHY: narrow panels (e.g. the 2-column form/list layout) collapse
                         // the toolbar into a "..." overflow menu in floating mode, hiding
                         // the "code" (Source code) button that's the only way to insert
