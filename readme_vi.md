@@ -4,7 +4,7 @@ Core Laravel admin cho tất cả các hệ thống (thương mại điện tử
 
 `composer require gp247/core`
 
-[Hướng dẫn cài đặt và tài liệu](https://gp247.net) | [Facebook Official](https://www.facebook.com/GP247.official/)
+[Trang chủ](https://gp247.net) | [Tài liệu chính thức](https://github.com/gp247net/gp247-docs) | [Skill agent chính thức](https://github.com/gp247net/gp247-skills) | [Fanpage chính thức](https://www.facebook.com/GP247.official/)
 
 [![Tổng lượt tải](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![Phiên bản ổn định mới nhất](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
@@ -12,23 +12,31 @@ Core Laravel admin cho tất cả các hệ thống (thương mại điện tử
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
 
 ## Giới thiệu về GP247
-GP247 là một mã nguồn nhỏ gọn được xây dựng với Laravel, giúp người dùng nhanh chóng xây dựng một trang web quản trị mạnh mẽ. Dù hệ thống của bạn đơn giản hay phức tạp, GP247 sẽ giúp bạn vận hành và mở rộng nó một cách dễ dàng.
+GP247 là một hệ thống mã nguồn mở mạnh mẽ, an toàn, linh hoạt, thân thiện với AI agent, được xây dựng trên nền tảng Laravel.
+
+Các thành phần chính trong hệ sinh thái của GP247:
+
+- **[Package] GP247/core**: Là core của toàn bộ hệ sinh thái. GP247/core có thể hoạt động độc lập như 1 laravel admin.
+- **[Package] GP247/front**: Gói cung cấp các chức năng cơ bản cho một cms của doanh nghiệp.
+- **[Package] GP247/shop**: Cung cấp đầy đủ chức năng của một website bán hàng.
+
+> **[Project] S-Cart = GP247/core + GP247/front + GP247/shop**
 
 **GP247 có thể làm gì?**
 
-- Cung cấp giải pháp quản lý vai trò và nhóm người dùng mạnh mẽ và linh hoạt.
-- Cung cấp API xác thực đồng bộ, tăng cường bảo mật API với các lớp bổ sung.
-- Xây dựng và quản lý các Plugin/Template hoạt động trong hệ thống
-- Hệ thống giám sát nhật ký truy cập toàn diện.
-- Liên tục cập nhật các lỗ hổng bảo mật.
-- Hỗ trợ đa ngôn ngữ, dễ dàng quản lý.
+- GP247 đáp ứng hầu hết các nhu cầu của doanh nghiệp: Nền tảng thương mại điện tử, cổng thông tin, hệ thống quản lý nội bộ
+- Thư viện Plugin/Template liên tục cập nhật, mở rộng
+- Hệ thống luôn được giám sát và cập nhật vá lỗi, bảo mật
 - GP247 là MIỄN PHÍ
 
-**Và nhiều hơn nữa:**
+**Các repo chính thức:**
 
-- GP247 xây dựng một hệ sinh thái mở rộng lớn (plugin, template), giúp người dùng nhanh chóng xây dựng CMS, PMO, thương mại điện tử, v.v., theo nhu cầu của bạn.
+- GP247/core: https://github.com/gp247net/core
+- GP247/front: https://github.com/gp247net/front
+- GP247/shop: https://github.com/gp247net/shop
+- GP247/s-cart: https://github.com/gp247net/s-cart
 
-![Ảnh minh họa GP247](https://static.gp247.net/page/sc-3.jpg)
+![Ảnh minh họa GP247](https://static.gp247.net/page/gp247-system.png)
 
 ## Core Laravel:
 
@@ -122,13 +130,16 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
   Để thêm xử lý lỗi tùy chỉnh cho ứng dụng của bạn, hãy mở file `bootstrap/app.php` và thêm đoạn mã sau vào hàm `withExceptions`:
 
   ```php
-  ->withExceptions(function (Exceptions $exceptions) {
-      $exceptions->report(function (\Throwable $e) {
-          if (function_exists('gp247_handle_exception')) {
-              gp247_handle_exception($e);
-          }
-      });
-  });
+        // GP247 add new
+        $exceptions->report(function (\Throwable $e) {
+            try {
+                if (function_exists('gp247_handle_exception')) {
+                    gp247_handle_exception($e);
+                }
+            } catch (\Throwable $inner) {
+                \Log::error($e->getMessage(), ['exception' => $e]);
+            }
+        });
   ```
 
   Đoạn mã này sẽ giúp bạn xử lý các ngoại lệ thông qua hàm `gp247_handle_exception` nếu hàm này tồn tại.

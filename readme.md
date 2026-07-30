@@ -4,7 +4,7 @@ Core Laravel admin for all systems (ecommerce, cms, pmo...)
 
 `composer require gp247/core`
 
-[Installation and documentation](https://gp247.net) | [Facebook Official](https://www.facebook.com/GP247.official/)
+[Home page](https://gp247.net) | [Official documentation](https://github.com/gp247net/gp247-docs) | [Official agent skills](https://github.com/gp247net/gp247-skills) | [Official fanpage](https://www.facebook.com/GP247.official/)
 
 [![Total Downloads](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![Latest Stable Version](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
@@ -12,23 +12,31 @@ Core Laravel admin for all systems (ecommerce, cms, pmo...)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
 
 ## About GP247
-GP247 is a compact source code built with Laravel, helping users quickly build a powerful admin website. Whether your system is simple or complex, GP247 will help you operate and scale it easily.
+GP247 is a powerful, secure, flexible, and AI-agent-friendly open-source system built on the Laravel framework.
+
+Main components in the GP247 ecosystem:
+
+- **[Package] GP247/core**: The core of the entire ecosystem. GP247/core can operate independently as a Laravel admin.
+- **[Package] GP247/front**: A package that provides the basic features for a business CMS.
+- **[Package] GP247/shop**: Provides the full features of an e-commerce website.
+
+> **[Project] S-Cart = GP247/core + GP247/front + GP247/shop**
 
 **What can GP247 do?**
 
-- Provides a powerful and flexible role management and user group solution.
-- Offers a synchronous authentication API, enhancing API security with additional layers.
-- Build and manage Plugins/Templates that work in the system
-- Comprehensive access log monitoring system.
-- Continuously updates security vulnerabilities.
-- Supports multiple languages, easy management.
+- GP247 meets most business needs: e-commerce platforms, information portals, internal management systems
+- A Plugin/Template library that is continuously updated and expanded
+- The system is always monitored and updated with bug fixes and security patches
 - GP247 is FREE
 
-**And more:**
+**Official repositories:**
 
-- GP247 builds a large, open ecosystem (plugin, template), helping users quickly build CMS, PMO, eCommerce, etc., according to your needs.
+- GP247/core: https://github.com/gp247net/core
+- GP247/front: https://github.com/gp247net/front
+- GP247/shop: https://github.com/gp247net/shop
+- GP247/s-cart: https://github.com/gp247net/s-cart
 
-![GP247 screenshot](https://static.gp247.net/page/sc-3.jpg)
+![GP247 screenshot](https://static.gp247.net/page/gp247-system.png)
 
 ## Laravel core:
 
@@ -122,13 +130,16 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
   To add custom error handling to your application, open the `bootstrap/app.php` file and add the following code to the `withExceptions` function:
 
   ```php
-  ->withExceptions(function (Exceptions $exceptions) {
-      $exceptions->report(function (\Throwable $e) {
-          if (function_exists('gp247_handle_exception')) {
-              gp247_handle_exception($e);
-          }
-      });
-  });
+        // GP247 add new
+        $exceptions->report(function (\Throwable $e) {
+            try {
+                if (function_exists('gp247_handle_exception')) {
+                    gp247_handle_exception($e);
+                }
+            } catch (\Throwable $inner) {
+                \Log::error($e->getMessage(), ['exception' => $e]);
+            }
+        });
   ```
 
   This code will help you handle exceptions through the `gp247_handle_exception` function if it exists.
