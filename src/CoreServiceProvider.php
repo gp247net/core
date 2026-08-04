@@ -328,6 +328,48 @@ class CoreServiceProvider extends ServiceProvider
             require_once(__DIR__.'/Library/Const.php');
         }
 
+        $this->registerMailQueueScheduler();
+    }
+
+    /**
+     * Auto-register a scheduled `queue:work` so queued mail is drained by a single
+     * standard `schedule:run` cron — no persistent worker needed on shared hosting.
+     *
+     * WHY: GP247 mail can be queued (email_action_queue), but a queued job only
+     * sends while a worker processes it. Registering the drain here means the site
+     * owner sets up the one canonical Laravel cron and nothing else.
+     *
+     * Guards: skip entirely when QUEUE_CONNECTION=sync (no queue to drain) or when
+     * GP247_SCHEDULE_QUEUE_WORK=false (a persistent supervisor/Docker worker already
+     * drains it — avoids a redundant per-minute process). Running both a daemon and
+     * this scheduled drain never double-sends: jobs are reserved atomically.
+     *
+     * `--stop-when-empty` exits once drained (cron-friendly, no lingering process);
+     * `--max-time=55` caps a run under a minute; `withoutOverlapping(10)` prevents a
+     * new run stacking on a still-running one, with a 10-minute lock expiry so a
+     * crashed run cannot wedge the queue.
+     *
+     * @return void
+     *
+     * @aidlc-unit installer-deploy
+     * @aidlc-story US-DEP-mail-queue-runner
+     * @aidlc-adr compat-foundation_mail-delivery-hardening
+     */
+    protected function registerMailQueueScheduler(): void
+    {
+        $this->callAfterResolving(\Illuminate\Console\Scheduling\Schedule::class, static function ($schedule) {
+            $shouldSchedule = \GP247\Core\Mail\MailQueueAdvisor::shouldScheduleWorker(
+                (string) config('queue.default'),
+                (bool) config('gp247-config.mail.schedule_queue_worker', true)
+            );
+            if (!$shouldSchedule) {
+                return;
+            }
+
+            $schedule->command('queue:work --stop-when-empty --max-time=55')
+                ->everyMinute()
+                ->withoutOverlapping(10);
+        });
     }
 
     public function bootDefault()
@@ -361,28 +403,43 @@ class CoreServiceProvider extends ServiceProvider
         config(['app.name' => gp247_store_info('name')]);
 
         //Config for  email
+        // @aidlc-unit compat-foundation
+        // @aidlc-story US-CMP-mail-delivery-hardening
+        // @aidlc-adr compat-foundation_mail-delivery-hardening
         if (
-            // Default use smtp mode for for supplier if use multi-store
-            ($storeId != GP247_STORE_ID_ROOT && (gp247_store_check_multi_partner_installed() ||  gp247_store_check_multi_store_installed()))
+            // Default use smtp mode for supplier if use multi-store — but only when that
+            // store actually has an SMTP host configured. WHY: forcing smtp with an empty
+            // host silently breaks all mail for un-configured child stores (RISK-TECH-mail-multistore-forced-smtp).
+            ($storeId != GP247_STORE_ID_ROOT && (gp247_store_check_multi_partner_installed() ||  gp247_store_check_multi_store_installed()) && gp247_config('smtp_host'))
             ||
             // Use smtp config from admin if root domain have smtp_mode enable
             ($storeId == GP247_STORE_ID_ROOT && gp247_config_global('smtp_mode'))
         ) {
             $smtpHost     = gp247_config('smtp_host');
-            $smtpPort     = (int)gp247_config('smtp_port') ?: config('mail.mailers.smtp.port'); // smtp port must be int value
             $smtpSecurity = gp247_config('smtp_security');
+            // WHY: modern config/mail.php (Laravel 11+/Symfony Mailer) drives the transport
+            // via `scheme`, not `encryption`. Laravel's encryption fallback only maps 'tls'
+            // (not 'ssl') so SSL/465 would silently downgrade. Map explicitly (via the pure,
+            // unit-tested SmtpTransport) and keep `encryption` for backward compatibility
+            // (RISK-TECH-mail-scheme-mismatch).
+            $smtpScheme   = \GP247\Core\Mail\SmtpTransport::scheme($smtpSecurity);
+            $smtpPort     = (int)gp247_config('smtp_port') ?: \GP247\Core\Mail\SmtpTransport::defaultPort($smtpScheme); // smtp port must be int value
             $smtpUser     = gp247_config('smtp_user');
             $smtpPassword = gp247_config('smtp_password');
             $smtpName     = gp247_config('smtp_name');
             $smtpFrom     = gp247_config('smtp_from');
             config(['mail.default'                 => 'smtp']);
+            config(['mail.mailers.smtp.scheme'     => $smtpScheme]);
             config(['mail.mailers.smtp.host'       => $smtpHost]);
             config(['mail.mailers.smtp.port'       => $smtpPort]);
             config(['mail.mailers.smtp.encryption' => $smtpSecurity]);
             config(['mail.mailers.smtp.username'   => $smtpUser]);
             config(['mail.mailers.smtp.password'   => $smtpPassword]);
-            config(['mail.from.address'            => ($smtpFrom ?? gp247_store_info('email'))]);
-            config(['mail.from.name'               => ($smtpName ?? gp247_store_info('name'))]);
+            // WHY: use `?:` not `??` — gp247_config returns an empty string (not null) for
+            // an un-set key, so `??` never falls back and the from address becomes ''
+            // which the Mailer rejects (RISK-TECH-mail-smtp-empty-from).
+            config(['mail.from.address'            => ($smtpFrom ?: gp247_store_info('email'))]);
+            config(['mail.from.name'               => ($smtpName ?: gp247_store_info('name'))]);
         } else {
             //Set default
             config(['mail.from.address' => (config('mail.from.address')) ? config('mail.from.address') : gp247_store_info('email')]);

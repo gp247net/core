@@ -7,7 +7,7 @@
     @aidlc-story US-UI-005
     @aidlc-adr ADR-005
 
-    Variables: $key (string), $type (bool|number|select|text), $options (array, for "select").
+    Variables: $key (string), $type (bool|number|select|password|text), $options (array, for "select").
 --}}
 @if ($type === 'toggle')
     {{-- On/off switch (same boolean binding as a checkbox, styled as a slider).
@@ -30,6 +30,12 @@
             <option value="{{ $value }}">{{ $label }}</option>
         @endforeach
     </select>
+@elseif ($type === 'password')
+    {{-- WHY: secrets (e.g. smtp_password) must not render as readable text
+         (NFR-SEC-mail-secret-display). autocomplete off avoids the browser
+         offering the admin's own saved passwords. --}}
+    <input type="password" autocomplete="new-password" wire:model.blur="values.{{ $key }}"
+        class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
 @else
     <input type="text" wire:model.live.blur="values.{{ $key }}"
         class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">

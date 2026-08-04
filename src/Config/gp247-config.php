@@ -41,6 +41,17 @@ return [
 
     ],
 
+    //Config for mail queue runner
+    'mail' => [
+        // Auto-register a scheduled `queue:work` drain so a single standard
+        // `schedule:run` cron is enough to send queued mail on shared hosting
+        // (no persistent worker needed). Safe default = true. Set
+        // GP247_SCHEDULE_QUEUE_WORK=false when a persistent worker already drains
+        // the queue (supervisor / Docker queue service) to avoid a redundant
+        // per-minute process. Never registered while QUEUE_CONNECTION=sync.
+        'schedule_queue_worker' => env('GP247_SCHEDULE_QUEUE_WORK', true),
+    ],
+
     //Config for api
     'api' => [
         'auth' => [

@@ -4,49 +4,83 @@ use GP247\Core\Jobs\SendEmailJob;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * Function send mail
- * Mail queue to run need setting crontab for php artisan schedule:run
+ * Send a mail through the configured pipeline.
  *
- * @param   [string]  $view            Path to view
- * @param   array     $dataView        Content send to view
- * @param   array     $emailConfig     to, cc, bbc, subject..
- * @param   array     $attach      Attach file
+ * Honours two store config toggles: `email_action_mode` (master on/off) and
+ * `email_action_queue`. When queueing is on, delivery is deferred to
+ * SendEmailJob — that requires a running `queue:work` process (NOT `schedule:run`)
+ * unless QUEUE_CONNECTION is `sync`.
  *
- * @return  mixed
+ * @param   string  $view         Path to the mail view.
+ * @param   array   $dataView     Data passed to the view.
+ * @param   array   $emailConfig  to, cc, bcc, replyTo, subject...
+ * @param   array   $attach       Attachments (fileAttach / fileAttachData / attachFromStorage).
+ *
+ * @return  bool    True when accepted for delivery (sent synchronously or queued);
+ *                  false when mail is disabled or delivery was skipped.
+ *
+ * @aidlc-unit compat-foundation
+ * @aidlc-story US-CMP-mail-delivery-hardening
+ * @aidlc-adr compat-foundation_mail-delivery-hardening
  */
 if (!function_exists('gp247_mail_send') && !in_array('gp247_mail_send', config('gp247_functions_except', []))) {
-    function gp247_mail_send($view, array $dataView = [], array $emailConfig = [], array $attach = [])
+    function gp247_mail_send($view, array $dataView = [], array $emailConfig = [], array $attach = []): bool
     {
         //Check email action mode is enable
-        if (!empty(gp247_config('email_action_mode'))) {
-            // Check email action queue is enable
-            if (!empty(gp247_config('email_action_queue'))) {
-                dispatch(new SendEmailJob($view, $dataView, $emailConfig, $attach));
-            } else {
-                gp247_mail_process_send($view, $dataView, $emailConfig, $attach);
-            }
-        } else {
+        if (empty(gp247_config('email_action_mode'))) {
             return false;
         }
+
+        // Check email action queue is enable
+        if (!empty(gp247_config('email_action_queue'))) {
+            dispatch(new SendEmailJob($view, $dataView, $emailConfig, $attach));
+            return true;
+        }
+
+        return gp247_mail_process_send($view, $dataView, $emailConfig, $attach);
     }
 }
 /**
- * Process send mail
+ * Actually hand the mail to the Mailer.
  *
- * @param   [type]  $view         [$view description]
- * @param   array   $dataView     [$dataView description]
- * @param   array   $emailConfig  [$emailConfig description]
- * @param   array   $attach       [$attach description]
+ * @param   string  $view          Path to the mail view.
+ * @param   array   $dataView      Data passed to the view.
+ * @param   array   $emailConfig   to, cc, bcc, replyTo, subject...
+ * @param   array   $attach        Attachments.
+ * @param   bool    $throwOnError  When true (queue path), rethrow after reporting so the
+ *                                 job can retry / land in failed_jobs instead of a false
+ *                                 "success". When false (sync path, e.g. checkout) the error
+ *                                 is swallowed so the business flow is not broken — it is
+ *                                 still logged (gp247_report always writes the daily channel).
  *
- * @return  [][][]                [return description]
+ * @return  bool    True when handed to the Mailer; false when skipped (empty recipient) or
+ *                  when a swallowed error occurred on the sync path.
+ *
+ * @aidlc-unit compat-foundation
+ * @aidlc-story US-CMP-mail-delivery-hardening
+ * @aidlc-adr compat-foundation_mail-delivery-hardening
  */
 if (!function_exists('gp247_mail_process_send') && !in_array('gp247_mail_process_send', config('gp247_functions_except', []))) {
-    function gp247_mail_process_send($view, array $dataView = [], array $emailConfig = [], array $attach = [])
+    function gp247_mail_process_send($view, array $dataView = [], array $emailConfig = [], array $attach = [], bool $throwOnError = false): bool
     {
+        // Recipient guard (centralised): skip instead of letting the Mailer throw on an
+        // empty `to`. WHY: some callers pass a store-config email that may be blank
+        // (e.g. order-to-admin), which previously crashed inside a swallowed try/catch.
+        if (empty($emailConfig['to'])) {
+            gp247_report("Sendmail skipped — empty recipient. View: " . $view);
+            return false;
+        }
+
         try {
             Mail::send(new SendMail($view, $dataView, $emailConfig, $attach));
+            return true;
         } catch (\Throwable $e) {
             gp247_report("Sendmail view: " . $view . PHP_EOL . $e->getMessage());
+            // On the queue path let it fail so Laravel retries / records failed_jobs.
+            if ($throwOnError) {
+                throw $e;
+            }
+            return false;
         }
     }
 }

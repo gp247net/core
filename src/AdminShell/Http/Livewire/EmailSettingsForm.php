@@ -63,6 +63,9 @@ class EmailSettingsForm extends StoreConfigForm
             'email_action_mode' => 'bool',
             'email_action_queue' => 'bool',
             'smtp_port' => 'number',
+            // WHY: render as a masked password field, never plain text
+            // (NFR-SEC-mail-secret-display, RISK-SEC-mail-password-plaintext).
+            'smtp_password' => 'password',
         ];
     }
 
@@ -115,6 +118,42 @@ class EmailSettingsForm extends StoreConfigForm
     }
 
     /**
+     * Build the environment-aware delivery guidance shown above the settings.
+     *
+     * Read-only (never probes the OS): derives a recommended state from the queue
+     * toggle, QUEUE_CONNECTION and the auto-scheduler flag so the site owner sees
+     * exactly which setup applies and — when relevant — the cron line to copy.
+     *
+     * States:
+     *  - direct        : queue off → mail sent in-request, no cron needed.
+     *  - queue_sync    : queue on but QUEUE_CONNECTION=sync → still synchronous.
+     *  - queue_auto    : queue on, real connection, GP247 auto-schedules the drain
+     *                    → one standard `schedule:run` cron is enough.
+     *  - queue_manual  : queue on, real connection, auto-scheduler disabled
+     *                    → a persistent worker (supervisor) must drain the queue.
+     *
+     * @return array{state:string, connection:string, cron:string}
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-AUI-smtp-secret-queue-guard
+     * @aidlc-adr compat-foundation_mail-delivery-hardening
+     */
+    protected function mailGuide(): array
+    {
+        $connection = (string) config('queue.default');
+        $queueOn = !empty($this->values['email_action_queue']);
+        $autoScheduler = (bool) config('gp247-config.mail.schedule_queue_worker', true);
+
+        $state = \GP247\Core\Mail\MailQueueAdvisor::guideState($queueOn, $connection, $autoScheduler);
+
+        return [
+            'state' => $state,
+            'connection' => $connection,
+            'cron' => '* * * * * cd ' . base_path() . ' && php artisan schedule:run >> /dev/null 2>&1',
+        ];
+    }
+
+    /**
      * Render the two-card email/SMTP layout (overrides the generic config table).
      *
      * @return View
@@ -129,6 +168,7 @@ class EmailSettingsForm extends StoreConfigForm
             'types' => $types,
             'modeKeys' => $this->modeKeys(),
             'smtpKeys' => $this->smtpKeys(),
+            'mailGuide' => $this->mailGuide(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->heading()]);
     }
 }
