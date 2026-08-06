@@ -19,6 +19,7 @@ use GP247\Core\Commands\Update;
 use GP247\Core\Commands\Install;
 use GP247\Core\Commands\LangUpdate;
 use GP247\Core\Middleware\Localization;
+use GP247\Core\Middleware\Fingerprint;
 use GP247\Core\Api\Middleware\ApiConnection;
 use GP247\Core\Api\Middleware\ForceJsonResponse;
 use GP247\Core\Middleware\Authenticate;
@@ -136,6 +137,22 @@ class CoreServiceProvider extends ServiceProvider
             'gp247-core',
             classNamespace: 'GP247\\Core\\AdminShell\\Http\\Livewire',
         );
+
+        // Ecosystem fingerprint: a versionless GP247 marker (HTTP header + <meta
+        // generator>) on every response so technology-detection services can count
+        // GP247 adoption. Registered as a global middleware here — not tied to a
+        // route group, storefront, or template — so it covers core-only sites and
+        // any active/custom template alike. Skipped in console (no HTTP response)
+        // and never allowed to break boot (cosmetic/telemetry only).
+        if (!$this->app->runningInConsole()) {
+            try {
+                $this->app->make(\Illuminate\Contracts\Http\Kernel::class)
+                    ->pushMiddleware(Fingerprint::class);
+            } catch (\Throwable $e) {
+                // WHY: fingerprint is non-critical; a failure here must never
+                // surface to visitors or abort application boot.
+            }
+        }
 
         if (GP247_ACTIVE == 1 && \Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {
 
