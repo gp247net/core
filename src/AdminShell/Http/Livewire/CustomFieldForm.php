@@ -63,8 +63,49 @@ class CustomFieldForm extends FormComponent
             'form.code' => ['required', 'string', 'max:100', $this->uniqueCodePerTypeRule()],
             'form.name' => ['required', 'string', 'max:250'],
             'form.option' => ['nullable', 'string', 'in:text,textarea,number,date,month,week,time,email,password,url,color,select,radio,checkbox'],
-            'form.default' => ['nullable', 'string'],
+            // max:250 mirrors the DB column (VARCHAR(250)) so a long option set is
+            // rejected with a message instead of being silently truncated on save.
+            'form.default' => ['nullable', 'string', 'max:250', $this->optionDefaultRule()],
         ];
+    }
+
+    /**
+     * Multi-choice option types (select/radio/checkbox) store their choices as a
+     * JSON object {"value":"label"}. The key/value editor produces this shape, but
+     * validate it defensively: a non-empty object, with non-empty and unique keys.
+     *
+     * @return \Closure Validation closure: fn(string $attribute, mixed $value, \Closure $fail): void
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-UI-007
+     */
+    protected function optionDefaultRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if (! in_array($this->form['option'] ?? '', ['select', 'radio', 'checkbox'], true)) {
+                return; // Scalar option types treat `default` as a free-form default value.
+            }
+
+            $decoded = json_decode((string) $value, true);
+            if (! is_array($decoded) || $decoded === []) {
+                $fail(gp247_language_render('admin.custom_field.option_key_required'));
+
+                return;
+            }
+
+            $keys = array_map('strval', array_keys($decoded));
+            foreach ($keys as $key) {
+                if (trim($key) === '') {
+                    $fail(gp247_language_render('admin.custom_field.option_key_required'));
+
+                    return;
+                }
+            }
+
+            if (count($keys) !== count(array_unique($keys))) {
+                $fail(gp247_language_render('admin.custom_field.option_key_duplicate'));
+            }
+        };
     }
 
     /**

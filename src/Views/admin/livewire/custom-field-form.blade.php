@@ -21,6 +21,13 @@
     fixed enum, not free text, so the two ends of the pipeline agree on values.
 --}}
 @php
+    // WHY: multi-choice option types store their choices as a JSON object
+    // ({"value":"label"}). For those, render the key/value editor instead of a
+    // raw-JSON text input; scalar types keep the plain default input. Livewire
+    // re-renders on form.option change, so this switch is server-driven.
+    $optionListTypes = ['select', 'radio', 'checkbox'];
+    $isOptionList = in_array($form['option'] ?? '', $optionListTypes, true);
+
     $optionTypes = [
         'text' => 'admin.custom_field.option_type_text',
         'textarea' => 'admin.custom_field.option_type_textarea',
@@ -63,9 +70,17 @@
                 :error="$errors->first('form.option')"
             />
 
-            <x-gp247::input :label="gp247_language_render('admin.custom_field.default')" name="default" wire:model="form.default"
-                :help="str_replace('<br>', ' ', gp247_language_render('admin.custom_field.default_help'))"
-                :error="$errors->first('form.default')" />
+            @if ($isOptionList)
+                <x-gp247::key-value-editor
+                    model="form.default"
+                    :label="gp247_language_render('admin.custom_field.default')"
+                    :help="gp247_language_render('admin.custom_field.option_editor_help')"
+                    :error="$errors->first('form.default')" />
+            @else
+                <x-gp247::input :label="gp247_language_render('admin.custom_field.default')" name="default" wire:model="form.default"
+                    :help="str_replace('<br>', ' ', gp247_language_render('admin.custom_field.default_help'))"
+                    :error="$errors->first('form.default')" />
+            @endif
 
             <div class="flex flex-col gap-3">
                 <x-gp247::checkbox :label="gp247_language_render('admin.custom_field.required')" wire:model="form.required" value="1" />
