@@ -192,14 +192,24 @@ return new class extends Migration
             GP247_DB_PREFIX.'admin_custom_field',
             function (Blueprint $table) {
                 $table->uuid('id')->primary();
-                $table->string('type', 50)->index()->comment('shop_product, shop_customer,...');
-                $table->string('code', 100)->index();
+                $table->string('type', 50)->comment('shop_product, shop_customer,...');
+                $table->string('code', 100);
                 $table->string('name', 255);
                 $table->integer('required')->default(0);
                 $table->integer('status')->default(1);
                 $table->string('option', 50)->nullable()->comment('radio, select, input');
                 $table->string('default', 250)->nullable()->comment('{"value1":"name1", "value2":"name2"}');
                 $table->timestamps();
+                // WHY: (type, code) identifies a custom-field definition; downstream keyBy('code')
+                // and first() silently overwrite duplicates, so enforce uniqueness at the DB as the
+                // last line of defense (the CustomFieldForm rule only guards the admin form path,
+                // not seeders/imports/direct create()). Added directly in the create migration —
+                // GP247 2.0 does not support in-place upgrade from 1.x, so every install runs this on
+                // a fresh empty table with no legacy duplicates to break the migration. This composite
+                // also serves as the sole index for the only access patterns: where('type', ...) and
+                // where('type', ...)->where('code', ...) (both covered by the leftmost prefix), so the
+                // previous standalone type/code indexes are redundant and removed.
+                $table->unique(['type', 'code']);
             }
         );
 

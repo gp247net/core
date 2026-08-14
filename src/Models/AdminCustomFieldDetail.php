@@ -12,7 +12,9 @@ class AdminCustomFieldDetail extends Model
     
     public $table          = GP247_DB_PREFIX.'admin_custom_field_detail';
     protected $connection  = GP247_DB_CONNECTION;
-    protected $guarded     = [];
+    // WHY: explicit allow-list instead of $guarded=[]. `id` is a UUID set by UuidTrait on
+    // the creating event, never mass-assigned, so it is intentionally omitted.
+    protected $fillable    = ['custom_field_id', 'rel_id', 'text'];
 
     //Function get text description
     protected static function boot()

@@ -60,11 +60,48 @@ class CustomFieldForm extends FormComponent
     {
         return [
             'form.type' => ['required', 'string', 'max:100'],
-            'form.code' => ['required', 'string', 'max:100'],
+            'form.code' => ['required', 'string', 'max:100', $this->uniqueCodePerTypeRule()],
             'form.name' => ['required', 'string', 'max:250'],
             'form.option' => ['nullable', 'string', 'in:text,textarea,number,date,month,week,time,email,password,url,color,select,radio,checkbox'],
             'form.default' => ['nullable', 'string'],
         ];
+    }
+
+    /**
+     * Closure rule enforcing a unique (type, code) pair at the application layer.
+     *
+     * The code is stored after normalization (gp247_word_format_url), so uniqueness must
+     * be checked against the same normalized token — not the raw input — and scoped to the
+     * selected type, ignoring the record being edited. This blocks the silent field-collapse
+     * caused by keyBy('code') / first() downstream when two definitions share a code.
+     * A DB-level unique index is intentionally deferred (existing installs may already hold
+     * duplicates; adding the index unguarded would break their update). See ADR/backlog.
+     *
+     * @return \Closure Validation closure: fn(string $attribute, mixed $value, \Closure $fail): void
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-custom-field-hardening
+     * @aidlc-adr ADR-compat-foundation-custom-field-integrity
+     */
+    protected function uniqueCodePerTypeRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            $type = (string) ($this->form['type'] ?? '');
+            if ($type === '') {
+                return; // type rule reports its own error; nothing to scope against yet.
+            }
+
+            $normalizedCode = gp247_word_limit(gp247_word_format_url((string) $value), 100);
+
+            $exists = AdminCustomField::where('type', $type)
+                ->where('code', $normalizedCode)
+                ->when($this->editingId !== null, fn ($query) => $query->where('id', '!=', $this->editingId))
+                ->exists();
+
+            if ($exists) {
+                $fail(gp247_language_render('admin.custom_field.code_unique_per_type', ['code' => $normalizedCode]));
+            }
+        };
     }
 
     /**

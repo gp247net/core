@@ -12,7 +12,10 @@ class AdminCustomField extends Model
     
     public $table          = GP247_DB_PREFIX.'admin_custom_field';
     protected $connection  = GP247_DB_CONNECTION;
-    protected $guarded     = [];
+    // WHY: explicit allow-list instead of $guarded=[]. The `id` is a UUID assigned by
+    // UuidTrait on the creating event, never mass-assigned, so it is intentionally omitted
+    // (RISK-TECH-custom-field-typing — no unexpected column can be set from request input).
+    protected $fillable    = ['type', 'code', 'name', 'required', 'status', 'option', 'default'];
 
     public function details()
     {
@@ -29,7 +32,11 @@ class AdminCustomField extends Model
         // before delete() method call this
         static::deleting(
             function ($obj) {
-                //
+                // WHY: no DB-level FK/cascade exists and definitions are hard-deleted per model
+                // via DataTableComponent::delete/bulkDelete (which fires this event), so cascade
+                // the detail rows here to avoid orphaned custom-field data forever
+                // (RISK-TECH-custom-field-orphan-data).
+                AdminCustomFieldDetail::where('custom_field_id', $obj->id)->delete();
             }
         );
 

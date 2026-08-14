@@ -5,7 +5,14 @@
     @aidlc-story US-RBAC-003, US-UI-007
     @aidlc-adr ADR-001, ADR-005
 
-    Variables: $tables (entity type => label).
+    Variables: $tables (flat list of prefixed table names from gp247_custom_field_get_tables()).
+
+    WHY (type option value): $tables is a *flat, numerically-indexed* array of table
+    names, so collect()->map() passes ($label = the table name, $value = the index).
+    The committed `id` must be the table name itself — NOT $value (the index) — because
+    every read/save path keys the `type` column on the entity's Model::getTable()
+    (the prefixed table name). Committing the index stored e.g. "39" and the field
+    never matched its entity (RISK-TECH-custom-field-type-key-mismatch).
 
     WHY: `form.option` is the HTML input type the legacy `gp247_form_render_field()`
     helper (Library/Helpers/form.php) dispatches on to render this field on the
@@ -38,7 +45,7 @@
                 model="form.type"
                 :label="gp247_language_render('admin.custom_field.type')"
                 :placeholder="gp247_language_render('admin.custom_field.select_entity')"
-                :options="collect($tables)->map(fn ($label, $value) => ['id' => (string) $value, 'label' => $label])->values()->all()"
+                :options="collect($tables)->map(fn ($label, $value) => ['id' => $label, 'label' => $label])->values()->all()"
                 :error="$errors->first('form.type')"
                 :required="true"
             />

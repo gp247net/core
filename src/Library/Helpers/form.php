@@ -26,6 +26,33 @@ if (!function_exists('gp247_form_render_field') && !in_array('gp247_form_render_
 }
 
 
+if (!function_exists('gp247_form_render_escape') && !in_array('gp247_form_render_escape', config('gp247_functions_except', []))) {
+    /**
+     * HTML-escape a value for safe insertion into markup built by gp247_form_render_*.
+     *
+     * Normalizes mixed-source values (raw user input reflected via old(), admin-authored
+     * raw field defaults/options, and detail values already single-encoded by gp247_clean
+     * on write) to exactly one layer of HTML-entity encoding. This closes both reflected
+     * XSS (public register/change-info forms) and stored XSS (admin-authored default/option
+     * rendered on the storefront) while avoiding double-encoded display artifacts.
+     *
+     * @param mixed $value Raw or partially-encoded value to render.
+     * @return string HTML-entity-encoded string safe for HTML text and quoted attributes.
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-custom-field-hardening
+     * @aidlc-adr ADR-compat-foundation-custom-field-output-encoding
+     */
+    function gp247_form_render_escape($value): string
+    {
+        // WHY: decode once first so values already encoded by gp247_clean on write are not
+        // double-encoded on display; the trailing e() (ENT_QUOTES) is what enforces safety,
+        // so a single decode pass can never widen the attack surface — the final encode
+        // always yields an attribute/HTML-safe string regardless of prior encoding state.
+        return e(htmlspecialchars_decode((string) $value, ENT_QUOTES));
+    }
+}
+
 if (!function_exists('gp247_form_render_text') && !in_array('gp247_form_render_text', config('gp247_functions_except', []))) {
     function gp247_form_render_text(array $data = [])
     {
@@ -41,7 +68,7 @@ if (!function_exists('gp247_form_render_text') && !in_array('gp247_form_render_t
         $required    = !empty($data['required']) ?? 'required="required"';
 
         $html ='';
-        $html .='<input style="'.$css.'" class="form-control form-control-sm '.$class.'" id = "'.$id.'" name="'.$name.'" '.$required.' type="'.$type.'" placeholder="'.$placeholder.'" value="'.$default.'">';
+        $html .='<input style="'.gp247_form_render_escape($css).'" class="form-control form-control-sm '.gp247_form_render_escape($class).'" id="'.gp247_form_render_escape($id).'" name="'.gp247_form_render_escape($name).'" '.$required.' type="'.gp247_form_render_escape($type).'" placeholder="'.gp247_form_render_escape($placeholder).'" value="'.gp247_form_render_escape($default).'">';
         return $html;
     }
 }
@@ -59,7 +86,7 @@ if (!function_exists('gp247_form_render_textarea') && !in_array('gp247_form_rend
         $required    = !empty($data['required']) ? 'required="required"':'';
 
         $html ='<div class="form-group">';
-        $html .='<textarea style="'.$css.'" class="form-control form-control-sm '.$class.'" id = "'.$id.'" name="'.$name.'" '.$required.' rows="3" placeholder="'.$placeholder.'">'.$default.'</textarea>';
+        $html .='<textarea style="'.gp247_form_render_escape($css).'" class="form-control form-control-sm '.gp247_form_render_escape($class).'" id="'.gp247_form_render_escape($id).'" name="'.gp247_form_render_escape($name).'" '.$required.' rows="3" placeholder="'.gp247_form_render_escape($placeholder).'">'.gp247_form_render_escape($default).'</textarea>';
         $html .='</div>';
         return $html;
     }
@@ -81,11 +108,11 @@ if (!function_exists('gp247_form_render_select') && !in_array('gp247_form_render
         $required    = !empty($data['required']) ? 'required="required"':'';
 
         $html ='';
-        $html .='<select style="'.$css.'" class="form-control form-control-sm '.$class.'" id = "'.$id.'" name='.$name.' '.$required.'>';
-        $html .='<option value="">'.$placeholder.'</option>';
+        $html .='<select style="'.gp247_form_render_escape($css).'" class="form-control form-control-sm '.gp247_form_render_escape($class).'" id="'.gp247_form_render_escape($id).'" name="'.gp247_form_render_escape($name).'" '.$required.'>';
+        $html .='<option value="">'.gp247_form_render_escape($placeholder).'</option>';
         if (!empty($dataFormat) && is_countable($dataFormat) && count($dataFormat)) {
             foreach ($dataFormat as $key => $row) {
-                $html .='<option value="'.$key.'" '.(($default == $key) ? 'selected':''). '>'.$row.'</option>';
+                $html .='<option value="'.gp247_form_render_escape($key).'" '.(($default == $key) ? 'selected':''). '>'.gp247_form_render_escape($row).'</option>';
             }
         }
         $html .='</select>';
@@ -109,14 +136,14 @@ if (!function_exists('gp247_form_render_checkbox') && !in_array('gp247_form_rend
         $default    = explode(',', $default);
         $html ='<div class="form-group">';
         if ($label) {
-            $html .='<label for="'.$id.'">'.$label.'</label>';
+            $html .='<label for="'.gp247_form_render_escape($id).'">'.gp247_form_render_escape($label).'</label>';
         }
         if ($attribute != 'inline') {
             if (!empty($dataFormat) && is_countable($dataFormat) && count($dataFormat)) {
                 foreach ($dataFormat as $key => $row) {
                     $html .='<div class="icheck-primary d-inline">';
-                    $html .='<input id="'.$id.'__'.$key.'" class="'.$class.'" style="'.$css.'" type="checkbox" name="'.$name.'" value="'.$key.'" '.((in_array($key, $default)) ? 'checked':''). '>';
-                    $html .='<label for="'.$id.'__'.$key.'">'.$row.'</label>';
+                    $html .='<input id="'.gp247_form_render_escape($id).'__'.gp247_form_render_escape($key).'" class="'.gp247_form_render_escape($class).'" style="'.gp247_form_render_escape($css).'" type="checkbox" name="'.gp247_form_render_escape($name).'" value="'.gp247_form_render_escape($key).'" '.((in_array($key, $default)) ? 'checked':''). '>';
+                    $html .='<label for="'.gp247_form_render_escape($id).'__'.gp247_form_render_escape($key).'">'.gp247_form_render_escape($row).'</label>';
                     $html .='</div> ';
                 }
             }
@@ -124,8 +151,8 @@ if (!function_exists('gp247_form_render_checkbox') && !in_array('gp247_form_rend
             if (!empty($dataFormat) && is_countable($dataFormat) && count($dataFormat)) {
                 foreach ($dataFormat as $key => $row) {
                     $html .='<div class="icheck-primary d-inline">';
-                    $html .='<input id="'.$id.'__'.$key.'" class="'.$class.'" style="'.$css.'" type="checkbox" name="'.$name.'" value="'.$key.'" '.((in_array($key, $default)) ? 'checked':''). '>';
-                    $html .='<label for="'.$id.'__'.$key.'">'.$row.'</label>';
+                    $html .='<input id="'.gp247_form_render_escape($id).'__'.gp247_form_render_escape($key).'" class="'.gp247_form_render_escape($class).'" style="'.gp247_form_render_escape($css).'" type="checkbox" name="'.gp247_form_render_escape($name).'" value="'.gp247_form_render_escape($key).'" '.((in_array($key, $default)) ? 'checked':''). '>';
+                    $html .='<label for="'.gp247_form_render_escape($id).'__'.gp247_form_render_escape($key).'">'.gp247_form_render_escape($row).'</label>';
                     $html .='</div> ';
                 }
             }
@@ -154,15 +181,15 @@ if (!function_exists('gp247_form_render_radio') && !in_array('gp247_form_render_
             if ($attribute != 'inline') {
                 foreach ($dataFormat as $key => $row) {
                     $html .='<div class="icheck-primary d-inline">';
-                    $html .='<input id="'.$id.'__'.$key.'" class="'.$class.'" style="'.$css.'" type="radio" name="'.$name.'" value="'.$key.'" '.(($default == $key) ? 'checked':''). '>';
-                    $html .='<label for="'.$id.'__'.$key.'">'.$row.'</label>';
+                    $html .='<input id="'.gp247_form_render_escape($id).'__'.gp247_form_render_escape($key).'" class="'.gp247_form_render_escape($class).'" style="'.gp247_form_render_escape($css).'" type="radio" name="'.gp247_form_render_escape($name).'" value="'.gp247_form_render_escape($key).'" '.(($default == $key) ? 'checked':''). '>';
+                    $html .='<label for="'.gp247_form_render_escape($id).'__'.gp247_form_render_escape($key).'">'.gp247_form_render_escape($row).'</label>';
                     $html .='</div> ';
                 }
             } else {
                 foreach ($dataFormat as $key => $row) {
                     $html .='<div class="icheck-primary d-inline">';
-                    $html .='<input id="'.$id.'__'.$key.'" class="'.$class.'" style="'.$css.'" type="radio" name="'.$name.'" value="'.$key.'" '.(($default == $key) ? 'checked':''). '>';
-                    $html .='<label for="'.$id.'__'.$key.'">'.$row.'</label>';
+                    $html .='<input id="'.gp247_form_render_escape($id).'__'.gp247_form_render_escape($key).'" class="'.gp247_form_render_escape($class).'" style="'.gp247_form_render_escape($css).'" type="radio" name="'.gp247_form_render_escape($name).'" value="'.gp247_form_render_escape($key).'" '.(($default == $key) ? 'checked':''). '>';
+                    $html .='<label for="'.gp247_form_render_escape($id).'__'.gp247_form_render_escape($key).'">'.gp247_form_render_escape($row).'</label>';
                     $html .='</div> ';
                 }
             }
