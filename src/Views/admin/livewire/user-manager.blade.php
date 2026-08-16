@@ -42,6 +42,12 @@
                 :label="gp247_language_render('admin.user.roles') . ' (' . gp247_language_render('admin.selected', ['count' => count($form['roles'])]) . ')'"
                 :help="gp247_language_render('admin.user.role_override_note')" />
 
+            <x-gp247::searchable-select
+                model="form.permissions"
+                :options="$permissionOptions"
+                :multiple="true"
+                :label="gp247_language_render('admin.user.permission') . ' (' . gp247_language_render('admin.selected', ['count' => count($form['permissions'])]) . ')'" />
+
             <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
                 @if ($editingId)
                     <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_user.index') }}" wire:navigate>
@@ -73,6 +79,7 @@
                 <tr>
                     <x-gp247::th-sort field="username" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.user.username') }}</x-gp247::th-sort>
                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.user.roles') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.user.permission') }}</th>
                     <x-gp247::th-sort field="status" :sort-field="$sortField" :sort-dir="$sortDir">{{ gp247_language_render('admin.status') }}</x-gp247::th-sort>
                     <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.actions') }}</th>
                 </tr>
@@ -89,6 +96,14 @@
                                 <x-gp247::badge color="green">{{ $r->name }}</x-gp247::badge>
                             @endforeach
                             @if ($row->roles->isEmpty())<span class="text-xs text-gray-400">—</span>@endif
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex flex-wrap gap-1">
+                            @foreach ($row->permissions as $p)
+                                <x-gp247::badge color="blue">{{ $p->name }}</x-gp247::badge>
+                            @endforeach
+                            @if ($row->permissions->isEmpty())<span class="text-xs text-gray-400">—</span>@endif
                         </div>
                     </td>
                     <td class="px-4 py-3">

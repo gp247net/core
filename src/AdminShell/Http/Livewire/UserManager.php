@@ -4,6 +4,7 @@ namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\ResourcePanel;
 use GP247\Core\Controllers\PasswordValidationTrait;
+use GP247\Core\Models\AdminPermission;
 use GP247\Core\Models\AdminRole;
 use GP247\Core\Models\AdminUser;
 use Illuminate\Contracts\View\View;
@@ -11,8 +12,9 @@ use Illuminate\Validation\Rule;
 
 /**
  * Two-panel user manager (ADR-005): add/edit form left + live list right.
- * Extends ResourcePanel; avatar (LFM), status and role assignment are included
- * inline. The current user and GP247_GUARD_ADMIN are protected.
+ * Extends ResourcePanel; avatar (LFM), status, role and direct-permission
+ * assignment are included inline. The current user and GP247_GUARD_ADMIN are
+ * protected.
  * Gated by `admin_user`.
  *
  * @aidlc-unit admin-shell-rbac
@@ -37,7 +39,7 @@ class UserManager extends ResourcePanel
      */
     protected function baseQuery()
     {
-        return AdminUser::with(['roles']);
+        return AdminUser::with(['roles', 'permissions']);
     }
 
     /**
@@ -93,7 +95,7 @@ class UserManager extends ResourcePanel
      */
     protected function formDefaults(): array
     {
-        return ['name' => '', 'username' => '', 'email' => '', 'password' => '', 'avatar' => '', 'status' => 1, 'roles' => []];
+        return ['name' => '', 'username' => '', 'email' => '', 'password' => '', 'avatar' => '', 'status' => 1, 'roles' => [], 'permissions' => []];
     }
 
     /**
@@ -102,16 +104,17 @@ class UserManager extends ResourcePanel
      */
     protected function fillForm($model): array
     {
-        $user = AdminUser::with(['roles'])->find($model->id);
+        $user = AdminUser::with(['roles', 'permissions'])->find($model->id);
 
         return [
-            'name'     => (string) $user->name,
-            'username' => (string) $user->username,
-            'email'    => (string) $user->email,
-            'password' => '',
-            'avatar'   => (string) ($user->avatar ?? ''),
-            'status'   => (int) $user->status,
-            'roles'    => $user->roles->pluck('id')->map(fn ($i) => (string) $i)->all(),
+            'name'        => (string) $user->name,
+            'username'    => (string) $user->username,
+            'email'       => (string) $user->email,
+            'password'    => '',
+            'avatar'      => (string) ($user->avatar ?? ''),
+            'status'      => (int) $user->status,
+            'roles'       => $user->roles->pluck('id')->map(fn ($i) => (string) $i)->all(),
+            'permissions' => $user->permissions->pluck('id')->map(fn ($i) => (string) $i)->all(),
         ];
     }
 
@@ -127,8 +130,9 @@ class UserManager extends ResourcePanel
             'form.username' => ['required', 'string', 'min:3', 'max:100', 'regex:/^([0-9A-Za-z@._]+)$/', Rule::unique($table, 'username')->ignore($this->editingId, 'id')],
             'form.email'    => ['required', 'string', 'email', 'max:255', Rule::unique($table, 'email')->ignore($this->editingId, 'id')],
             'form.avatar'   => ['nullable', 'string', 'max:255'],
-            'form.password' => $this->editingId === null ? $this->rulePassword() : $this->rulePasswordNullable(),
-            'form.roles'    => ['array'],
+            'form.password'    => $this->editingId === null ? $this->rulePassword() : $this->rulePasswordNullable(),
+            'form.roles'       => ['array'],
+            'form.permissions' => ['array'],
         ];
     }
 
@@ -206,16 +210,21 @@ class UserManager extends ResourcePanel
             return;
         }
 
-        $roles = array_map('intval', $data['roles'] ?? []);
+        $roles       = array_map('intval', $data['roles'] ?? []);
+        $permissions = array_map('intval', $data['permissions'] ?? []);
 
-        // Brownfield rule: administrator (1) or view.all (2) roles grant everything.
+        // Brownfield rule: administrator (1) or view.all (2) roles grant everything,
+        // so any directly-assigned permission is redundant and is cleared.
         if (in_array(1, $roles, true)) {
-            $roles = [1];
+            $roles       = [1];
+            $permissions = [];
         } elseif (in_array(2, $roles, true)) {
-            $roles = [2];
+            $roles       = [2];
+            $permissions = [];
         }
 
         $user->roles()->sync($roles);
+        $user->permissions()->sync($permissions);
     }
 
     /**
@@ -251,10 +260,13 @@ class UserManager extends ResourcePanel
     public function render(): View
     {
         return view($this->panelView(), [
-            'rows'         => $this->rows(),
-            'protectedIds' => $this->protectedIds(),
-            'roleOptions'  => AdminRole::orderBy('name')->get(['id', 'name'])
+            'rows'              => $this->rows(),
+            'protectedIds'      => $this->protectedIds(),
+            'roleOptions'       => AdminRole::orderBy('name')->get(['id', 'name'])
                 ->map(fn ($r) => ['id' => (string) $r->id, 'label' => (string) $r->name])
+                ->all(),
+            'permissionOptions' => AdminPermission::orderBy('name')->get(['id', 'name'])
+                ->map(fn ($p) => ['id' => (string) $p->id, 'label' => (string) $p->name])
                 ->all(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->pageTitle()]);
     }
