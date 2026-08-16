@@ -41,4 +41,9 @@ final class EloquentAdminUserAdapter implements AdminUserContract
     {
         return $this->user->can($slug);
     }
+
+    public function canAccessUrl(string $path, string $method): bool
+    {
+        return $this->user->canAccessUrl($path, $method);
+    }
 }

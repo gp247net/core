@@ -191,6 +191,86 @@ class AdminUser extends Authenticatable
 
 
     /**
+     * Check whether the user may access an admin path with the given HTTP method,
+     * evaluated against the `http_uri` entries of all their permissions (roles +
+     * direct grants). This is the v1 URI+method model reused by the admin shell
+     * (ADR-001 Layer-2): the permission slug is a label; access is decided by URI.
+     *
+     * @param string $path   Admin path without scheme/host (e.g. "gp247_admin/order").
+     * @param string $method HTTP method ("GET" to view a screen, "POST" to mutate).
+     * @return bool True when a granted permission's http_uri covers the path/method.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-RBAC-001
+     * @aidlc-adr ADR-001
+     */
+    public function canAccessUrl(string $path, string $method): bool
+    {
+        if ($this->isAdministrator()) {
+            return true;
+        }
+
+        $path   = trim($path, '/');
+        $method = strtoupper($method);
+
+        // All permissions granted to the user: via roles + assigned directly.
+        $permissions = $this->roles->pluck('permissions')->flatten()->merge($this->permissions);
+
+        foreach ($permissions as $permission) {
+            if (empty($permission->http_uri)) {
+                continue;
+            }
+            foreach (explode(',', $permission->http_uri) as $action) {
+                $parts = explode('::', trim($action), 2);
+                if (count($parts) !== 2) {
+                    continue;
+                }
+                [$entryMethod, $pattern] = $parts;
+                $entryMethod = strtoupper(trim($entryMethod));
+                if ($entryMethod !== 'ANY' && $entryMethod !== $method) {
+                    continue;
+                }
+                if ($this->matchUriPattern($path, trim($pattern, '/'))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Match an admin path against a single http_uri pattern, honoring the wildcard
+     * (`/*`, `*`) and `{id}` suffix conventions used by the permission catalog.
+     *
+     * @param string $path    Normalized admin path (no leading/trailing slash).
+     * @param string $pattern Normalized pattern from an http_uri entry.
+     * @return bool True when the path is covered by the pattern.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-RBAC-001
+     */
+    protected function matchUriPattern(string $path, string $pattern): bool
+    {
+        if ($pattern === $path) {
+            return true;
+        }
+        if (Str::endsWith($pattern, '/*')) {
+            $base = rtrim(substr($pattern, 0, -2), '/');
+            return $path === $base || Str::startsWith($path, $base . '/');
+        }
+        if (Str::endsWith($pattern, '*')) {
+            return Str::startsWith($path, substr($pattern, 0, -1));
+        }
+        if (Str::endsWith($pattern, '{id}')) {
+            $base = rtrim(substr($pattern, 0, -4), '/');
+            return $path === $base || Str::startsWith($path, $base . '/');
+        }
+
+        return false;
+    }
+
+    /**
      * Check if user has permission.
      *
      * @param $ability

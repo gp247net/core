@@ -59,9 +59,8 @@ trait AuthorizesAdminActions
         // AdminShellServiceProvider) so tests can inject a fake without the DB.
         $decision = $useCase->authorize(
             app(AdminUserContract::class),
-            $this->componentIdentifier(),
+            $this->authScreenUri(),
             $method,
-            $this->permissionKey(),
         );
 
         if (!$decision->isAllowed()) {
@@ -70,16 +69,10 @@ trait AuthorizesAdminActions
     }
 
     /**
-     * The component identifier used for permission resolution.
+     * The admin path of the screen this component belongs to (no scheme/host),
+     * used to authorize by the v1 URI+method model (ADR-001 Layer-2).
      *
-     * @return string Livewire component name (e.g. "gp247-core::product-list").
+     * @return string|null Screen path (e.g. "gp247_admin/order"), or null when unknown.
      */
-    abstract protected function componentIdentifier(): string;
-
-    /**
-     * The permission slug explicitly declared by the component, if any.
-     *
-     * @return string|null Declared permission slug, or null to use convention.
-     */
-    abstract protected function permissionKey(): ?string;
+    abstract protected function authScreenUri(): ?string;
 }

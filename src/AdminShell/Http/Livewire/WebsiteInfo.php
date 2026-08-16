@@ -25,6 +25,11 @@ class WebsiteInfo extends GP247AdminComponent
 {
     protected ?string $permission = 'store.full';
 
+    // WHY: this screen's slug ('store.full') is not an admin_<resource> convention
+    // name, so the base cannot derive the screen path from it — declare the real
+    // route path so URI-based authorization (ADR-001 Layer-2) resolves correctly.
+    protected ?string $screenUri = 'gp247_admin/store_info';
+
     /** @var array<string, mixed> Editable scalar store fields. */
     public array $store = [];
 

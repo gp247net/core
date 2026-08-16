@@ -147,6 +147,27 @@ abstract class ResourcePanel extends GP247AdminComponent
      * @param int|string|null $id Record id from the edit route (edit/{id}).
      * @return void
      */
+    /**
+     * Canonical screen path derived from the full-page route, so authorization
+     * uses the same http_uri the menu and PermissionMiddleware use (ADR-001
+     * Layer-2). Falls back to the base capture when the route cannot be resolved.
+     *
+     * @return string|null Admin path without scheme/host (e.g. "gp247_admin/order").
+     */
+    protected function authScreenUri(): ?string
+    {
+        try {
+            $path = parse_url(route($this->baseRoute()), PHP_URL_PATH);
+            if ($path !== null && $path !== false) {
+                return ltrim($path, '/');
+            }
+        } catch (\Throwable $e) {
+            // Route not registered (e.g. isolated unit context) — use the fallback.
+        }
+
+        return parent::authScreenUri();
+    }
+
     public function mount($id = null): void
     {
         parent::mount();

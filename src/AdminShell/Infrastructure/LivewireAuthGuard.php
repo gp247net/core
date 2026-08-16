@@ -49,12 +49,16 @@ final class LivewireAuthGuard
         // the contract is bound in AdminShellServiceProvider (swappable in tests).
         $user = app(AdminUserContract::class);
 
+        // NOTE (ADR-001, Hướng B): the real global gate is the persistent
+        // PermissionMiddleware (URI+method, Layer-1); this guard is a dormant,
+        // opt-in fallback. The batched payload does not carry the origin screen
+        // path, so it authorizes with a null screenUri (deny-by-default) — safe if
+        // ever attached, and never a false-allow.
         foreach ($this->extractCalls($request) as $call) {
             $decision = $this->useCase->authorize(
                 $user,
-                $call['component'],
+                null,
                 $call['method'],
-                $call['permission'] ?? null,
             );
 
             if (!$decision->isAllowed()) {

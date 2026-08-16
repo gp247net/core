@@ -50,24 +50,25 @@ final class AuthorizeAdminAction
     }
 
     /**
-     * Authorize a single component action.
+     * Authorize a single component action against the screen's admin path.
      *
-     * @param AdminUserContract $user               Authenticated admin user.
-     * @param string            $component          Component identifier (e.g. "gp247-core::product-list").
-     * @param string            $action             Method being invoked (e.g. "mount", "delete").
-     * @param string|null       $explicitPermission Permission slug declared by the component, if any.
+     * The decision uses the v1 URI+method model (ADR-001 Layer-2): the screen path
+     * is checked against the user's permission `http_uri` catalog. A read maps to
+     * GET (same as menu visibility), a mutation to POST.
+     *
+     * @param AdminUserContract $user      Authenticated admin user.
+     * @param string|null       $screenUri Admin path of the screen (no scheme/host).
+     * @param string            $action    Method being invoked (e.g. "mount", "delete").
      * @return AuthorizationDecision Allow or deny, with a stable reason.
      */
     public function authorize(
         AdminUserContract $user,
-        string $component,
+        ?string $screenUri,
         string $action,
-        ?string $explicitPermission = null,
     ): AuthorizationDecision {
         $isMutating = !in_array($action, $this->readOnlyMethods, true);
-        $key = $this->resolver->resolve($component, $explicitPermission);
 
-        return $this->authorizer->authorize($user, $key, $isMutating);
+        return $this->authorizer->authorize($user, $screenUri, $isMutating);
     }
 
     /**

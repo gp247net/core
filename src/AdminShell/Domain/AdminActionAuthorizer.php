@@ -20,16 +20,19 @@ namespace GP247\Core\AdminShell\Domain;
 final class AdminActionAuthorizer
 {
     /**
-     * Decide whether the user may perform the action.
+     * Decide whether the user may perform the action, using the v1 URI+method model
+     * (ADR-001 Layer-2): access is decided by the screen path against the user's
+     * permission `http_uri` catalog — the permission slug is only a label. A view
+     * maps to GET (same as menu visibility); a mutation maps to POST.
      *
-     * @param AdminUserContract  $user       Authenticated admin user.
-     * @param PermissionKey|null $key         Resolved permission key, or null when
-     *                                        the component/action could not be mapped.
-     * @param bool               $isMutating  True when the action changes state
-     *                                         (create/update/delete); false for reads.
+     * @param AdminUserContract $user        Authenticated admin user.
+     * @param string|null       $screenUri   Admin path of the screen (no scheme/host),
+     *                                        or null when it could not be determined.
+     * @param bool              $isMutating  True when the action changes state
+     *                                        (create/update/delete); false for reads.
      * @return AuthorizationDecision Allow or deny, with a stable reason.
      */
-    public function authorize(AdminUserContract $user, ?PermissionKey $key, bool $isMutating): AuthorizationDecision
+    public function authorize(AdminUserContract $user, ?string $screenUri, bool $isMutating): AuthorizationDecision
     {
         if ($user->isAdministrator()) {
             return AuthorizationDecision::allow('administrator');
@@ -43,14 +46,14 @@ final class AdminActionAuthorizer
                 : AuthorizationDecision::allow('view_all_read');
         }
 
-        // WHY: deny-by-default — an unmapped component/action must not slip
-        // through the shared Livewire endpoint just because no key was found.
-        if ($key === null) {
-            return AuthorizationDecision::deny('unresolved_permission_key');
+        // WHY: deny-by-default — an action whose screen path cannot be resolved
+        // must not slip through the shared Livewire endpoint.
+        if ($screenUri === null || trim($screenUri) === '') {
+            return AuthorizationDecision::deny('unresolved_screen_uri');
         }
 
-        return $user->can($key->value())
-            ? AuthorizationDecision::allow('granted_by_slug')
-            : AuthorizationDecision::deny('missing_permission_slug');
+        return $user->canAccessUrl($screenUri, $isMutating ? 'POST' : 'GET')
+            ? AuthorizationDecision::allow('granted_by_uri')
+            : AuthorizationDecision::deny('missing_permission_uri');
     }
 }
