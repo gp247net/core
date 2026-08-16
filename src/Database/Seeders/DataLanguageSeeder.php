@@ -72,6 +72,30 @@ class DataLanguageSeeder extends Seeder
     public function dataLang() {
         
         $dataLang = [
+            // Base Laravel validation messages (position 'validation'). Resolved via
+            // gp247_language_render('validation.<rule>', ['attribute' => ...]) across
+            // admin/front forms (customer, order, product, subscribe). Seeded here so
+            // required/min/max/... read localized text from the DB instead of falling
+            // back to the framework's English lang file. insertOrIgnore keeps any row a
+            // site owner already edited via the Language manager.
+            ['code' => 'validation.required','text' => 'The :attribute field is required.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.required','text' => ':attribute không được để trống.','position' => 'validation','location' => 'vi'],
+            ['code' => 'validation.min','text' => 'The :attribute must be at least :min.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.min','text' => ':attribute phải có tối thiểu :min.','position' => 'validation','location' => 'vi'],
+            ['code' => 'validation.max','text' => 'The :attribute may not be greater than :max.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.max','text' => ':attribute không được vượt quá :max.','position' => 'validation','location' => 'vi'],
+            ['code' => 'validation.numeric','text' => 'The :attribute must be a number.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.numeric','text' => ':attribute phải là số.','position' => 'validation','location' => 'vi'],
+            ['code' => 'validation.array','text' => 'The :attribute must be an array.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.array','text' => ':attribute phải ở dạng danh sách.','position' => 'validation','location' => 'vi'],
+            ['code' => 'validation.string','text' => 'The :attribute must be a string.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.string','text' => ':attribute phải là chuỗi ký tự.','position' => 'validation','location' => 'vi'],
+            ['code' => 'validation.email','text' => 'The :attribute must be a valid email address.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.email','text' => ':attribute phải là địa chỉ email hợp lệ.','position' => 'validation','location' => 'vi'],
+            ['code' => 'validation.date','text' => 'The :attribute is not a valid date.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.date','text' => ':attribute không phải là ngày hợp lệ.','position' => 'validation','location' => 'vi'],
+            ['code' => 'validation.confirmed','text' => 'The :attribute confirmation does not match.','position' => 'validation','location' => 'en'],
+            ['code' => 'validation.confirmed','text' => ':attribute xác nhận không khớp.','position' => 'validation','location' => 'vi'],
             ['code' => 'action.from','text' => 'From','position' => 'action','location' => 'en'],
             ['code' => 'action.from','text' => 'Từ','position' => 'action','location' => 'vi'],
             ['code' => 'action.to','text' => 'To','position' => 'action','location' => 'en'],
