@@ -27,6 +27,11 @@
     ];
     $guideStyle = $guideStyles[$mailGuide['state']] ?? $guideStyles['direct'];
 @endphp
+{{-- WHY: Livewire v3 requires exactly ONE root element per component. This view
+     has two siblings (the delivery-guide banner + the settings grid), so wrap
+     them in a single root <div> or it throws MultipleRootElementsDetectedException
+     both as a full-page route and when embedded in SettingsHub. --}}
+<div>
 <div class="mb-4 rounded-lg border px-4 py-3 text-sm {{ $guideStyle }}">
     <div class="font-semibold">{{ gp247_language_render('admin.email_guide_heading') }}</div>
     <div class="mt-1">
@@ -96,4 +101,5 @@
             </table>
         </x-gp247::card>
     </div>
+</div>
 </div>

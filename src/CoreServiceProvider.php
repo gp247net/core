@@ -520,28 +520,29 @@ class CoreServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the modern admin full-page Livewire routes inside the existing
-     * GP247 admin group (prefix + ['web','admin']), so they inherit admin auth +
-     * URI-based RBAC (Layer-1) without touching the vendor route files (ADR-002).
-     * Merged from AdminShellServiceProvider (modification 20260708T160000).
+     * Historically registered modern admin full-page Livewire routes under
+     * `/admin-shell/*`. Those became orphan DUPLICATES once the screens were
+     * reachable canonically, so they were removed:
+     *   - `config/general|email|custom` → the forms are embedded as Livewire
+     *     children inside SettingsHub (`admin_config.index`, `/store_config`),
+     *     see Views/admin/livewire/settings-hub.blade.php; no standalone route
+     *     was ever linked (0 references to `gp247.admin-shell.config.*`).
+     *   - `language-strings` → canonical is `admin_language_manager.index`
+     *     (`/language_manager`, Routes/Admin/language_manager.php), which the
+     *     controller + view already use; the `/admin-shell/language-strings`
+     *     copy had 0 references.
+     * What makes these components resolve is the `gp247-core` Livewire namespace
+     * (registered in boot(), see `Livewire::addNamespace('gp247-core', …)`) plus
+     * the global `livewire/update` endpoint — NOT these routes. Removing the
+     * duplicates leaves one canonical URL per screen.
      *
      * @return void
      */
     protected function registerAdminRoutes()
     {
-        if (!defined('GP247_ADMIN_PREFIX') || !defined('GP247_ADMIN_MIDDLEWARE')) {
-            return;
-        }
-
-        Route::prefix(GP247_ADMIN_PREFIX . '/admin-shell')
-            ->middleware(GP247_ADMIN_MIDDLEWARE)
-            ->group(static function () {
-                Route::get('language-strings', LanguageStringManager::class)->name('gp247.admin-shell.language-strings');
-
-                Route::get('config/general', GeneralSettingsForm::class)->name('gp247.admin-shell.config.general');
-                Route::get('config/email', EmailSettingsForm::class)->name('gp247.admin-shell.config.email');
-                Route::get('config/custom', CustomConfigForm::class)->name('gp247.admin-shell.config.custom');
-            });
+        // Intentionally a no-op: no duplicate `/admin-shell/*` routes are
+        // registered anymore (see docblock). Kept as the core admin-shell route
+        // extension point should a screen ever need a bespoke route here.
     }
 
     /**
