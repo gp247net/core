@@ -2,6 +2,7 @@
 
 namespace GP247\Core\AdminShell\Http\Livewire;
 
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\AdminShell\Infrastructure\ResourcePanel;
 use GP247\Core\Controllers\PasswordValidationTrait;
 use GP247\Core\Models\AdminPermission;
@@ -24,6 +25,7 @@ use Illuminate\Validation\Rule;
 class UserManager extends ResourcePanel
 {
     use PasswordValidationTrait;
+    use HasValidationLabels;
 
     protected ?string $permission = 'admin_user';
 
@@ -141,7 +143,27 @@ class UserManager extends ResourcePanel
      */
     protected function messages(): array
     {
-        return ['form.username.regex' => 'The username may only contain letters, numbers, @, dot and underscore.'];
+        return array_merge($this->localizedRuleMessages(), [
+            'form.username.regex' => 'The username may only contain letters, numbers, @, dot and underscore.',
+        ]);
+    }
+
+    /**
+     * Reuse the existing v1 user label keys for validator attributes.
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'form.name' => 'admin.user.name',
+            'form.username' => 'admin.user.username',
+            'form.email' => 'admin.user.email',
+            'form.avatar' => 'admin.user.avatar',
+            'form.password' => 'admin.user.password',
+            'form.roles' => 'admin.user.roles',
+            'form.permissions' => 'admin.user.permission',
+        ];
     }
 
     /**

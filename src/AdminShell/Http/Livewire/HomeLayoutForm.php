@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\FormComponent;
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\Models\AdminHome;
 use Illuminate\Contracts\View\View;
 
@@ -18,6 +19,8 @@ use Illuminate\Contracts\View\View;
  */
 class HomeLayoutForm extends FormComponent
 {
+    use HasValidationLabels;
+
     protected ?string $permission = 'admin_home_layout';
 
     /** @var array<string, mixed> */
@@ -57,6 +60,20 @@ class HomeLayoutForm extends FormComponent
             'form.view' => ['required', 'string'],
             'form.size' => ['required', 'numeric', 'min:1', 'max:12'],
             'form.sort' => ['required', 'numeric', 'min:0'],
+        ];
+    }
+
+    /**
+     * Reuse the existing v1 home-layout label keys for validator attributes.
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'form.view' => 'admin.admin_home_layout.view',
+            'form.size' => 'admin.admin_home_layout.size',
+            'form.sort' => 'admin.admin_home_layout.sort',
         ];
     }
 

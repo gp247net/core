@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\FormComponent;
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\Models\AdminPermission;
 use GP247\Core\Models\AdminRole;
 use GP247\Core\Models\AdminUser;
@@ -20,6 +21,8 @@ use Illuminate\Validation\Rule;
  */
 class RoleForm extends FormComponent
 {
+    use HasValidationLabels;
+
     protected ?string $permission = 'admin_role';
 
     /** @var array<string, mixed> name, slug, permissions[] (ids), administrators[] (user ids). */
@@ -65,7 +68,24 @@ class RoleForm extends FormComponent
      */
     protected function messages(): array
     {
-        return ['form.slug.regex' => 'The slug may only contain letters, numbers, dot, dash and underscore.'];
+        return array_merge($this->localizedRuleMessages(), [
+            'form.slug.regex' => 'The slug may only contain letters, numbers, dot, dash and underscore.',
+        ]);
+    }
+
+    /**
+     * Reuse the existing v1 role label keys for validator attributes.
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'form.name' => 'admin.role.name',
+            'form.slug' => 'admin.role.slug',
+            'form.permissions' => 'admin.role.permissions',
+            'form.administrators' => 'admin.role.users_in_role',
+        ];
     }
 
     /**

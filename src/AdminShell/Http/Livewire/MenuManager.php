@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\FormComponent;
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\Models\AdminMenu;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -22,6 +23,8 @@ use Illuminate\Support\Collection;
  */
 class MenuManager extends FormComponent
 {
+    use HasValidationLabels;
+
     protected ?string $permission = 'admin_menu';
 
     /** @var array<string, mixed> Editable form payload (bound via wire:model). */
@@ -65,6 +68,22 @@ class MenuManager extends FormComponent
             'form.uri' => ['nullable', 'string', 'max:255'],
             'form.icon' => ['nullable', 'string', 'max:255'],
             'form.sort' => ['nullable', 'numeric', 'min:0'],
+        ];
+    }
+
+    /**
+     * Reuse the existing v1 menu label keys for validator attributes.
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'form.title' => 'admin.menu.field_title',
+            'form.parent_id' => 'admin.menu.parent',
+            'form.uri' => 'admin.menu.uri',
+            'form.icon' => 'admin.menu.icon_field',
+            'form.sort' => 'admin.sort',
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\Models\AdminLanguage;
 use GP247\Core\Models\Languages;
 use Illuminate\Contracts\View\View;
@@ -21,8 +22,25 @@ use Livewire\WithPagination;
 class LanguageStringManager extends GP247AdminComponent
 {
     use WithPagination;
+    use HasValidationLabels;
 
     protected ?string $permission = 'admin_language';
+
+    /**
+     * Reuse the existing v1 language-string label keys for validator attributes
+     * (the inline addString() validate() picks these up automatically).
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'newForm.code' => 'admin.language_manager.code',
+            'newForm.text' => 'admin.language_manager.text',
+            'newForm.position' => 'admin.language_manager.position',
+            'newForm.position_new' => 'admin.language_manager.new_position',
+        ];
+    }
 
     public string $lang     = 'en';
     public string $position = '';

@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\Models\AdminApiConnection;
 use GP247\Core\Models\AdminConfig;
 use Illuminate\Contracts\View\View;
@@ -26,6 +27,7 @@ use Livewire\WithPagination;
 class ApiConnectionManager extends GP247AdminComponent
 {
     use WithPagination;
+    use HasValidationLabels;
 
     /** The global config key toggling whether API calls must carry connection+key. */
     private const REQUIRED_KEY = 'api_connection_required';
@@ -68,6 +70,21 @@ class ApiConnectionManager extends GP247AdminComponent
             'apiconnection' => 'required|string|max:50|regex:/^[0-9a-z\-_]+$/|unique:' . AdminApiConnection::class . ',apiconnection' . $ignore,
             'apikey' => 'nullable|string|max:128|regex:/^[0-9a-z\-_]+$/',
             'expire' => 'nullable|date',
+        ];
+    }
+
+    /**
+     * Reuse the existing v1 API-connection label keys for validator attributes.
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'description' => 'admin.api_connection.description',
+            'apiconnection' => 'admin.api_connection.connection',
+            'apikey' => 'admin.api_connection.apikey',
+            'expire' => 'admin.api_connection.expire',
         ];
     }
 

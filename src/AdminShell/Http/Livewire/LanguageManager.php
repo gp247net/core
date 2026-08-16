@@ -2,6 +2,7 @@
 
 namespace GP247\Core\AdminShell\Http\Livewire;
 
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\AdminShell\Infrastructure\ResourcePanel;
 use GP247\Core\Models\AdminLanguage;
 use Illuminate\Validation\Rule;
@@ -17,6 +18,8 @@ use Illuminate\Validation\Rule;
  */
 class LanguageManager extends ResourcePanel
 {
+    use HasValidationLabels;
+
     protected ?string $permission = 'admin_language';
 
     /**
@@ -80,6 +83,21 @@ class LanguageManager extends ResourcePanel
             'form.code' => ['required', 'string', 'max:10', Rule::unique($table, 'code')->ignore($this->editingId)],
             'form.icon' => ['required', 'string'],
             'form.sort' => ['nullable', 'numeric', 'min:0'],
+        ];
+    }
+
+    /**
+     * Reuse the existing v1 language label keys for validator attributes.
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'form.name' => 'admin.name',
+            'form.code' => 'admin.code',
+            'form.icon' => 'admin.icon',
+            'form.sort' => 'admin.sort',
         ];
     }
 

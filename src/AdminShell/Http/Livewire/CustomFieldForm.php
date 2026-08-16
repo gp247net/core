@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\FormComponent;
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\Models\AdminCustomField;
 use Illuminate\Contracts\View\View;
 
@@ -17,6 +18,8 @@ use Illuminate\Contracts\View\View;
  */
 class CustomFieldForm extends FormComponent
 {
+    use HasValidationLabels;
+
     protected ?string $permission = 'admin_custom_field';
 
     /** @var array<string, mixed> */
@@ -66,6 +69,22 @@ class CustomFieldForm extends FormComponent
             // max:250 mirrors the DB column (VARCHAR(250)) so a long option set is
             // rejected with a message instead of being silently truncated on save.
             'form.default' => ['nullable', 'string', 'max:250', $this->optionDefaultRule()],
+        ];
+    }
+
+    /**
+     * Reuse the existing v1 custom-field label keys for validator attributes.
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'form.type' => 'admin.custom_field.type',
+            'form.code' => 'admin.custom_field.code',
+            'form.name' => 'admin.custom_field.name',
+            'form.option' => 'admin.custom_field.option',
+            'form.default' => 'admin.custom_field.default',
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\FormComponent;
+use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\Models\AdminPermission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,8 @@ use Illuminate\Validation\Rule;
  */
 class PermissionForm extends FormComponent
 {
+    use HasValidationLabels;
+
     protected ?string $permission = 'admin_permission';
 
     /** @var array<string, mixed> name, slug, and http_uri (array of selected URIs). */
@@ -67,7 +70,23 @@ class PermissionForm extends FormComponent
      */
     protected function messages(): array
     {
-        return ['form.slug.regex' => 'The slug may only contain letters, numbers, dot, dash and underscore.'];
+        return array_merge($this->localizedRuleMessages(), [
+            'form.slug.regex' => 'The slug may only contain letters, numbers, dot, dash and underscore.',
+        ]);
+    }
+
+    /**
+     * Reuse the existing v1 permission label keys for validator attributes.
+     *
+     * @return array<string, string>
+     */
+    protected function attributeLabels(): array
+    {
+        return [
+            'form.name' => 'admin.permission.name',
+            'form.slug' => 'admin.permission.slug',
+            'form.http_uri' => 'admin.permission.allowed_routes',
+        ];
     }
 
     /**
