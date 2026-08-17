@@ -17,7 +17,7 @@ use Illuminate\Validation\Rule;
  *
  * @aidlc-unit admin-shell-rbac
  * @aidlc-story US-RBAC-003
- * @aidlc-adr ADR-001, ADR-005, ADR-007
+ * @aidlc-adr ADR-001, ADR-005, ADR-007, ADR-admin-shell-rbac-permission-route-picker-scoping
  */
 class PermissionManager extends ResourcePanel
 {
@@ -182,24 +182,42 @@ class PermissionManager extends ResourcePanel
     /**
      * Build the admin route list grouped by prefix for the URI picker.
      *
+     * Route classification (ADR-admin-shell-rbac-permission-route-picker-scoping):
+     * - Always-allow util routes (login/logout/forgot/deny/locale) are default pass-through
+     *   (Permission::listPath/RouteDefaultPassThrough) — never gated — so they are hidden entirely.
+     * - The third-party LFM file manager (`uploads/*`) performs destructive operations over GET and is
+     *   gated as ONE unit via viewWithoutToMessage() + the group wildcard ANY::<prefix>/uploads/* (the
+     *   seeded `file.full`). Only that wildcard is exposed (individual sub-routes are noise), which keeps
+     *   the seeded permission visible/editable. This restores v1 behaviour lost in the TailAdmin cutover.
+     *
+     * Display-only: this builder does not affect runtime enforcement (PermissionMiddleware/passRequest).
+     *
      * @return array<string, array<int, array{uri:string, method:string, path:string}>>
      */
     public function getRouteGroupsProperty(): array
     {
-        $prefix  = defined('GP247_ADMIN_PREFIX') ? GP247_ADMIN_PREFIX : '';
-        $without = array_map(static fn ($w) => ($prefix ? $prefix . '/' : '') . $w, ['login', 'logout', 'forgot', 'deny', 'locale', 'uploads']);
+        $prefix   = defined('GP247_ADMIN_PREFIX') ? GP247_ADMIN_PREFIX : '';
+        $prefixed = static fn ($w) => ($prefix ? $prefix . '/' : '') . $w;
+
+        $alwaysAllow  = array_map($prefixed, ['login', 'logout', 'forgot', 'deny', 'locale']);
+        $wildcardOnly = array_map($prefixed, ['uploads']);
 
         $groups = [];
         foreach (Route::getRoutes() as $route) {
             if (! Str::startsWith($route->uri(), (string) $prefix)) {
                 continue;
             }
-            if (Str::startsWith($route->uri(), $without)) {
+            if (Str::startsWith($route->uri(), $alwaysAllow)) {
                 continue;
             }
 
             $group = ltrim((string) $route->getPrefix(), '/') ?: $prefix;
             $groups[$group]['__wildcard'] = ['uri' => 'ANY::' . $group . '/*', 'method' => 'ANY', 'path' => $group . '/*'];
+
+            // Gated-as-a-unit groups (LFM uploads) keep only the wildcard above; drop per-method entries.
+            if (Str::startsWith($route->uri(), $wildcardOnly)) {
+                continue;
+            }
 
             foreach ($route->methods() as $method) {
                 if ($method === 'HEAD') {
