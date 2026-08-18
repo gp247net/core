@@ -92,9 +92,12 @@
                     Copyright &copy; {{ date('Y') }}
                     <a href="{{ config('gp247.github') }}" target="_blank" class="hover:text-gray-600 dark:hover:text-gray-300">GP247: {{ config('gp247.name') }}</a>.
                 </p>
-                <p>
-                    <strong>Env</strong> {{ config('app.env') }}
-                    &nbsp;&nbsp;
+                <p class="flex items-center gap-2">
+                    {{-- Environment pill only (US-AUI-env-identity): which env you are
+                         in is reference info, so it lives in the footer; the debug
+                         warning lives in the header. --}}
+                    <x-gp247::env-badge only="env" />
+                    &nbsp;
                     <strong>Core</strong> {{ config('gp247.core') }}
                     @if (gp247_composer_get_package_installed()['gp247/s-cart'] ?? false)
                         &nbsp;&nbsp;

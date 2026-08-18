@@ -26,11 +26,18 @@
 @endphp
 
 <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-800 sm:px-6">
-    <button type="button" x-on:click="$store.gp247.toggleSidebar()"
-        class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-        aria-label="{{ gp247_language_render('admin.toggle_sidebar') }}">
-        <i class="fas fa-bars"></i>
-    </button>
+    <div class="flex items-center gap-3">
+        <button type="button" x-on:click="$store.gp247.toggleSidebar()"
+            class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+            aria-label="{{ gp247_language_render('admin.toggle_sidebar') }}">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        {{-- DEBUG ON chip only (US-AUI-env-identity): APP_DEBUG is the real leak
+             risk, so it stays in the header — always in view while working. The
+             env pill lives in the footer. Renders nothing when debug is off. --}}
+        <x-gp247::env-badge only="debug" />
+    </div>
 
     <div class="flex items-center gap-2">
         @if ($hasStorefront)

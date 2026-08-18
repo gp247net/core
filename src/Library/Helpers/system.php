@@ -298,3 +298,63 @@ if (!function_exists('gp247_namespace') && !in_array('gp247_namespace', config('
         return file_exists($path) ? ('App\\GP247\\' . $relative) : $vendorClass;
     }
 }
+
+if (!function_exists('gp247_env_badge') && !in_array('gp247_env_badge', config('gp247_functions_except', []))) {
+    /**
+     * Resolve the current runtime environment (config('app.env')) into a display
+     * profile for the admin environment-identity badge.
+     *
+     * WHY: operators need an at-a-glance signal of which environment they are in
+     * so a destructive action is not run on production while believing it is a
+     * sandbox. The classification is deliberately BINARY, mirroring how
+     * GP247/Laravel actually behave: only the exact string "production" is
+     * treated specially (CoreServiceProvider forces debug off; Laravel's artisan
+     * guard blocks destructive commands). Every other env name is behaviourally
+     * identical, so it maps to a single non-production profile — no cosmetic
+     * dev/local/staging distinction. Both profiles come from
+     * config('gp247.env_badge') so site owners can relabel/recolor/hide them.
+     *
+     * @return array{env:string,is_production:bool,label:string,color:string,icon:string,debug:bool}|null
+     *   Resolved profile, or null when the badge is disabled via config. `debug`
+     *   mirrors config('app.debug') so the UI can flag debug mode — the actually
+     *   security-critical signal — independently of the environment name.
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-AUI-env-identity
+     * @aidlc-adr ADR-002
+     */
+    function gp247_env_badge()
+    {
+        $config = config('gp247.env_badge', []);
+
+        if (!($config['enable'] ?? true)) {
+            return null;
+        }
+
+        $env = (string) config('app.env');
+
+        // WHY: exact, case-sensitive match on "production" to stay identical to
+        // CoreServiceProvider (`config('app.env') === 'production'`) — the badge
+        // must reflect the SAME condition that actually toggles safety behaviour,
+        // otherwise it would reassure the operator while the guards are off.
+        $isProduction = ($env === 'production');
+
+        $profile = $isProduction
+            ? ($config['production'] ?? [])
+            : ($config['non_production'] ?? []);
+
+        return [
+            'env'           => $env,
+            'is_production' => $isProduction,
+            // WHY: non-production has no fixed label — show the raw env name
+            // (upper-cased) so the operator still sees which env it is, while all
+            // non-production envs share one style.
+            'label' => $profile['label'] ?? strtoupper($env),
+            'color' => $profile['color'] ?? ($isProduction ? 'gray' : 'amber'),
+            'icon'  => $profile['icon']  ?? ($isProduction ? 'fas fa-circle-check' : 'fas fa-triangle-exclamation'),
+            // WHY: surfaced separately from the env so the UI can warn when debug
+            // mode is on even on a "production" env — the real leak risk.
+            'debug' => (bool) config('app.debug'),
+        ];
+    }
+}
