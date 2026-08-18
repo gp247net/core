@@ -299,6 +299,35 @@ if (!function_exists('gp247_namespace') && !in_array('gp247_namespace', config('
     }
 }
 
+if (!function_exists('gp247_is_production') && !in_array('gp247_is_production', config('gp247_functions_except', []))) {
+    /**
+     * Determine whether the application is running in the production environment.
+     *
+     * Single source of truth for "is this production?" across the GP247 ecosystem
+     * (core/front/shop/plugins), so every production-only safety behaviour is
+     * driven by the SAME condition instead of each call site re-hardcoding its own
+     * string check (CoreServiceProvider debug-off, the admin env badge, …).
+     *
+     * WHY exact "production": this mirrors Laravel's own canonical check
+     * (App::environment() === 'production'), which is what the framework's artisan
+     * destructive-command guard uses internally. Keeping the SAME definition
+     * guarantees the GP247 safety nets never diverge from Laravel's — an alias like
+     * "prod"/"live" is deliberately NOT production, because Laravel would not guard
+     * it either, and a guard/badge that disagreed with the framework would give
+     * false reassurance on a live site.
+     *
+     * @return bool True only when APP_ENV is exactly "production".
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-AUI-env-identity
+     * @aidlc-adr ADR-002
+     */
+    function gp247_is_production(): bool
+    {
+        return app()->environment() === 'production';
+    }
+}
+
 if (!function_exists('gp247_env_badge') && !in_array('gp247_env_badge', config('gp247_functions_except', []))) {
     /**
      * Resolve the current runtime environment (config('app.env')) into a display
@@ -333,11 +362,11 @@ if (!function_exists('gp247_env_badge') && !in_array('gp247_env_badge', config('
 
         $env = (string) config('app.env');
 
-        // WHY: exact, case-sensitive match on "production" to stay identical to
-        // CoreServiceProvider (`config('app.env') === 'production'`) — the badge
-        // must reflect the SAME condition that actually toggles safety behaviour,
-        // otherwise it would reassure the operator while the guards are off.
-        $isProduction = ($env === 'production');
+        // WHY: delegate to gp247_is_production() so the badge reflects the SAME
+        // condition that actually toggles safety behaviour (CoreServiceProvider
+        // debug-off, Laravel's artisan guard) — a single source of truth instead
+        // of re-hardcoding the "production" string here.
+        $isProduction = gp247_is_production();
 
         $profile = $isProduction
             ? ($config['production'] ?? [])

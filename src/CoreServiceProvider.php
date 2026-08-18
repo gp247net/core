@@ -156,11 +156,6 @@ class CoreServiceProvider extends ServiceProvider
 
         if (GP247_ACTIVE == 1 && \Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {
 
-            //If env is production, then disable debug mode
-            if (config('app.env') === 'production') {
-                config(['app.debug' => false]);
-            }
-            
             Paginator::useBootstrap();
             Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
 
@@ -174,6 +169,21 @@ class CoreServiceProvider extends ServiceProvider
                 gp247_report($msg);
                 echo $msg;
                 exit;
+            }
+
+            // WHY: force debug off on production regardless of the deployer's
+            // APP_DEBUG so a stray APP_DEBUG=true can never leak stack traces/SQL
+            // on a live site. gp247_is_production() is the single source of truth
+            // for "is prod" (shared with the admin env badge). It is normally
+            // guaranteed defined here (the helper glob above exits on failure),
+            // but this security net must NEVER depend on load order — this also
+            // runs during composer/package:discover — so function_exists falls
+            // back to Laravel's own check instead of fataling if it is missing.
+            $isProduction = function_exists('gp247_is_production')
+                ? gp247_is_production()
+                : ($this->app->environment() === 'production');
+            if ($isProduction) {
+                config(['app.debug' => false]);
             }
 
             //Check connection
