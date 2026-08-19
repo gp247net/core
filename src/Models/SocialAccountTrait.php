@@ -1,14 +1,46 @@
 <?php
 
 namespace GP247\Core\Models;
+
+use Illuminate\Support\Facades\Schema;
+
 /**
  * Trait Model.
  */
 trait SocialAccountTrait
 {
+    /**
+     * Determine whether the LoginSocial plugin is truly usable.
+     *
+     * class_exists() alone is not enough: the plugin source ships inside
+     * app/GP247/Plugins/LoginSocial, so the SocialAccount class autoloads
+     * (class_exists === true) even when the plugin was never installed and
+     * the social_accounts table does not exist. Guarding only on the class
+     * lets callers eager-load socialAccount() and crash with a "table not
+     * found" QueryException. The real operating condition is the DB table.
+     *
+     * @return bool True when the class autoloads AND the DB table exists.
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-LW-001
+     */
+    public static function socialAccountEnabled(): bool
+    {
+        return class_exists(\App\GP247\Plugins\LoginSocial\Models\SocialAccount::class)
+            && Schema::hasTable('social_accounts');
+    }
+
+    /**
+     * Polymorphic one-to-one to the LoginSocial account, when available.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphOne|null
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-LW-001
+     */
     function socialAccount()
     {
-        if (class_exists(\App\GP247\Plugins\LoginSocial\Models\SocialAccount::class)) {
+        if (self::socialAccountEnabled()) {
             return $this->morphOne(
                 \App\GP247\Plugins\LoginSocial\Models\SocialAccount::class,
                     'user'
