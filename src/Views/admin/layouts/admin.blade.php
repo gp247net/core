@@ -112,6 +112,8 @@
 
     {{-- Global, event-based UI feedback (ADR-005). --}}
     <x-gp247::toast />
+    {{-- Session-flash → toast bridge for any non-Livewire flash (ADR admin-shell_flash-toast-bridge). --}}
+    @include('gp247-admin::partials.flash-toast')
 
     {{-- Livewire request loading overlay. --}}
     <div wire:loading.flex wire:loading.delay

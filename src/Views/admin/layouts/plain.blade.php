@@ -65,6 +65,7 @@
     </div>
 
     <x-gp247::toast />
+    @include('gp247-admin::partials.flash-toast')
 
     {{-- Page-level loading overlay (shown via JS: document.getElementById('gp247-page-loading').style.display). --}}
     <div id="gp247-page-loading"
