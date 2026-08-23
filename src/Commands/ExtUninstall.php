@@ -17,7 +17,8 @@ class ExtUninstall extends ExtCommand
     protected $signature = 'gp247:ext-uninstall
         {--type=plugin : plugin|template}
         {--key=* : Extension key(s), repeatable or comma-separated}
-        {--only-data : Remove DB config only, keep the source files}';
+        {--only-data : Remove DB config only, KEEP source files (installed only)}
+        {--purge : Delete source files of a NOT-installed (on-disk) extension too}';
 
     /** @var string */
     protected $description = 'Uninstall one or more plugins/templates';
@@ -36,9 +37,16 @@ class ExtUninstall extends ExtCommand
             return $this->respondFailure('missing_key', 'Option --key is required.');
         }
 
+        // The two flags sit on opposite ends of the "files" axis: --only-data keeps
+        // files, --purge deletes files. Together they contradict each other.
+        if ($this->option('only-data') && $this->option('purge')) {
+            return $this->respondFailure('conflicting_options', '--only-data (keep files) and --purge (delete files) cannot be combined.');
+        }
+
         $onlyData = (bool) $this->option('only-data');
+        $purge = (bool) $this->option('purge');
         $installer = (new ExtensionInstaller)->deferCache(count($keys) > 1);
-        $res = $this->applyBatch($keys, fn ($k) => $installer->uninstall($type, $k, $onlyData), 'uninstalled');
+        $res = $this->applyBatch($keys, fn ($k) => $installer->uninstall($type, $k, $onlyData, $purge), 'uninstalled');
         if (count($keys) > 1 && $res['succeeded']) {
             gp247_extension_after_update();
         }

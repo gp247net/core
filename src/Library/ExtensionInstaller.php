@@ -163,6 +163,12 @@ class ExtensionInstaller
     public function enable(string $groupType, string $key): array
     {
         $groupType = $this->normalizeType($groupType);
+        // Guard: an extension must be installed (has an admin_config row) before it
+        // can be enabled. Without this, AppConfig::enable() updates zero rows yet
+        // some plugins still report success — a misleading no-op.
+        if (!gp247_extension_check_installed($groupType, $key)) {
+            return ['error' => 1, 'msg' => 'Extension "'.$key.'" is not installed — run gp247:ext-install first', 'detail' => 'not_installed'];
+        }
         $class = $this->appConfigClass($groupType, $key);
         if (!$class || !method_exists($class, 'enable')) {
             return ['error' => 1, 'msg' => 'Method enable not found'];
@@ -185,6 +191,10 @@ class ExtensionInstaller
     {
         $groupType = $this->normalizeType($groupType);
 
+        if (!gp247_extension_check_installed($groupType, $key)) {
+            return ['error' => 1, 'msg' => 'Extension "'.$key.'" is not installed — nothing to disable', 'detail' => 'not_installed'];
+        }
+
         $reason = $this->blockReason($groupType, $key, 'disable');
         if ($reason !== null) {
             gp247_report(msg: $reason, channel: null);
@@ -203,15 +213,23 @@ class ExtensionInstaller
     }
 
     /**
-     * Uninstall an installed extension (honoring guards), optionally keeping the
-     * source files (onlyRemoveData).
+     * Uninstall an extension (honoring guards).
+     *
+     * When installed: runs the AppConfig uninstall() hook and, unless
+     * $onlyRemoveData, deletes the source files after a successful hook.
+     *
+     * When NOT installed but present on disk (e.g. a bundled plugin): deleting its
+     * source is destructive and surprising, so it is refused unless $purge is set
+     * (then only the files are removed). When neither installed nor on disk it is a
+     * plain "not found".
      *
      * @param string $groupType      Plugins|Templates.
      * @param string $key            Extension key.
-     * @param bool   $onlyRemoveData Keep the source directories when true.
+     * @param bool   $onlyRemoveData Keep the source directories when true (installed only).
+     * @param bool   $purge          Allow deleting the files of a not-installed extension.
      * @return array{error: int, msg: string}
      */
-    public function uninstall(string $groupType, string $key, bool $onlyRemoveData = false): array
+    public function uninstall(string $groupType, string $key, bool $onlyRemoveData = false, bool $purge = false): array
     {
         $groupType = $this->normalizeType($groupType);
 
@@ -221,30 +239,57 @@ class ExtensionInstaller
             return ['error' => 1, 'msg' => $reason];
         }
 
-        $class = $this->appConfigClass($groupType, $key);
-        $installed = gp247_extension_get_installed(type: $groupType, active: false);
-        $installedArr = (is_object($installed) && method_exists($installed, 'toArray')) ? $installed->toArray() : (array) $installed;
+        $installed = gp247_extension_check_installed($groupType, $key);
+        $onDisk = array_key_exists($key, gp247_extension_get_all_local(type: $groupType));
 
-        if ($class && array_key_exists($key, $installedArr)) {
-            if (!method_exists($class, 'uninstall')) {
-                return ['error' => 1, 'msg' => 'Method uninstall not found'];
+        if (!$installed) {
+            if (!$onDisk) {
+                return ['error' => 1, 'msg' => 'Extension "'.$key.'" is not installed', 'detail' => 'not_found'];
             }
-            $response = (new $class)->uninstall();
-            if (is_array($response) && ($response['error'] ?? 1) == 0) {
-                $this->afterUpdate();
+            // On disk but never installed — do not silently delete source files.
+            if (!$purge) {
+                return [
+                    'error'  => 1,
+                    'msg'    => 'Extension "'.$key.'" is not installed. It exists on disk; pass --purge to delete its files.',
+                    'detail' => 'not_installed_use_purge',
+                ];
             }
-        } else {
-            // Not registered in DB — nothing to un-configure; still allow file removal.
-            $response = ['error' => 0, 'msg' => 'Class not found'];
+            $this->deleteFiles($groupType, $key);
+            return ['error' => 0, 'msg' => 'Removed files for "'.$key.'" (was not installed)'];
         }
 
-        if (!$onlyRemoveData) {
-            $appPath = 'GP247/'.$groupType.'/'.$key;
-            File::deleteDirectory(app_path($appPath));
-            File::deleteDirectory(public_path($appPath));
+        $class = $this->appConfigClass($groupType, $key);
+        if (!$class || !method_exists($class, 'uninstall')) {
+            return ['error' => 1, 'msg' => 'Method uninstall not found'];
+        }
+
+        $response = (new $class)->uninstall();
+        $ok = is_array($response) && ($response['error'] ?? 1) == 0;
+        if ($ok) {
+            $this->afterUpdate();
+            // Delete source files only after a successful DB uninstall, unless the
+            // caller asked to keep them (onlyRemoveData). A failed hook keeps files
+            // so the operator can retry.
+            if (!$onlyRemoveData) {
+                $this->deleteFiles($groupType, $key);
+            }
         }
 
         return is_array($response) ? $response : ['error' => 1, 'msg' => 'Unexpected uninstall response'];
+    }
+
+    /**
+     * Delete an extension's source directories from app/ and public/.
+     *
+     * @param string $groupType Plugins|Templates.
+     * @param string $key       Extension key.
+     * @return void
+     */
+    protected function deleteFiles(string $groupType, string $key): void
+    {
+        $appPath = 'GP247/'.$groupType.'/'.$key;
+        File::deleteDirectory(app_path($appPath));
+        File::deleteDirectory(public_path($appPath));
     }
 
     /**
@@ -377,11 +422,11 @@ class ExtensionInstaller
         $license = (string) ($options['license'] ?? '');
         $path = (string) ($options['path'] ?? '');
 
-        // Refuse re-installing an already-present extension up front — before any
-        // download — so a re-run neither wastes bandwidth nor overwrites files
-        // only to be rejected at the DB step. Use gp247:ext-update to update, or
-        // gp247:ext-uninstall first to reinstall.
-        if (array_key_exists($key, gp247_extension_get_all_local(type: $groupType))) {
+        // Refuse re-installing an already-installed extension up front — before any
+        // download. "Installed" means it has an admin_config row (not merely that
+        // files exist on disk). Use gp247:ext-update to update, or gp247:ext-uninstall
+        // first to reinstall.
+        if (gp247_extension_check_installed($groupType, $key)) {
             return [
                 'error'  => 1,
                 'msg'    => gp247_language_render('admin.extension.error_exist'),

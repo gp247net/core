@@ -118,10 +118,9 @@ class ExtInstall extends ExtCommand
      */
     protected function installRemote(ExtensionInstaller $installer, string $type, string $key): array
     {
-        // Refuse an already-installed extension before any marketplace call, so a
-        // re-run reports "already exists" (not a misleading "not found") and makes
-        // no network request. Use ext-update to update, ext-uninstall to reinstall.
-        if (array_key_exists($key, gp247_extension_get_all_local(type: $type))) {
+        // 1) Already installed (has an admin_config row) → refuse. Use ext-update
+        //    to update or ext-uninstall to reinstall.
+        if (gp247_extension_check_installed($type, $key)) {
             return [
                 'error'  => 1,
                 'msg'    => gp247_language_render('admin.extension.error_exist'),
@@ -129,6 +128,14 @@ class ExtInstall extends ExtCommand
             ];
         }
 
+        // 2) Files already on disk but NOT installed (e.g. a bundled plugin like
+        //    News) → run the local install/activate, exactly like the admin
+        //    "Install" button; no marketplace call.
+        if (array_key_exists($key, gp247_extension_get_all_local(type: $type))) {
+            return $installer->activate($type, $key);
+        }
+
+        // 3) Not on disk → fetch from the marketplace.
         if ($this->option('paid')) {
             return $installer->installFromRemote($type, $key, [
                 'paid'    => true,
