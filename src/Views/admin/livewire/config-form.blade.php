@@ -12,6 +12,7 @@
       - $heading (string) — first column header
       - $types (array<string,string>) — key => bool|number|select|text
       - $options (array<string,array>) — key => [value => label, ...], for "select" keys
+      - $hints (array<string,string>) — key => inline unit hint beside the label (e.g. a currency code)
 --}}
 <div class="max-w-3xl">
     {{-- Save feedback is shown by the global top-right notifications block
@@ -30,6 +31,9 @@
                     <tr wire:key="cfg-{{ $config->key }}" class="{{ $i % 2 ? 'bg-gray-50/50 dark:bg-gray-800/40' : 'bg-white dark:bg-gray-800' }}">
                         <td class="px-5 py-3 align-middle text-sm text-gray-700 dark:text-gray-200">
                             {!! $config->detail ? gp247_language_render($config->detail) : e($config->key) !!}
+                            @if (!empty($hints[$config->key] ?? ''))
+                                <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">{{ $hints[$config->key] }}</span>
+                            @endif
                         </td>
                         <td class="px-5 py-3 align-middle">
                             @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type, 'options' => $options[$config->key] ?? []])

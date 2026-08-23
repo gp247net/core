@@ -100,6 +100,27 @@ abstract class ConfigForm extends GP247AdminComponent
     }
 
     /**
+     * Per-key inline hint shown beside the field label — e.g. the currency-code
+     * unit for a money field, so the admin knows which currency a value is in.
+     * Keys not listed (or listed with an empty string) render no hint.
+     *
+     * @return array<string, string>
+     */
+    protected function fieldHints(): array
+    {
+        return [];
+    }
+
+    /**
+     * @param string $key Config key.
+     * @return string The inline hint for the key, or '' when none.
+     */
+    public function hintOf(string $key): string
+    {
+        return (string) ($this->fieldHints()[$key] ?? '');
+    }
+
+    /**
      * Whether the key holds a boolean value. Both the "bool" (checkbox) and
      * "toggle" (on/off switch) widgets bind a boolean, so they cast/persist alike.
      *
@@ -178,6 +199,7 @@ abstract class ConfigForm extends GP247AdminComponent
             'heading' => $this->heading(),
             'types' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->typeOf($c->key)])->all(),
             'options' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->optionsOf($c->key)])->all(),
+            'hints' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->hintOf($c->key)])->all(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->heading()]);
     }
 }
