@@ -122,10 +122,23 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
     if (!function_exists('gp247_extension_check_compatibility') && !in_array('gp247_extension_check_compatibility', config('gp247_functions_except', []))) {
         function gp247_extension_check_compatibility(array $config) {
             $arrRequireFaild = [];
-            
+
             $requireCore = $config['requireCore'] ?? [];
-            $requirePackages = $config['requirePackages'] ?? [];
-            $requireExtensions = $config['requireExtensions'] ?? [];
+
+            // Manifest dependency keys were renamed for clarity in gp247/core 2.1:
+            //   requirePackages   -> requireComposerPackages (Composer/packagist packages)
+            //   requireExtensions -> requireGp247Extensions  (installed GP247 plugins/templates)
+            // WHY: core is the single point that keeps backward compatibility for third-party
+            // manifests still shipping the old keys — read the new key first, fall back to the
+            // old one, and warn so authors migrate. All GP247-owned manifests use the new keys.
+            $requireComposerPackages = $config['requireComposerPackages'] ?? $config['requirePackages'] ?? [];
+            $requireGp247Extensions  = $config['requireGp247Extensions'] ?? $config['requireExtensions'] ?? [];
+
+            if (array_key_exists('requirePackages', $config) || array_key_exists('requireExtensions', $config)) {
+                logger()->warning('[gp247.json deprecated] "requirePackages"/"requireExtensions" are deprecated since gp247/core 2.1; '
+                    . 'use "requireComposerPackages"/"requireGp247Extensions" instead. They will be removed in a future release.');
+            }
+
             if($requireCore) {
                 // Check core version gp247 by ranges
                 $currentCore = config('gp247.core') ?? (gp247_composer_get_package_installed()['gp247/core'] ?? null);
@@ -134,17 +147,17 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
                 }
             }
 
-            if($requirePackages) {
+            if($requireComposerPackages) {
                 //Check package composer
                 $listPackages = gp247_composer_get_package_installed();
-                foreach($requirePackages as $package) {
+                foreach($requireComposerPackages as $package) {
                     if(!in_array($package, array_keys($listPackages))) {
-                        $arrRequireFaild['requirePackages'][] = $package;
+                        $arrRequireFaild['requireComposerPackages'][] = $package;
                     }
                 }
             }
 
-            if($requireExtensions) {
+            if($requireGp247Extensions) {
                 //Check extension installed (plugin or template)
                 $listExtensionsInstalled = gp247_extension_get_installed(type: 'Extension');
                 if (count($listExtensionsInstalled)) {
@@ -152,9 +165,9 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
                 } else {
                     $listExtensionsInstalled = [];
                 }
-                foreach($requireExtensions as $extension) {
+                foreach($requireGp247Extensions as $extension) {
                     if(!in_array($extension, array_keys($listExtensionsInstalled))) {
-                        $arrRequireFaild['requireExtensions'][] = $extension;
+                        $arrRequireFaild['requireGp247Extensions'][] = $extension;
                     }
                 }
             }

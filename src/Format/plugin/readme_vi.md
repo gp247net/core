@@ -46,10 +46,10 @@ File khai báo thông tin cơ bản của plugin:
 - configCode: Mã cấu hình
 - configKey: Khóa cấu hình, là giá trị duy nhất, trùng vói tên folder Plugin
 - version: Phiên bản
-- requireCore: Là phiên bản Gp247/Core phù hợp với extension.
+- requireCore: Là phiên bản Gp247/Core phù hợp với extension (chuẩn hiện tại để ["2.1"]).
 - requireUpdateFrom: Phiên bản đang cài tối thiểu được phép cập nhật 1-click lên bản này. Mặc định bằng version của scaffold (thực tế không giới hạn gì); hãy nâng lên khi phát hành bản major mà hook update() không migrate được từ dòng cũ — ví dụ đặt "2.0" cho bản 2.9 để chặn cập nhật từ bản 1.x. Bỏ trống nếu không giới hạn.
-- requirePackages: Các package (từ packagist.org) được yêu cầu cài đặt
-- requireExtensions: Tên các extension của GP247 (plugin, template) được yêu cầu cài đặt. Ví dụ: Shop, Front,News,...
+- requireComposerPackages: Các gói Composer (từ packagist.org) được yêu cầu cài đặt (vd gp247/front). Đổi tên từ `requirePackages` ở gp247/core 2.1 (khóa cũ core vẫn đọc nhưng đã deprecated).
+- requireGp247Extensions: Tên các extension của GP247 (plugin, template) được yêu cầu đã cài. Ví dụ: Shop, Front, News,... Đổi tên từ `requireExtensions` ở gp247/core 2.1 (khóa cũ core vẫn đọc nhưng đã deprecated).
 
 ### 2. AppConfig.php
 File cấu hình chính của plugin, chứa các phương thức:

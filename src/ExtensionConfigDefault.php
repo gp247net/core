@@ -9,7 +9,29 @@ abstract class  ExtensionConfigDefault
     public $title;
     public $version;
     public $requireCore;
+
+    /**
+     * Required Composer packages (packagist), e.g. "gp247/front".
+     * Renamed from $requirePackages for clarity in gp247/core 2.1.
+     */
+    public $requireComposerPackages;
+
+    /**
+     * Required GP247 extensions (installed plugins/templates).
+     * Renamed from $requireExtensions for clarity in gp247/core 2.1.
+     */
+    public $requireGp247Extensions;
+
+    /**
+     * @deprecated since gp247/core 2.1 — use $requireComposerPackages.
+     * Kept for backward compatibility with third-party AppConfig code.
+     */
     public $requirePackages;
+
+    /**
+     * @deprecated since gp247/core 2.1 — use $requireGp247Extensions.
+     * Kept for backward compatibility with third-party AppConfig code.
+     */
     public $requireExtensions;
     public $auth;
     public $link;

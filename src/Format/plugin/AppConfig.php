@@ -21,8 +21,8 @@ class AppConfig extends ExtensionConfigDefault
         $this->configKey = $config['configKey'];
         $this->configCode = $config['configCode'] ?? $this->configKey;
         $this->requireCore = $config['requireCore'] ?? [];
-        $this->requirePackages = $config['requirePackages'] ?? [];
-        $this->requireExtensions = $config['requireExtensions'] ?? [];
+        $this->requireComposerPackages = $config['requireComposerPackages'] ?? [];
+        $this->requireGp247Extensions = $config['requireGp247Extensions'] ?? [];
         //Path
         $this->appPath = $this->configGroup . '/' . $this->configKey;
         //Language
