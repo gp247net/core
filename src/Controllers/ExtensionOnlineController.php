@@ -1,7 +1,9 @@
 <?php
 namespace GP247\Core\Controllers;
 
+use GP247\Core\Library\ExtensionInstaller;
 use GP247\Core\Library\ExtensionUpdateManager;
+use GP247\Core\Library\LibraryClient;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -21,59 +23,17 @@ trait ExtensionOnlineController
         $type_sort = request('type_sort', ''); // Filter by type
         $keyword = request('keyword', ''); // Search keyword
         
-        // Build API URL with parameters
+        // Fetch the listing through the shared marketplace client (uniform
+        // headers/SSL/timeout, soft-degrades to an empty list on error).
         $page = request('page') ?? 1;
-        $url = config('gp247-config.env.GP247_LIBRARY_API').'/'.strtolower($this->groupType).'?page[size]=20&page[number]='.$page;
-        $url .='&version='.$gp247_version;
-        $url .='&is_free='.$is_free;
-        $url .='&type_sort='.$type_sort;
-        $url .='&keyword='.$keyword;
-
-        // Call API to get extensions list
-        try {
-            // Initialize CURL
-            $ch = curl_init($url);
-            // Configure CURL options
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return result instead of output
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // Timeout after 10s
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0); // Ignore SSL verify
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0); // Ignore SSL verify host
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Allow redirect
-            curl_setopt($ch, CURLOPT_MAXREDIRS, 5); // Maximum number of redirects
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'GP247-API-License: ' . $license,
-                'GP247-API-Domain: ' . url('/'),
-                'Content-Type: application/json',
-                'Accept: application/json'
-            ]); // Add license to request headers
-            
-            // Execute CURL
-            $dataApi = curl_exec($ch);
-
-            // Get response information
-            $finalUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-            
-            // Only log URLs if there is a redirect (final URL is different from original URL)
-            if ($finalUrl !== $url) {
-                gp247_report(msg: 'Redirect detected:', channel: null);
-                gp247_report(msg: '- Original URL: ' . $url, channel: null);
-                gp247_report(msg: '- Final URL: ' . $finalUrl, channel: null);
-            }
-
-            curl_close($ch);
-
-            // Parse JSON response
-            $dataApi = json_decode($dataApi, true);
-            
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new \Exception('JSON decode error: ' . json_last_error_msg());
-            }
-
-        } catch (\Throwable $e) {
-            // Log error and set default data if error occurs
-            gp247_report(msg: 'API Error: ' . $e->getMessage(), channel: null);
-            $dataApi = ['data' => [], 'error' => $e->getMessage()];
-        }
+        $dataApi = (new LibraryClient)->list($this->groupType, [
+            'page[size]'   => 20,
+            'page[number]' => $page,
+            'version'      => $gp247_version,
+            'is_free'      => $is_free,
+            'type_sort'    => $type_sort,
+            'keyword'      => $keyword,
+        ]);
 
         // Process data returned from API
         if (!empty($dataApi['data'])) {
@@ -328,227 +288,46 @@ trait ExtensionOnlineController
         // extension/download endpoint instead of the public filev3 path.
         $isPaid = request('paid') == 1;
         $license = (string) request('license', '');
-        $appPath = 'GP247/'.$this->groupType.'/'.$key;
 
-        if (!is_writable(public_path('GP247/'.$this->groupType))) {
-            $msg = 'No write permission '.public_path('GP247/'.$this->groupType.'/');
-            gp247_report(msg:$msg, channel:null);
-            return response()->json(['error' => 1, 'msg' => $msg]);
+        if ($isPaid) {
+            // Persist the entered license before the gated download attempt.
+            gp247_extension_save_license($this->groupType, $key, $license);
         }
 
-        if (!is_writable(app_path('GP247/'.$this->groupType.'/'))) {
-            $msg = 'No write permission '.app_path('GP247/'.$this->groupType.'/');
-            gp247_report(msg:$msg, channel:null);
-            return response()->json(['error' => 1, 'msg' => $msg]);
-        }
+        // Shared engine: fetch (free path / paid gated endpoint) → unzip → verify
+        // → copy → install — the exact same path the CLI uses.
+        $response = (new ExtensionInstaller)->installFromRemote($this->groupType, $key, [
+            'path'    => $path,
+            'paid'    => $isPaid,
+            'license' => $license,
+        ]);
 
-        if (!is_writable(storage_path('tmp'))) {
-            $msg = 'No write permission '.storage_path('tmp');
-            gp247_report(msg:$msg, channel:null);
-            return response()->json(['error' => 1, 'msg' => $msg]);
-        }
-
-        try {
-            if ($isPaid) {
-                // Persist the entered license, then fetch the zip through the
-                // license-gated download endpoint (sends API-License header).
-                gp247_extension_save_license($this->groupType, $key, $license);
-                $data = $this->fetchPaidExtensionZip($key, $license);
-            } else {
-                $data = file_get_contents($path);
-            }
-
-            // Check if response is JSON error instead of zip file
-            $jsonData = json_decode($data, true);
-            if (json_last_error() === JSON_ERROR_NONE && isset($jsonData['error']) && $jsonData['error'] == 1) {
-                $errorMsg = $jsonData['msg'] ?? 'Unknown error';
-                $detail = $jsonData['detail'] ?? '';
-                // Sync the authoritative license verdict into admin_config so the
-                // key icon flags the problem (cache of server-truth).
-                if ($isPaid && in_array($detail, ['required', 'invalid', 'version', 'expired', 'domain'], true)) {
+        // Sync the authoritative license verdict into admin_config (cache of
+        // server-truth) so the key icon reflects entitlement.
+        if ($isPaid) {
+            if (is_array($response) && ($response['error'] ?? 1) == 1) {
+                $detail = $response['detail'] ?? '';
+                if (in_array($detail, ['required', 'invalid', 'version', 'expired', 'domain'], true)) {
                     gp247_extension_set_license_status($this->groupType, $key, ['valid' => false, 'reason' => $detail, 'expire' => null, 'checked' => true]);
                     return response()->json(['error' => 1, 'msg' => $this->licenseStatusMessage(['valid' => false, 'reason' => $detail], $key)]);
                 }
-                $errorDetail = $detail !== '' ? ' - '.$detail : '';
-                return response()->json(['error' => 1, 'msg' => $errorMsg . $errorDetail]);
-            }
-
-            $pathTmp = $key.'_'.time();
-            $fileTmp = $pathTmp.'.zip';
-            Storage::disk('tmp')->put($pathTmp.'/'.$fileTmp, $data);
-            $unzip = gp247_unzip(storage_path('tmp/'.$pathTmp.'/'.$fileTmp), storage_path('tmp/'.$pathTmp));
-            if ($unzip) {
-                $checkConfig = glob(storage_path('tmp/'.$pathTmp) . '/*/gp247.json');
-
-                if (!$checkConfig) {
-                    $response = ['error' => 1, 'msg' => 'Cannot found file gp247.json'];
-                    return response()->json($response);
-                }
-
-                //Check compatibility 
-                $config = json_decode(file_get_contents($checkConfig[0]), true);
-                $requireFaild = gp247_extension_check_compatibility($config);
-                if ($requireFaild) {
-                    File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                    $response = ['error' => 1, 'msg' => gp247_language_render('admin.extension.not_compatible', ['msg' => json_encode($requireFaild)])];
-                } else {
-                    $folderName = explode('/gp247.json', $checkConfig[0]);
-                    $folderName = explode('/', $folderName[0]);
-                    $folderName = end($folderName);
-                    File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName.'/public'), public_path($appPath));
-                    File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName), app_path($appPath));
-                    File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                    $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
-                    $namespace = $namespace . '\AppConfig';
-                    //Check class exist
-                    if (class_exists($namespace)) {
-                        //Check method install exist
-                        if (method_exists($namespace, 'install')) {
-                            $response = (new $namespace)->install();
-                        }else{
-                            $msg = 'Method install not found';
-                            gp247_report(msg:$msg, channel:null);
-                            return response()->json(['error' => 1, 'msg' => $msg]);
-                        }
-                    } else {
-                        $msg = 'Class not found';
-                        gp247_report(msg:$msg, channel:null);
-                        return response()->json(['error' => 1, 'msg' => $msg]);
-                    }
-                }
-
-            } else {
-                $msg = 'error while unzip';
-                gp247_report(msg:$msg, channel:null);
-                $response = ['error' => 1, 'msg' => $msg];
-            }
-        } catch (\Throwable $e) {
-            $msg = $e->getMessage();
-            gp247_report(msg:$msg, channel:null);
-            $response = ['error' => 1, 'msg' => $msg];
-        }
-        if (is_array($response) && $response['error'] == 0) {
-            if ($isPaid) {
+            } elseif (is_array($response) && ($response['error'] ?? 1) == 0) {
                 // Server accepted the license (the zip was served) — record valid.
                 gp247_extension_set_license_status($this->groupType, $key, ['valid' => true, 'reason' => 'none', 'expire' => null, 'checked' => true]);
             }
+        }
+
+        if (is_array($response) && ($response['error'] ?? 1) == 0) {
             gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
-            gp247_extension_after_update();
         }
 
         return response()->json($response);
     }
 
-    /**
-     * Fetch a paid extension zip from the license-gated download endpoint.
-     *
-     * Sends the API-connection license header and the per-plugin license so the
-     * server (api-247) can validate entitlement before proxying the private repo.
-     * Returns the raw body — either zip bytes or a JSON error (handled by caller).
-     *
-     * @param string $key     Extension key.
-     * @param string $license Per-plugin license.
-     * @return string Response body (zip bytes or JSON error).
-     *
-     * @aidlc-unit plugin-manager
-     * @aidlc-story US-PLG-005
-     * @aidlc-adr plugin-manager_per-plugin-license
-     */
-    protected function fetchPaidExtensionZip(string $key, string $license): string
-    {
-        $url = config('gp247-config.env.GP247_LIBRARY_API').'/extension/download'
-            .'?type='.rawurlencode($this->groupType)
-            .'&key='.rawurlencode($key)
-            .'&gp247_version='.rawurlencode((string) config('gp247.core'))
-            .'&license='.rawurlencode($license);
-
-        $response = \Illuminate\Support\Facades\Http::withHeaders([
-                'GP247-API-License' => config('gp247-config.env.GP247_API_LICENSE'),
-                'GP247-API-Domain'  => url('/'),
-            ])
-            ->withOptions(['verify' => (bool) config('gp247-config.admin.extension.update_verify_ssl', true)])
-            ->timeout(120)
-            ->get($url);
-
-        if (!$response->successful()) {
-            return json_encode(['error' => 1, 'msg' => 'Download failed: HTTP '.$response->status()]);
-        }
-        return $response->body();
-    }
-
     public function registerLicense()
     {
-        $url = config('gp247-config.env.GP247_LIBRARY_API').'/register-license';
-        try {
-            // Initialize CURL
-            $ch = curl_init($url);
-            if ($ch === false) {
-                throw new \Exception('Failed to initialize CURL');
-            }
-
-            // Configure CURL options
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return result instead of output
-            curl_setopt($ch, CURLOPT_POST, true); // Set POST method
-            curl_setopt($ch, CURLOPT_POSTFIELDS, request()->all()); // Send all request data
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // Timeout after 10s
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0); // Ignore SSL verify
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0); // Ignore SSL verify host
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Allow redirect
-            curl_setopt($ch, CURLOPT_MAXREDIRS, 5); // Maximum number of redirects
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'GP247-API-Domain: ' . url('/'),
-                'Content-Type: application/json',
-                'Accept: application/json'
-            ]); 
-            
-            // Execute CURL
-            $dataApi = curl_exec($ch);
-            
-            // Debug request headers
-            $requestHeaders = curl_getinfo($ch, CURLINFO_HEADER_OUT);
-            gp247_report(msg: 'Request headers: ' . $requestHeaders, channel: null);
-            
-            // Check for CURL errors
-            if ($dataApi === false) {
-                $error = curl_error($ch);
-                curl_close($ch);
-                throw new \Exception('CURL Error: ' . $error);
-            }
-
-            // Get response information
-            $finalUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-            
-            // Only log URLs if there is a redirect (final URL is different from original URL)
-            if ($finalUrl !== $url) {
-                gp247_report(msg: 'Redirect detected:', channel: null);
-                gp247_report(msg: '- Original URL: ' . $url, channel: null);
-                gp247_report(msg: '- Final URL: ' . $finalUrl, channel: null);
-            }
-
-            curl_close($ch);
-            // Parse JSON response
-            $data = json_decode($dataApi, true);
-            
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new \Exception('JSON decode error: ' . json_last_error_msg());
-            }
-
-            $dataResponse = [
-                'status' => $data['status'] ?? 'error',
-                'message' => $data['message'] ?? 'Unknown error',
-                'data' => $data['data'] ?? null
-            ];
-
-        } catch (\Throwable $e) {
-            // Log error and return error response
-            gp247_report(msg: 'API Register Error: ' . $e->getMessage(), channel: null);
-            
-            $dataResponse =  [
-                'status' => 'error',
-                'message' => $e->getMessage(),
-                'data' => null
-            ];
-        }
+        // Delegate the HTTP call to the shared marketplace client.
+        $dataResponse = (new LibraryClient)->registerLicense(request()->all());
 
         if ($dataResponse['status'] == 'success') {
             $license = $dataResponse['data']['license'] ?? '';

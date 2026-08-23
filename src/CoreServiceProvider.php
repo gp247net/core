@@ -18,6 +18,20 @@ use GP247\Core\Commands\Information;
 use GP247\Core\Commands\Update;
 use GP247\Core\Commands\Install;
 use GP247\Core\Commands\LangUpdate;
+use GP247\Core\Commands\ExtList;
+use GP247\Core\Commands\ExtInstall;
+use GP247\Core\Commands\ExtEnable;
+use GP247\Core\Commands\ExtDisable;
+use GP247\Core\Commands\ExtUninstall;
+use GP247\Core\Commands\ExtUpdate;
+use GP247\Core\Commands\ExtCheckUpdate;
+use GP247\Core\Commands\ExtSearch;
+use GP247\Core\Commands\ExtLicense;
+use GP247\Core\Commands\InstallAll;
+use GP247\Core\Commands\UpdateAll;
+use GP247\Core\Commands\CacheRebuild;
+use GP247\Core\Commands\Doctor;
+use GP247\Core\Commands\Info;
 use GP247\Core\Middleware\Localization;
 use GP247\Core\Middleware\Fingerprint;
 use GP247\Core\Api\Middleware\ApiConnection;
@@ -48,6 +62,20 @@ class CoreServiceProvider extends ServiceProvider
         Information::class,
         Update::class,
         LangUpdate::class,
+        ExtList::class,
+        ExtInstall::class,
+        ExtEnable::class,
+        ExtDisable::class,
+        ExtUninstall::class,
+        ExtUpdate::class,
+        ExtCheckUpdate::class,
+        ExtSearch::class,
+        ExtLicense::class,
+        InstallAll::class,
+        UpdateAll::class,
+        CacheRebuild::class,
+        Doctor::class,
+        Info::class,
     ];
     
     protected function initial()

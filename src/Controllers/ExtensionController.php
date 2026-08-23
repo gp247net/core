@@ -1,6 +1,7 @@
 <?php
 namespace GP247\Core\Controllers;
 
+use GP247\Core\Library\ExtensionInstaller;
 use Illuminate\Support\Facades\File;
 
 trait  ExtensionController
@@ -56,26 +57,11 @@ trait  ExtensionController
     public function install()
     {
         $key = request('key');
-        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
-        $namespace = $namespace . '\AppConfig';
-        $config = json_decode(file_get_contents(app_path('GP247/'.$this->groupType.'/'.$key.'/gp247.json')), true);
-        $requireFaild = gp247_extension_check_compatibility($config);
-        if($requireFaild) {
-            return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.not_compatible', ['msg' => json_encode($requireFaild)])]);
-        }
-        if (class_exists($namespace)) {
-            //Check method install exist
-            if (method_exists($namespace, 'install')) {
-                $response = (new $namespace)->install();
-                if (is_array($response) && $response['error'] == 0) {
-                    gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
-                    gp247_extension_after_update();
-                }
-            } else {
-                return response()->json(['error' => 1, 'msg' => 'Method install not found']);
-            }
-        } else {
-            return response()->json(['error' => 1, 'msg' => 'Class not found']);
+        // Delegate the compat-check + AppConfig install() + cache refresh to the
+        // shared installer so CLI and UI stay in lock-step (ADR system-cli_service-extraction).
+        $response = (new ExtensionInstaller)->activate($this->groupType, $key);
+        if (is_array($response) && ($response['error'] ?? 1) == 0) {
+            gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_install::name__'.$key);
         }
         return response()->json($response);
     }
@@ -88,34 +74,13 @@ trait  ExtensionController
     public function uninstall()
     {
         $key = request('key');
-        $onlyRemoveData = request('onlyRemoveData');
+        $onlyRemoveData = (bool) request('onlyRemoveData');
 
-        $this->processUninstall($key);
-
-        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
-        $namespace = $namespace . '\AppConfig';
-        $extensionsInstalled = gp247_extension_get_installed(type:$this->groupType, active: false);
-        // Check class exist and extension installed
-        if (class_exists($namespace) && array_key_exists($key, $extensionsInstalled->toArray())) {
-            //Check method uninstall exist
-            if (method_exists($namespace, 'uninstall')) {
-                $response = (new $namespace)->uninstall();
-                if (is_array($response) && $response['error'] == 0) {
-                gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_uninstall::name__'.$key);
-                    gp247_extension_after_update();
-                }
-            } else {
-                return response()->json(['error' => 1, 'msg' => 'Method uninstall not found']);
-            }
-        } else {
-            // If extension not yet installed
-            $response = ['error' => 0, 'msg' => 'Class not found'];
-        }
-        if (!$onlyRemoveData) {
-            $appPath = 'GP247/'.$this->groupType.'/'.$key;
-            // Delete all (include data and source code)
-            File::deleteDirectory(app_path($appPath));
-            File::deleteDirectory(public_path($appPath));
+        // Guards (extension_protected + template-in-use) are enforced inside the
+        // shared installer so both UI and CLI honor them (ADR system-cli_service-extraction).
+        $response = (new ExtensionInstaller)->uninstall($this->groupType, $key, $onlyRemoveData);
+        if (is_array($response) && ($response['error'] ?? 1) == 0) {
+            gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_uninstall::name__'.$key);
         }
         return response()->json($response);
     }
@@ -128,17 +93,9 @@ trait  ExtensionController
     public function enable()
     {
         $key = request('key');
-        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
-        $namespace = $namespace . '\AppConfig';
-        //Check method enable exist
-        if (method_exists($namespace, 'enable')) {
-            $response = (new $namespace)->enable();
-            if (is_array($response) && $response['error'] == 0) {
-                gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
-                gp247_extension_after_update();
-            }
-        } else {
-            return response()->json(['error' => 1, 'msg' => 'Method enable not found']);
+        $response = (new ExtensionInstaller)->enable($this->groupType, $key);
+        if (is_array($response) && ($response['error'] ?? 1) == 0) {
+            gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
         }
         return response()->json($response);
     }
@@ -151,20 +108,10 @@ trait  ExtensionController
     public function disable()
     {
         $key = request('key');
-
-        $this->processDisable($key);
-
-        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$key);
-        $namespace = $namespace . '\AppConfig';
-        //Check method disable exist
-        if (method_exists($namespace, 'disable')) {
-            $response = (new $namespace)->disable();
-        if (is_array($response) && $response['error'] == 0) {
+        // Guards (template-in-use) are enforced inside the shared installer.
+        $response = (new ExtensionInstaller)->disable($this->groupType, $key);
+        if (is_array($response) && ($response['error'] ?? 1) == 0) {
             gp247_notice_add(type: $this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_disable::name__'.$key);
-                gp247_extension_after_update();
-            }
-        } else {
-            return response()->json(['error' => 1, 'msg' => 'Method disable not found']);
         }
         return response()->json($response);
     }
@@ -273,120 +220,35 @@ trait  ExtensionController
                 ->withErrors($validator)
                 ->withInput();
         }
-        $pathTmp = time();
-        $linkRedirect = '';
-
         if (!is_writable(storage_path('tmp'))) {
             $msg = 'No write permission '.storage_path('tmp');
             gp247_report(msg:$msg, channel:null);
-            return response()->json(['error' => 1, 'msg' => $msg]);
-        }
-
-        $dataFile = gp247_file_upload($data['file'], $disk = 'tmp', $pathFolder = $pathTmp);
-        
-        if ($dataFile['error'] == 0) {
-            $pathFile = $dataFile['data']['pathFile'] ?? '';
-            $unzip = gp247_unzip(storage_path('tmp/'.$pathFile), storage_path('tmp/'.$pathTmp));
-            if ($unzip) {
-                $checkConfig = glob(storage_path('tmp/'.$pathTmp) . '/*/gp247.json');
-                if ($checkConfig) {
-                    $folderName = explode('/gp247.json', $checkConfig[0]);
-                    $folderName = explode('/', $folderName[0]);
-                    $folderName = end($folderName);
-                    
-                    //Check compatibility 
-                    $config = json_decode(file_get_contents($checkConfig[0]), true);
-                    $requireFaild = gp247_extension_check_compatibility($config);
-                    if ($requireFaild) {
-                        File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        return redirect()->back()->with('error', gp247_language_render('admin.extension.not_compatible', ['msg' => json_encode($requireFaild)]));
-                    }
-
-                    $configGroup = $config['configGroup'] ?? '';
-                    $configKey = $config['configKey'] ?? '';
-
-                    //Process if extention config incorect
-                    if (!$configGroup || !$configKey) {
-                        File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        return redirect()->back()->with('error', gp247_language_render('admin.extension.error_config_format'));
-                    }
-                    //Check extension exist
-                    $arrPluginLocal = gp247_extension_get_all_local(type: $this->groupType);
-                    if (array_key_exists($configKey, $arrPluginLocal)) {
-                        $msg = gp247_language_render('admin.extension.error_exist');
-                        gp247_report(msg:$msg, channel:null);
-                        File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        return redirect()->back()->with('error', $msg);
-                    }
-
-                    $appPath = 'GP247/'.$configGroup.'/'.$configKey;
-
-                    if (!is_writable($checkPubPath = public_path('GP247/'.$configGroup))) {
-                        $msg = 'Import extension error: No write permission '.$checkPubPath;
-                        gp247_report(msg:$msg, channel:null);
-                        File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        return redirect()->back()->with('error', $msg);
-                    }
-            
-                    if (!is_writable($checkAppPath = app_path('GP247/'.$configGroup))) {
-                        $msg = 'Import extension error: No write permission '.$checkAppPath;
-                        gp247_report(msg:$msg, channel:null);
-                        File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        return redirect()->back()->with('error', $msg);
-                    }
-
-                    try {
-                        File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName.'/public'), public_path($appPath));
-                        File::copyDirectory(storage_path('tmp/'.$pathTmp.'/'.$folderName), app_path($appPath));
-                        File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        $namespace = gp247_extension_get_namespace(type:$this->groupType, key:$configKey);
-                        $namespace = $namespace . '\AppConfig';
-                        //Check class exist
-                        if (class_exists($namespace)) {
-                            //Check method install exist
-                            if (method_exists($namespace, 'install')) {
-                                $response = (new $namespace)->install();
-                                if (!is_array($response) || $response['error'] == 1) {
-                                    $msg = $response['msg'];
-                                    gp247_report(msg:$msg, channel:null);
-                                    return redirect()->back()->with('error', $msg);
-                                }
-                            } else {
-                                return redirect()->back()->with('error', 'Method install not found');
-                            }
-                        } else {
-                            return redirect()->back()->with('error', 'Class not found');
-                        }
-                        $linkRedirect = route('admin_plugin.index');
-                    } catch (\Throwable $e) {
-                        File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                        $msg = 'Import extension error: '.$e->getMessage();
-                        gp247_report(msg:$msg, channel:null);
-                        return redirect()->back()->with('error', $msg);
-                    }
-                } else {
-                    File::deleteDirectory(storage_path('tmp/'.$pathTmp));
-                    $msg = 'Import extension error: '.gp247_language_render('admin.extension.error_check_config');
-                    gp247_report(msg:$msg, channel:null);
-                    return redirect()->back()->with('error', $msg);
-                }
-            } else {
-                $msg = 'Import extension error: '.gp247_language_render('admin.extension.error_unzip');
-                gp247_report(msg:$msg, channel:null);
-                return redirect()->back()->with('error', $msg);
-            }
-        } else {
-            $msg = 'Import extension error: '.$dataFile['msg'];
             return redirect()->back()->with('error', $msg);
         }
 
-        gp247_notice_add(type:$this->groupType, typeId: $configKey, content:'admin.notice.gp247_'.strtolower($this->groupType).'_import::name__'.$configKey);
-        gp247_extension_after_update();
-
-        if ($linkRedirect) {
-            return redirect($linkRedirect)->with('success', gp247_language_render('admin.extension.import_success'));
-        } else {
-            return redirect()->back()->with('success', gp247_language_render('admin.extension.import_success'));
+        $pathTmp = time();
+        $dataFile = gp247_file_upload($data['file'], $disk = 'tmp', $pathFolder = $pathTmp);
+        if (($dataFile['error'] ?? 1) != 0) {
+            return redirect()->back()->with('error', 'Import extension error: '.($dataFile['msg'] ?? ''));
         }
+
+        $zipPath = storage_path('tmp/'.($dataFile['data']['pathFile'] ?? ''));
+
+        // Shared engine: unzip → verify manifest → copy → install — the exact same
+        // path the CLI uses (ADR system-cli_service-extraction).
+        $response = (new ExtensionInstaller)->installFromZip($this->groupType, $zipPath);
+
+        // Remove the uploaded archive (installFromZip cleans its own extract dir).
+        @File::delete($zipPath);
+
+        if (!is_array($response) || ($response['error'] ?? 1) == 1) {
+            return redirect()->back()->with('error', $response['msg'] ?? 'Import extension error');
+        }
+
+        $configKey = $response['key'] ?? '';
+        gp247_notice_add(type:$this->groupType, typeId: $configKey, content:'admin.notice.gp247_'.strtolower($this->groupType).'_import::name__'.$configKey);
+
+        return redirect($this->listUrlAction['urlLocal'] ?? route('admin_plugin.index'))
+            ->with('success', gp247_language_render('admin.extension.import_success'));
     }
 }

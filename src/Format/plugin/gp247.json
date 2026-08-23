@@ -11,5 +11,6 @@
     "requireCore": ["2.1"],
     "requireUpdateFrom": "1.0",
     "requireComposerPackages": [],
-    "requireGp247Extensions": []
+    "requireGp247Extensions": [],
+    "requireLivewire": false
 }

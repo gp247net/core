@@ -2,7 +2,7 @@
 
 namespace GP247\Core\Commands;
 
-use Illuminate\Console\Command;
+use GP247\Core\Console\GP247Command;
 use Throwable;
 use GP247\Core\Database\Seeders\DataLanguageSeeder;
 
@@ -18,8 +18,10 @@ use GP247\Core\Database\Seeders\DataLanguageSeeder;
  * that ship core alone.
  *
  * @aidlc-unit compat-foundation
+ * @aidlc-story US-CLI-005
+ * @aidlc-adr system-cli_output-contract
  */
-class LangUpdate extends Command
+class LangUpdate extends GP247Command
 {
     /**
      * The name and signature of the console command.
@@ -38,9 +40,9 @@ class LangUpdate extends Command
     /**
      * Execute the console command.
      *
-     * @return void
+     * @return int Exit code.
      */
-    public function handle()
+    protected function handleGp247(): int
     {
         // Ordered core -> front -> shop; front/shop are optional packages, so
         // each is guarded by class_exists and isolated in its own try/catch to
@@ -51,9 +53,12 @@ class LangUpdate extends Command
             'shop'  => 'GP247\\Shop\\Admin\\Database\\Seeders\\DataShopLanguageSeeder',
         ];
 
+        $results = [];
+
         foreach ($seeders as $package => $class) {
             if (!class_exists($class)) {
                 $this->line("- [{$package}] skipped (package not installed).");
+                $results[$package] = 'skipped';
                 continue;
             }
 
@@ -64,13 +69,17 @@ class LangUpdate extends Command
                     ->useUpsert()
                     ->run();
                 $this->info("- [{$package}] language updated (upsert).");
+                $results[$package] = 'updated';
             } catch (Throwable $e) {
                 gp247_report($e->getMessage());
-                $this->error("- [{$package}] failed: ".$e->getMessage());
+                $this->addWarning("- [{$package}] failed: ".$e->getMessage());
+                $results[$package] = 'failed';
             }
         }
 
         $this->info('---------------------');
         $this->info('Language update done!');
+
+        return $this->respondSuccess(['packages' => $results]);
     }
 }

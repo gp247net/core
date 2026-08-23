@@ -2,12 +2,18 @@
 
 namespace GP247\Core\Commands;
 
-use Illuminate\Console\Command;
-use Throwable;
-use DB;
+use GP247\Core\Console\GP247Command;
 use Illuminate\Support\Facades\Storage;
 
-class Install extends Command
+/**
+ * First-time installation of the whole GP247 platform (migrate, seed, publish
+ * assets, storage link, installed marker).
+ *
+ * @aidlc-unit system-cli
+ * @aidlc-story US-CLI-005
+ * @aidlc-adr system-cli_output-contract
+ */
+class Install extends GP247Command
 {
     /**
      * The name and signature of the console command.
@@ -26,35 +32,52 @@ class Install extends Command
     /**
      * Execute the console command.
      *
-     * @return mixed
+     * @return int Exit code.
      */
-    public function handle()
+    protected function handleGp247(): int
     {
         $force = $this->option('force') ?? 0;
 
         if (!$force) {
             if (!$this->checkGP247Installed()) {
-                return Command::FAILURE;
+                return $this->respondFailure(
+                    'already_installed',
+                    'GP247 has been installed. Delete '
+                        . Storage::disk('local')->path('gp247-installed.txt')
+                        . ' to reinstall, or pass --force=1.'
+                );
             }
-            if ($this->confirm('Are you sure you want to install GP247?')) {
-                $this->install();
-            } else {
+            // WHY: JSON / non-interactive callers cannot answer a prompt, so we
+            // fail clearly instead of blocking; --force=1 is the unattended path.
+            if ($this->isJson() || !$this->input->isInteractive()) {
+                return $this->respondFailure(
+                    'confirmation_required',
+                    'Refusing to install without confirmation. Pass --force=1 for unattended install.'
+                );
+            }
+            if (!$this->confirm('Are you sure you want to install GP247?')) {
                 $this->info('Installation canceled');
+                return $this->respondSuccess(['installed' => false, 'msg' => 'Installation canceled']);
             }
-        } else {
-            $this->install();
         }
 
+        return $this->install();
     }
 
-    private function welcome() {
+    /**
+     * Print the welcome banner after a successful install.
+     *
+     * @return void
+     */
+    private function welcome()
+    {
         $text = "
-          _____  _____     ___  _  _   _____ 
+          _____  _____     ___  _  _   _____
          / ____|  __ \   |__ \| || | |___  |
-        | |  __| |__) |     ) | || |_   / / 
-        | | |_ |  ___/     / /|__   _| / /  
-        | |__| | |        / /_   | |  / /   
-         \_____|_|       |____|  |_| /_/    
+        | |  __| |__) |     ) | || |_   / /
+        | | |_ |  ___/     / /|__   _| / /
+        | |__| | |        / /_   | |  / /
+         \_____|_|       |____|  |_| /_/
         ";
 
         $text .= "\n             Welcome to GP247 ".config('gp247.core');
@@ -66,60 +89,72 @@ class Install extends Command
         foreach ($lines as $line) {
             $this->line($line);
         }
-
-        return Command::SUCCESS;
     }
 
-    private function checkEnv()
+    /**
+     * Verify .env exists and an app key is present (generating one if needed).
+     *
+     * @return bool True when the environment is ready.
+     */
+    private function checkEnv(): bool
     {
         if (!file_exists(base_path() . "/.env")) {
-            $this->fail("File .env not found");
             return false;
         } else if (!config('app.key')) {
-            $this->call('key:generate');
+            $this->runArtisan('key:generate');
         }
         return true;
     }
 
-    private function checkGP247Installed()
+    /**
+     * Whether GP247 is not yet installed (the installed marker is absent).
+     *
+     * @return bool True when it is safe to install.
+     */
+    private function checkGP247Installed(): bool
     {
-        if (\Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {
-            $this->error("GP247 has been installed");
-            $this->fail("If you want to reinstall, please delete the file gp247-installed.txt in the ".\Illuminate\Support\Facades\Storage::disk('local')->path('gp247-installed.txt'));
-            return false;
-        }
-        return true;
+        return !Storage::disk('local')->exists('gp247-installed.txt');
     }
 
-    private function install() {
-
+    /**
+     * Run the full installation sequence.
+     *
+     * @return int Exit code.
+     */
+    private function install(): int
+    {
         if (!$this->checkEnv()) {
-            return Command::FAILURE;
+            return $this->respondFailure('env_missing', 'File .env not found');
         }
 
-        $this->call('migrate');
+        $this->runArtisan('migrate');
         $this->info('---------------> Migrate default done!');
 
         \DB::connection(GP247_DB_CONNECTION)->table('migrations')->where('migration', '00_00_00_step1_create_tables_admin')->delete();
-        $this->call('migrate', ['--path' => '/vendor/gp247/core/src/Database/Migrations/00_00_00_step1_create_tables_admin.php']);
+        $this->runArtisan('migrate', ['--path' => '/vendor/gp247/core/src/Database/Migrations/00_00_00_step1_create_tables_admin.php']);
         $this->info('---------------> Migrate schema GP247 done!');
 
-        $this->call('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataDefaultSeeder', '--force' => true]);
+        $this->runArtisan('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataDefaultSeeder', '--force' => true]);
         $this->info('---------------> Seeding database GP247 default done!');
-        $this->call('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataStoreSeeder', '--force' => true]);
+        $this->runArtisan('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataStoreSeeder', '--force' => true]);
         $this->info('---------------> Seeding database GP247 system done!');
-        $this->call('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataLocaleSeeder', '--force' => true]);
+        $this->runArtisan('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataLocaleSeeder', '--force' => true]);
         $this->info('---------------> Seeding database GP247 local done!');
 
-        $this->call('vendor:publish', ['--tag' => 'gp247:core-public']);
-        $this->call('vendor:publish', ['--tag' => 'gp247:functions-except']);
-        $this->call('vendor:publish', ['--tag' => 'lfm_public', '--force' => true]);
+        $this->runArtisan('vendor:publish', ['--tag' => 'gp247:core-public']);
+        $this->runArtisan('vendor:publish', ['--tag' => 'gp247:functions-except']);
+        $this->runArtisan('vendor:publish', ['--tag' => 'lfm_public', '--force' => true]);
         $this->info('---------------> Publish laravel-filemanager assets done!');
 
-        $this->call('storage:link');
+        $this->runArtisan('storage:link');
 
         Storage::disk('local')->put('gp247-installed.txt', date('Y-m-d H:i:s'));
 
         $this->welcome();
+
+        return $this->respondSuccess([
+            'installed' => true,
+            'core'      => config('gp247.core'),
+        ]);
     }
 }

@@ -21,6 +21,15 @@
          require_once __DIR__.'/function.php';
      }
 
+     // US-PLG-004: register the plugin's Livewire class namespace so its admin
+     // component resolves as <livewire:Extension_Key::admin-livewire> on the
+     // TailAdmin shell (and via the full-page route in Route.php), without
+     // relying on Composer autoload discovery on the host. Guarded so a host
+     // without Livewire installed still boots the plugin cleanly.
+     if (class_exists(\Livewire\Livewire::class)) {
+         \Livewire\Livewire::addNamespace('Extension_Key', classNamespace: 'App\\GP247\\Plugins\\Extension_Key\\Livewire');
+     }
+
      // US-PLG-007: register this plugin into gp247/front's sitemap.xml (ADR
      // seo_plugin-sitemap-extension). Safe to leave as-is even before
      // Seo::sitemapUrls() is filled in — the plugin still shows up as a

@@ -2,11 +2,18 @@
 
 namespace GP247\Core\Commands;
 
-use Illuminate\Console\Command;
+use GP247\Core\Console\GP247Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
 
-class MakePlugin extends Command
+/**
+ * Scaffold a new GP247 2.0 plugin (directory structure, admin controller,
+ * model, Livewire sample, Seo/sitemap, lang files, provider, route, manifest).
+ *
+ * @aidlc-unit plugin-manager
+ * @aidlc-story US-CLI-005
+ * @aidlc-adr system-cli_output-contract
+ */
+class MakePlugin extends GP247Command
 {
     /**
      * The name and signature of the console command.
@@ -22,31 +29,48 @@ class MakePlugin extends Command
      */
     protected $description = 'Make format plugin "php artisan gp247:make-plugin --name=YourPluginName --download=0"';
 
+    /** @var string Working sub-directory under storage/ for scaffolding. */
     protected $tmpFolder = 'tmp';
+
     /**
      * Execute the console command.
      *
-     * @return mixed
+     * @return int Exit code.
      */
-    public function handle()
+    protected function handleGp247(): int
     {
         $name = $this->option('name') ?? '';
         $download = $this->option('download') ?? 0;
         if (empty($name)) {
-            echo json_encode([
-                'error' => '1',
-                'msg' => 'Command error'
-            ]);
-            exit;
+            return $this->respondFailure('missing_name', 'Command error: --name is required');
         }
-        $this->extension($name, $download);
+
+        $result = $this->extension($name, $download);
+        if (!$result['ok']) {
+            return $this->respondFailure('make_failed', $result['msg'], ['path' => $result['path']]);
+        }
+
+        $this->info('Success'.($result['path'] ? ': '.$result['path'] : ''));
+
+        return $this->respondSuccess([
+            'key'  => $result['key'],
+            'path' => $result['path'],
+            'msg'  => 'Success',
+        ]);
     }
 
-    //Create format extension
-    protected function extension($name = '', $download = 0)
+    /**
+     * Build the plugin scaffold, either installed into the app or zipped.
+     *
+     * @param string $name     Raw plugin name from the caller.
+     * @param int    $download 1 to package a zip under storage/tmp, 0 to install.
+     * @return array{ok: bool, key: string, path: string, msg: string}
+     */
+    protected function extension($name = '', $download = 0): array
     {
-        $error = 0;
+        $ok = true;
         $msg = 'Success';
+        $path = '';
 
         $extensionKey = gp247_word_format_class($name);
         $extensionUrlKey = gp247_word_format_url($name);
@@ -167,7 +191,7 @@ class MakePlugin extends Command
 
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
-            $error = 1;
+            $ok = false;
         }
 
         try {
@@ -181,13 +205,14 @@ class MakePlugin extends Command
             File::deleteDirectory(storage_path($this->tmpFolder.'/'.$sID));
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
-            $error = 1;
+            $ok = false;
         }
 
-        echo json_encode([
-            'error' => $error,
-            'path' => $path ?? '',
-            'msg' => $msg
-        ]);
+        return [
+            'ok'   => $ok,
+            'key'  => $extensionKey,
+            'path' => $path,
+            'msg'  => $msg,
+        ];
     }
 }

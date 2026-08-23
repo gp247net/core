@@ -2,12 +2,20 @@
 
 namespace GP247\Core\Commands;
 
-use Illuminate\Console\Command;
-use Throwable;
-use DB;
+use GP247\Core\Console\GP247Command;
 use Illuminate\Support\Facades\Artisan;
+use Throwable;
 
-class Update extends Command
+/**
+ * Update GP247 after bumping package versions with composer update: re-seed
+ * default + locale data safely (never overwriting edited rows) and refresh
+ * customized static files.
+ *
+ * @aidlc-unit system-cli
+ * @aidlc-story US-CLI-005
+ * @aidlc-adr system-cli_output-contract
+ */
+class Update extends GP247Command
 {
     /**
      * The name and signature of the console command.
@@ -26,39 +34,44 @@ class Update extends Command
     /**
      * Execute the console command.
      *
-     * @return mixed
+     * @return int Exit code.
      */
-    public function handle()
+    protected function handleGp247(): int
     {
         try {
-            Artisan::call('db:seed', 
-                [
-                    '--class' => '\GP247\Core\Database\Seeders\DataDefaultSeeder',
-                    '--force' => true
-                ]
-            );
-            Artisan::call('db:seed', 
-                [
-                    '--class' => '\GP247\Core\Database\Seeders\DataLocaleSeeder',
-                    '--force' => true
-                ]
-            );
+            $this->runArtisan('db:seed', [
+                '--class' => '\GP247\Core\Database\Seeders\DataDefaultSeeder',
+                '--force' => true,
+            ]);
+            $this->runArtisan('db:seed', [
+                '--class' => '\GP247\Core\Database\Seeders\DataLocaleSeeder',
+                '--force' => true,
+            ]);
             $this->info('- Update database done!');
         } catch (Throwable $e) {
             gp247_report($e->getMessage());
-            echo  json_encode(['error' => 1, 'msg' => $e->getMessage()]);
-            exit();
+            return $this->respondFailure('seed_failed', $e->getMessage());
         }
+
         try {
-            Artisan::call('gp247:customize static');
+            // WHY: the customize layer is optional; a failure here must not undo
+            // the data seeding that already succeeded — surface it as a warning.
+            $this->runArtisan('gp247:customize static');
             $this->info('- Update static file done!');
         } catch (Throwable $e) {
             gp247_report($e->getMessage());
-            echo  json_encode(['error' => 1, 'msg' => $e->getMessage()]);
-            exit();
+            $this->addWarning('Update static file skipped: '.$e->getMessage());
         }
+
+        $core = config('gp247.core');
+        $sub = gp247_composer_get_package_installed()['gp247/core'] ?? '';
         $this->info('---------------------');
-        $this->info('Core: '.config('gp247.core'));
-        $this->info('Core sub-version: '.(gp247_composer_get_package_installed()['gp247/core'] ?? ''));
+        $this->info('Core: '.$core);
+        $this->info('Core sub-version: '.$sub);
+
+        return $this->respondSuccess([
+            'core'        => $core,
+            'sub_version' => $sub,
+        ]);
     }
 }
