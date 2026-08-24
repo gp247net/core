@@ -117,7 +117,11 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
 - **Bước 5**: Khởi tạo gp247
 
   Chạy lệnh: 
-  >`php artisan gp247:core-install`
+  >`php artisan gp247:install`
+
+  `gp247:install` tự động phát hiện các gói GP247 đang có và cài theo thứ tự
+  (core [+front] [+shop]); mặc định sẽ hỏi xác nhận, thêm `--force=1` để cài
+  không cần tương tác.
 
 - **Bước 6**: Thêm xử lý lỗi
 
@@ -139,24 +143,46 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
   Đoạn mã này sẽ giúp bạn xử lý các ngoại lệ thông qua hàm `gp247_handle_exception` nếu hàm này tồn tại.
 ## Thông tin hữu ích:
 
+> 📖 **Tham chiếu dòng lệnh đầy đủ.** Các lệnh dưới đây chỉ là những lệnh thông
+> dụng nhất. Xem tất cả lệnh artisan của GP247 cùng tùy chọn và ví dụ trong tài
+> liệu chính thức: [Tiếng Việt](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference_vi.md)
+> · [English](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference.md).
+
 **Để xem phiên bản GP247**
 
->`php artisan gp247:core-info`
+>`php artisan gp247:info`
 
 **Cập nhật gp247**
 
 Cập nhật gói bằng lệnh: 
 >`composer update gp247/core`
 
-Sau đó, chạy lệnh: 
+Sau đó chạy lệnh refresh an toàn, không phá dữ liệu (cập nhật core, cập nhật
+schema shop nếu có module shop, và rebuild cache): 
 
->`php artisan gp247:core-update`
+>`php artisan gp247:update`
+
+**Tùy chọn — cập nhật lại file ngôn ngữ.** Mặc định `gp247:update` giữ nguyên
+bản dịch của bạn. Thêm `--overwrite-lang` để kéo bản dịch mới nhất, **ghi đè mọi
+chuỗi ngôn ngữ bạn đã sửa**:
+
+>`php artisan gp247:update --overwrite-lang`
 
 **Tùy chọn — cập nhật lại asset/view đã publish lên bản mới nhất.**
 `composer update` chỉ cập nhật package trong `vendor/`; các file đã publish ra
 `public/GP247` và `resources/views/vendor/gp247-admin` **không** tự động được ghi
-đè. Nếu bản phát hành mới có thay đổi CSS/JS đã build sẵn hoặc view admin và bạn
-muốn áp dụng lên site, hãy publish lại kèm `--force`:
+đè. Cách gọn nhất là dùng option **tùy chọn** `--publish=<tokens>` của
+`gp247:update` (mặc định không publish gì). Chỉ `core-public` là an toàn (asset
+admin đã build); các token view sẽ ghi đè tùy biến của bạn, nên hãy backup trước:
+
+>`php artisan gp247:update --publish=core-public` // an toàn: làm mới CSS/JS admin
+
+>`php artisan gp247:update --publish=core-public,core-view` // đồng thời ghi đè view admin (PHÁ DỮ LIỆU)
+
+`gp247:update` **không** có cờ `--force` — tự gõ token phá-dữ-liệu chính là đồng
+thuận, và chạy tương tác vẫn cảnh báo và hỏi xác nhận.
+
+Hoặc publish từng tag thủ công bằng `vendor:publish --force`:
 
 >`php artisan vendor:publish --tag=gp247:core-public --force` // -> public/GP247 (build admin: CSS/JS, ...)
 

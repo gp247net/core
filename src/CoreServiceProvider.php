@@ -27,6 +27,7 @@ use GP247\Core\Commands\ExtUpdate;
 use GP247\Core\Commands\ExtCheckUpdate;
 use GP247\Core\Commands\ExtSearch;
 use GP247\Core\Commands\ExtLicense;
+use GP247\Core\Commands\ExtRegisterLicense;
 use GP247\Core\Commands\InstallAll;
 use GP247\Core\Commands\UpdateAll;
 use GP247\Core\Commands\CacheRebuild;
@@ -83,6 +84,7 @@ class CoreServiceProvider extends ServiceProvider
         ExtCheckUpdate::class,
         ExtSearch::class,
         ExtLicense::class,
+        ExtRegisterLicense::class,
         UpdateAll::class,
         CacheRebuild::class,
         // WHY: Info stays in the runtime tier — it reads gp247_* helpers

@@ -4,6 +4,7 @@ namespace GP247\Core\Controllers;
 use GP247\Core\Library\ExtensionInstaller;
 use GP247\Core\Library\ExtensionUpdateManager;
 use GP247\Core\Library\LibraryClient;
+use GP247\Core\Library\LicenseRegistrar;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -90,12 +91,18 @@ trait ExtensionOnlineController
             $htmlPaging .= '</ul>';
         }
 
-        // check error
+        // Surface a marketplace API failure in the admin banner. LibraryClient
+        // normalizes any non-2xx/exception into a payload carrying a non-empty
+        // 'error' plus (when the API sent them) 'code'/'message'. Key off 'error'
+        // — not the former string status=='error' — because 'status' is now the
+        // HTTP status code (int) under the shared contract, so the old check would
+        // never match and the banner silently vanished
+        // (RISK-TECH-cli-marketplace-error-swallow).
         $errorCode = '';
         $errorMessage = '';
-        if (isset($dataApi['status']) && $dataApi['status'] == 'error') {
-            $errorCode = $dataApi['code'] ?? '';
-            $errorMessage = $dataApi['message'] ?? '';
+        if (!empty($dataApi['error'])) {
+            $errorCode = $dataApi['code'] ?? (string) ($dataApi['status'] ?? 'error');
+            $errorMessage = $dataApi['message'] ?? $dataApi['error'];
         }
     
     
@@ -324,54 +331,36 @@ trait ExtensionOnlineController
         return response()->json($response);
     }
 
+    /**
+     * Register this domain's API-connection license (the "Click here" button).
+     *
+     * Shares LicenseRegistrar with the CLI (gp247:ext-register-license) so both
+     * surfaces register + persist the license through one code-path
+     * (NFR-SEC-cli-service-parity). The .env write logic lives in the service,
+     * not here.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-register-license
+     * @aidlc-adr system-cli_service-extraction
+     */
     public function registerLicense()
     {
-        // Delegate the HTTP call to the shared marketplace client.
-        $dataResponse = (new LibraryClient)->registerLicense(request()->all());
+        $result = (new LicenseRegistrar)->register();
 
-        if ($dataResponse['status'] == 'success') {
-            $license = $dataResponse['data']['license'] ?? '';
-            
-            // Check if .env file exists
-            if (!file_exists(base_path('.env'))) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'File .env not found'
-                ]);
-            }
-
-            // Read .env content
-            $envContent = file_get_contents(base_path('.env'));
-            
-            // Check if GP247_API_LICENSE exists
-            if (strpos($envContent, 'GP247_API_LICENSE') === false) {
-                if (substr($envContent, -1) !== "\n") {
-                    $envContent .= "\n";
-                }
-                $envContent .= "GP247_API_LICENSE=" . $license . "\n";
-            } else {
-                $envContent = preg_replace(
-                    '/GP247_API_LICENSE=.*/',
-                    'GP247_API_LICENSE=' . $license,
-                    $envContent
-                );
-            }
-            
-            try {
-                file_put_contents(base_path('.env'), $envContent);
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'License registered successfully'
-                ]);
-            } catch (\Throwable $e) {
-                $msg = 'GP247_API_LICENSE='.$license;
-                return response()->json([
-                    'status' => 'error',
-                    'message' =>  gp247_language_render('admin.extension.error_write_env', ['msg' => $msg])
-                ]);
-            }
+        if ($result['status'] === 'success' && empty($result['wrote_env'])) {
+            // .env not writable: surface the token so the admin can paste it.
+            $msg = 'GP247_API_LICENSE=' . ($result['license'] ?? '');
+            return response()->json([
+                'status'  => 'error',
+                'message' => gp247_language_render('admin.extension.error_write_env', ['msg' => $msg]),
+            ]);
         }
 
-        return response()->json($dataResponse);
+        return response()->json([
+            'status'  => $result['status'],
+            'message' => $result['message'],
+        ]);
     }
 }

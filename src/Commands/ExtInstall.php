@@ -143,25 +143,77 @@ class ExtInstall extends ExtCommand
             ]);
         }
 
-        // Free install: look up the item's public download path from the listing.
+        // Free install: look up the item's public download URL from the listing.
         $listing = (new LibraryClient)->list($type, ['keyword' => $key, 'page[size]' => 50]);
-        $path = '';
+
+        // WHY: distinguish a real API failure (403 domain_not_authorized, network,
+        // TLS, misconfigured endpoint) from a genuinely empty result. Without this
+        // the swallowed error surfaced as the misleading "not found in the
+        // marketplace" (RISK-TECH-cli-marketplace-error-swallow).
+        if (!empty($listing['error'])) {
+            return ['error' => 1, 'msg' => 'Marketplace error: '.$listing['error'].$this->licenseHint($listing)];
+        }
+
+        $downloadUrl = '';
         $isFree = true;
+        $found = false;
         foreach (($listing['data'] ?? []) as $item) {
             if (($item['key'] ?? '') === $key) {
-                $path = $item['path'] ?? '';
+                $found = true;
+                // WHY: on the browse/search `list` endpoint the free public download
+                // URL lives in 'file' (the filev3 link), NOT 'path' — 'path' is
+                // always empty here; it only carries a URL on the separate
+                // /check-update endpoint used by ext-update. The admin "Install"
+                // button sends exactly this 'file' value (extension_online.blade.php:
+                // installOnline(key, extension.file)). Reading 'path' misreported an
+                // available free plugin as "not found in the marketplace"
+                // (RISK-TECH-cli-freeinstall-field-mismatch).
+                $downloadUrl = ($item['file'] ?? '') ?: ($item['path'] ?? '');
                 $isFree = (bool) ($item['is_free'] ?? 0);
                 break;
             }
         }
 
-        if ($path === '') {
-            if (!$isFree) {
+        if ($downloadUrl === '') {
+            if ($found && !$isFree) {
                 return ['error' => 1, 'msg' => 'Extension "'.$key.'" is paid — pass --paid --license=...'];
+            }
+            if ($found) {
+                return ['error' => 1, 'msg' => 'Extension "'.$key.'" has no public download URL in the marketplace listing'];
             }
             return ['error' => 1, 'msg' => 'Extension "'.$key.'" not found in the marketplace'];
         }
 
-        return $installer->installFromRemote($type, $key, ['path' => $path]);
+        return $installer->installFromRemote($type, $key, ['path' => $downloadUrl]);
+    }
+
+    /**
+     * Build a hint pointing the operator at gp247:ext-register-license when a
+     * marketplace failure is an unregistered-domain / missing-license problem.
+     *
+     * The same unregistered domain that trips RISK-TECH-cli-marketplace-error-swallow
+     * is fixed by registering this domain's API-connection license, so we suggest
+     * the fix right where the error surfaces (mod 20260824T115233). Only a hint —
+     * we never auto-run it.
+     *
+     * @param array $listing The LibraryClient::list() error payload (may carry a
+     *   marketplace 'code' and normalized 'error' string).
+     * @return string A suffix to append to the error message, or '' when the
+     *   failure is unrelated to licensing/domain authorization.
+     */
+    protected function licenseHint(array $listing): string
+    {
+        $code = strtolower((string) ($listing['code'] ?? ''));
+        $error = strtolower((string) ($listing['error'] ?? ''));
+
+        $isLicenseIssue = in_array($code, ['api_license_required', 'domain_not_authorized'], true)
+            || str_contains($error, 'license')
+            || str_contains($error, 'domain not authorized');
+
+        if (!$isLicenseIssue) {
+            return '';
+        }
+
+        return ' → Run \'php artisan gp247:ext-register-license\' to register this domain\'s API license.';
     }
 }
