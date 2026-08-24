@@ -53,16 +53,6 @@ class Update extends GP247Command
             return $this->respondFailure('seed_failed', $e->getMessage());
         }
 
-        try {
-            // WHY: the customize layer is optional; a failure here must not undo
-            // the data seeding that already succeeded — surface it as a warning.
-            $this->runArtisan('gp247:customize static');
-            $this->info('- Update static file done!');
-        } catch (Throwable $e) {
-            gp247_report($e->getMessage());
-            $this->addWarning('Update static file skipped: '.$e->getMessage());
-        }
-
         $core = config('gp247.core');
         $sub = gp247_composer_get_package_installed()['gp247/core'] ?? '';
         $this->info('---------------------');
