@@ -82,6 +82,26 @@ class LibraryClient
                 ->timeout($this->timeout)
                 ->get($this->baseUrl().'/'.strtolower($groupType), $query);
 
+            // WHY: Http::get() does NOT throw on 4xx/5xx, so without this check a
+            // 403/401/5xx body (e.g. {"code":"domain_not_authorized"}) would be
+            // returned verbatim — a valid array with no 'data'/'error' key — and
+            // callers would read it as an empty-but-successful listing, masking the
+            // real failure as "not found" (RISK-TECH-cli-marketplace-error-swallow).
+            if (!$response->successful()) {
+                // Preserve the API's own error fields (e.g. code/message) so the
+                // admin "From library" banner can display them, while guaranteeing
+                // the normalized contract the CLI relies on: empty data, a concrete
+                // error string, and the HTTP status. `status` is the HTTP status
+                // code (int) and intentionally overrides any string "status" the
+                // body may carry (RISK-TECH-cli-marketplace-error-swallow).
+                $body = $response->json();
+                return array_merge(is_array($body) ? $body : [], [
+                    'data'   => [],
+                    'error'  => $this->errorMessage($response),
+                    'status' => $response->status(),
+                ]);
+            }
+
             $data = $response->json();
             if (!is_array($data)) {
                 throw new \RuntimeException('Invalid marketplace response');
@@ -91,6 +111,28 @@ class LibraryClient
             gp247_report(msg: 'API Error: '.$e->getMessage(), channel: null);
             return ['data' => [], 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Extract a human-readable error message from a non-successful response.
+     *
+     * Prefers the API's own message fields, then falls back to the HTTP status so
+     * the caller always surfaces a concrete cause instead of a generic failure.
+     *
+     * @param \Illuminate\Http\Client\Response $response The failed HTTP response.
+     * @return string A concrete error message (never empty).
+     */
+    protected function errorMessage($response): string
+    {
+        $body = $response->json();
+        if (is_array($body)) {
+            foreach (['message', 'msg', 'error', 'code'] as $field) {
+                if (!empty($body[$field]) && is_string($body[$field])) {
+                    return $body[$field];
+                }
+            }
+        }
+        return 'HTTP '.$response->status();
     }
 
     /**

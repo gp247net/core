@@ -117,7 +117,11 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
 - **Step 5**: Initialize gp247
 
   Run the command: 
-  >`php artisan gp247:core-install`
+  >`php artisan gp247:install`
+
+  `gp247:install` auto-detects the GP247 packages present and installs them in
+  order (core [+front] [+shop]); it asks to confirm by default, add `--force=1`
+  for an unattended install.
 
 - **Step 6**: Add error handling
 
@@ -140,24 +144,47 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
 
 ## Useful information:
 
+> 📖 **Full command-line reference.** The commands below are the most common ones.
+> For every GP247 artisan command, its options and examples, see the official
+> reference: [English](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference.md)
+> · [Tiếng Việt](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference_vi.md).
+
 **To view GP247 version**
 
->`php artisan gp247:core-info`
+>`php artisan gp247:info`
 
 **Update gp247**
 
 Update the package using the command: 
 >`composer update gp247/core`
 
-Then, run the command: 
+Then run the safe, non-destructive refresh (updates core, updates the shop
+schema when the shop module is installed, and rebuilds the caches): 
 
->`php artisan gp247:core-update`
+>`php artisan gp247:update`
+
+**Optional — refresh language files.** By default `gp247:update` leaves your
+translations untouched. Add `--overwrite-lang` to also pull the latest
+translations, **overwriting any language strings you edited**:
+
+>`php artisan gp247:update --overwrite-lang`
 
 **Optional — refresh published assets/views to the latest version.**
 `composer update` only refreshes the package under `vendor/`; the files already
 published to `public/GP247` and `resources/views/vendor/gp247-admin` are **not**
-overwritten automatically. If a new release ships updated compiled CSS/JS or
-admin views and you want them live, re-publish with `--force`:
+overwritten automatically. The easiest way is the **opt-in** `--publish=<tokens>`
+option of `gp247:update` (default publishes nothing). Only `core-public` is safe
+(compiled admin assets); the view tokens overwrite your customizations, so back
+up first:
+
+>`php artisan gp247:update --publish=core-public` // safe: refresh admin CSS/JS
+
+>`php artisan gp247:update --publish=core-public,core-view` // also overwrite admin views (DESTRUCTIVE)
+
+There is no `--force` flag on `gp247:update` — typing a destructive token is the
+consent, and an interactive run still warns and asks to confirm.
+
+Alternatively, publish each tag manually with `vendor:publish --force`:
 
 >`php artisan vendor:publish --tag=gp247:core-public --force` // -> public/GP247 (admin build: CSS/JS, ...)
 

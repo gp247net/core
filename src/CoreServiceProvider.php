@@ -27,6 +27,7 @@ use GP247\Core\Commands\ExtUpdate;
 use GP247\Core\Commands\ExtCheckUpdate;
 use GP247\Core\Commands\ExtSearch;
 use GP247\Core\Commands\ExtLicense;
+use GP247\Core\Commands\ExtRegisterLicense;
 use GP247\Core\Commands\InstallAll;
 use GP247\Core\Commands\UpdateAll;
 use GP247\Core\Commands\CacheRebuild;
@@ -57,6 +58,18 @@ use GP247\Core\AdminShell\Http\Livewire\CustomConfigForm;
 
 class CoreServiceProvider extends ServiceProvider
 {
+    /**
+     * Runtime-tier commands: registered only after GP247 is installed (inside the
+     * gp247-installed.txt gate in boot()), because they depend on the gp247_*
+     * helpers and a migrated database that only exist post-install.
+     *
+     * Platform bootstrap/diagnostic commands that must be usable BEFORE install
+     * (gp247:install, gp247:core-install, gp247:doctor) are NOT here — they are
+     * registered unconditionally in initial() (bootstrap tier). See
+     * ADR system-cli_command-registration-tiers, NFR-AVAIL-cli-bootstrap-commands.
+     *
+     * @var array<int, class-string>
+     */
     protected $listCommand = [
         MakePlugin::class,
         Information::class,
@@ -71,10 +84,12 @@ class CoreServiceProvider extends ServiceProvider
         ExtCheckUpdate::class,
         ExtSearch::class,
         ExtLicense::class,
-        InstallAll::class,
+        ExtRegisterLicense::class,
         UpdateAll::class,
         CacheRebuild::class,
-        Doctor::class,
+        // WHY: Info stays in the runtime tier — it reads gp247_* helpers
+        // (gp247_composer_get_package_installed / gp247_extension_*) that are only
+        // loaded after the installed-gate, so it cannot run pre-install.
         Info::class,
     ];
     
@@ -123,10 +138,22 @@ class CoreServiceProvider extends ServiceProvider
             exit;
         }
 
-        //Load command initial
+        // Bootstrap-tier commands: registered unconditionally so the platform's
+        // common install/diagnostic entry points exist the moment the package is
+        // installed via composer — before gp247:core-install runs and regardless
+        // of whether front/shop are present-but-not-yet-installed. These only use
+        // pre-install-safe APIs (constants loaded in register() such as
+        // GP247_DB_CONNECTION), never the gp247_* helpers that load behind the
+        // gp247-installed.txt gate. See ADR system-cli_command-registration-tiers,
+        // NFR-AVAIL-cli-bootstrap-commands.
+        //   - Install    => gp247:core-install
+        //   - InstallAll  => gp247:install  (auto-detects front/shop, confirmation-gated)
+        //   - Doctor      => gp247:doctor    (pre-install environment gate)
         try {
             $this->commands([
                 Install::class,
+                InstallAll::class,
+                Doctor::class,
             ]);
         } catch (\Throwable $e) {
             $msg = '#GP247:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
