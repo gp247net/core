@@ -36,7 +36,7 @@ abstract class ResourcePanel extends GP247AdminComponent
     public string $sortDir = 'asc';
 
     /** @var int Rows per page. */
-    public int $perPage = 10;
+    public int $perPage = 15;
 
     /** @var array<string, mixed> Add/edit form state. */
     public array $form = [];
@@ -61,6 +61,26 @@ abstract class ResourcePanel extends GP247AdminComponent
      * @var array<int, string>
      */
     protected array $richFields = [];
+
+    /**
+     * Opt-in: keep the list panel state (page/keyword/sort) and the just-saved
+     * record on screen when editing/saving, instead of the legacy route
+     * navigation + redirect that remounts the whole component and drops that
+     * state. A concrete screen sets this true to adopt the in-component
+     * master-detail behavior: the per-row edit button calls editRow() (no
+     * navigation), save() re-fills the form + toasts (no redirect), and the
+     * edit state is mirrored to the URL as ?edit=<id> without a remount so a
+     * refresh still restores both the open record and the page. Default false
+     * preserves the legacy behavior for screens not yet migrated.
+     *
+     * A screen opting in must set $this->editingId inside persist() (incl. after
+     * a create) so save() can re-fill the form from the persisted row.
+     *
+     * @var bool
+     * @aidlc-story US-AUI-two-panel-state-preservation
+     * @aidlc-adr ADR-admin-shell-rbac-two-panel-state-preservation
+     */
+    protected bool $keepStateOnSave = false;
 
     // --- Contract for concrete screens -------------------------------------
 
@@ -172,6 +192,17 @@ abstract class ResourcePanel extends GP247AdminComponent
     {
         parent::mount();
 
+        // PA-A: opted-in screens carry the edit state in the ?edit=<id> query
+        // (pushed by editRow without a remount), so a refresh of the base route
+        // restores the open record alongside the ?page= that WithPagination
+        // restores. The legacy /edit/{id} route param still wins when present.
+        if (($id === null || $id === '') && $this->keepStateOnSave) {
+            $queryEdit = request()->query('edit');
+            if (is_string($queryEdit) && $queryEdit !== '') {
+                $id = $queryEdit;
+            }
+        }
+
         if ($id !== null && $id !== '') {
             $model = $this->baseQuery()->find($id);
             if ($model !== null) {
@@ -274,6 +305,46 @@ abstract class ResourcePanel extends GP247AdminComponent
         $this->editingId = (string) $model->id;
         $this->form = $this->fillForm($model);
         $this->resetValidation();
+
+        // Opted-in screens: reflect the edit in the URL (?edit=<id>) without a
+        // remount so the list state is preserved and a refresh restores it.
+        if ($this->keepStateOnSave) {
+            $this->syncEditUrl($this->editingId);
+        }
+    }
+
+    /**
+     * Clear the form back to create mode without navigating (opted-in screens),
+     * so the "Cancel/Reset" button keeps the list state instead of redirecting
+     * to the base route.
+     *
+     * @return void
+     */
+    public function cancelEdit(): void
+    {
+        $this->resetForm();
+        $this->syncEditUrl(null);
+    }
+
+    /**
+     * Reflect the edit state in the URL query (?edit=<id>) without remounting,
+     * preserving any existing ?page= so a refresh restores both the open record
+     * and the list position (PA-A, ADR two-panel-state-preservation). Pass null
+     * to clear the edit param (back to create mode).
+     *
+     * @param string|null $id
+     * @return void
+     */
+    protected function syncEditUrl(?string $id): void
+    {
+        // WHY: a history-only update (not Livewire navigate) so the single
+        // component instance — and its list state — survives; a refresh then
+        // re-enters through mount(), which reads ?edit= for opted-in screens.
+        $mutate = $id !== null && $id !== ''
+            ? 'u.searchParams.set("edit", ' . json_encode($id) . ');'
+            : 'u.searchParams.delete("edit");';
+
+        $this->js('const u = new URL(window.location.href); ' . $mutate . ' window.history.replaceState({}, "", u);');
     }
 
     /**
@@ -289,6 +360,24 @@ abstract class ResourcePanel extends GP247AdminComponent
         $this->validate();
         // richFields are excluded so admin-authored rich HTML isn't escaped.
         $this->persist(gp247_clean($this->form, $this->richFields));
+
+        // Opted-in screens (ADR two-panel-state-preservation): stay in place so
+        // the list keeps its page/keyword/sort and the just-saved record remains
+        // on the form. persist() sets $this->editingId (incl. after a create) so
+        // we can re-fill from the persisted row and reflect it in the URL.
+        if ($this->keepStateOnSave) {
+            if ($this->editingId !== null && $this->editingId !== '') {
+                $model = $this->baseQuery()->find($this->editingId);
+                if ($model !== null) {
+                    $this->form = $this->fillForm($model);
+                }
+                $this->syncEditUrl($this->editingId);
+            }
+            $this->resetValidation();
+            $this->notify('success', gp247_language_render('admin.save_success'));
+
+            return;
+        }
 
         // WHY: navigate back to the base route so the URL clears the edit/{id}
         // segment; the success flash is shown on the next mount (flashNotice).
@@ -308,9 +397,19 @@ abstract class ResourcePanel extends GP247AdminComponent
         $this->authorizeAction('delete');
         $this->deleteModel($id);
 
-        // Deleting the row currently open in the edit form → return to the base
-        // route so the stale edit/{id} URL is cleared.
+        // Deleting the row currently open in the edit form.
         if ((string) $id === (string) $this->editingId) {
+            // Opted-in screens: clear the form in place (and the ?edit= URL)
+            // instead of redirecting, keeping the list state.
+            if ($this->keepStateOnSave) {
+                $this->resetForm();
+                $this->syncEditUrl(null);
+                $this->notify('success', gp247_language_render('admin.delete_success'));
+
+                return;
+            }
+
+            // Legacy: return to the base route so the stale edit/{id} URL clears.
             session()->flash('gp247_admin_success', gp247_language_render('admin.delete_success'));
             $this->redirect(route($this->baseRoute()), navigate: true);
 
