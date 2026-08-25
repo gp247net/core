@@ -35,6 +35,11 @@
         field so an admin can target a page-type not registered in the registry
         (e.g. a page from a plugin that did not register it). ADR
         front-admin_layout-page-enum-catalog.
+      - pinFirst (bool): single-mode only — keep the first option pinned at the
+        top of the dropdown even while the search query filters the rest. Default
+        false. Used by the category "parent" select so the ROOT ("no parent")
+        entry is always reachable to reset a category to top-level, no matter
+        what the admin has typed.
 --}}
 @props([
     'model'       => null,
@@ -50,6 +55,7 @@
     'disabled'    => false,
     'clearable'   => true,
     'allowCustom' => false,
+    'pinFirst'    => false,
 ])
 
 @php
@@ -188,7 +194,7 @@
         // truncates the script and breaks the page.
         (function () {
             const define = () => {
-                window.Alpine.data('gp247SearchableSelect', (model, opts, multiple, ph, allowCustom) => ({
+                window.Alpine.data('gp247SearchableSelect', (model, opts, multiple, ph, allowCustom, pinFirst) => ({
                 open:     false,
                 query:    '',
                 opts:     opts,
@@ -196,6 +202,7 @@
                 multi:    [],     // multi-mode:  [{id, label}, ...]
                 ph:       ph,
                 allowCustom: allowCustom,   // multi-mode: commit typed value not in opts as a new tag
+                pinFirst: pinFirst,         // single-mode: keep opts[0] atop the dropdown while filtering
                 dropStyle: '',    // fixed-position coords for .gp247-ss-drop, computed on open
 
                 // ── Seed + watch ──────────────────────────────────────────────
@@ -249,10 +256,19 @@
                 // ── Filtered list ─────────────────────────────────────────────
                 get filtered() {
                     const q = this.query.toLowerCase();
-                    return this.opts.filter(o => {
+                    const list = this.opts.filter(o => {
                         const match = o.label.toLowerCase().includes(q);
                         return multiple ? match && !this.multi.find(s => s.id === o.id) : match;
                     });
+                    // WHY: the ROOT ("no parent") entry must stay reachable no
+                    // matter what the admin types, so a category can always be
+                    // reset to top-level. Pin opts[0] to the top and drop any
+                    // duplicate the query filter already let through.
+                    if (this.pinFirst && !multiple && this.opts.length) {
+                        const first = this.opts[0];
+                        return [first, ...list.filter(o => o.id !== first.id)];
+                    }
+                    return list;
                 },
 
                 // ── Actions ───────────────────────────────────────────────────
@@ -387,7 +403,8 @@
             @js($options),
             @js($multiple),
             @js($placeholder),
-            @js($allowCustom)
+            @js($allowCustom),
+            @js($pinFirst)
         )"
         x-bind:data-open="open || undefined"
         @click.outside="open = false"
