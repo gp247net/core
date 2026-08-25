@@ -50,7 +50,7 @@
 
             <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
                 @if ($editingId)
-                    <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_user.index') }}" wire:navigate>
+                    <x-gp247::button variant="secondary" wire:click="cancelEdit" data-testid="admin-user-form-cancel">
                         {{ gp247_language_render('admin.cancel') }}
                     </x-gp247::button>
                 @else
@@ -87,7 +87,7 @@
 
             @foreach ($rows as $row)
                 @php $locked = in_array((string) $row->id, $protectedIds, true); @endphp
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 {{ (string) $row->id === (string) $editingId ? 'bg-blue-50 dark:bg-blue-900/30' : '' }}"
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 {{ (string) $row->id === (string) $editingId ? 'bg-blue-100 border-l-4 border-blue-500 dark:bg-blue-900 dark:border-blue-500' : '' }}"
                     wire:key="user-{{ $row->id }}">
                     <td class="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">{{ $row->username }}</td>
                     <td class="px-4 py-3">
@@ -114,7 +114,7 @@
                     <td class="px-4 py-3">
                         <div class="flex items-center justify-end gap-1">
                             @unless ($locked)
-                                <x-gp247::button size="sm" variant="ghost" href="{{ gp247_route_admin('admin_user.edit', $row->id) }}" wire:navigate>
+                                <x-gp247::button size="sm" variant="ghost" wire:click="editRow('{{ $row->id }}')" data-testid="admin-user-list-edit">
                                     <i class="fas fa-edit"></i>
                                 </x-gp247::button>
                                 <x-gp247::button size="sm" variant="ghost"
