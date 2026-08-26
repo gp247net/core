@@ -217,26 +217,52 @@ if (!function_exists('gp247_extension_check_installed') && !in_array('gp247_exte
 
 if (!function_exists('gp247_extension_after_update') && !in_array('gp247_extension_after_update', config('gp247_functions_except', []))) {
 
-    // Process when after extension (template or plugin) update
+    /**
+     * Invalidate framework caches after an extension (template or plugin) lifecycle
+     * change (install / enable / disable / uninstall / update). Also the body of the
+     * `gp247:cache-rebuild` command and the last step of `gp247:update`.
+     *
+     * Rebuilds route and config caches only when the site already opted into them
+     * (their cache file exists) — never forcing caching on a site that runs uncached.
+     * Always clears the compiled Blade views so freshly published views take effect.
+     *
+     * Runs entirely under try/catch with soft-degrade (`gp247_report`) so a restricted
+     * shared host that cannot write these caches never turns a lifecycle action fatal.
+     *
+     * @return void
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
+     * @aidlc-adr system-cli_cache-rebuild-scope
+     */
     function gp247_extension_after_update()
     {
         try {
-            // Check if file cache exist then clear cache and create new cache
-            if(file_exists(base_path('bootstrap/cache/routes-v7.php'))) {
+            // WHY: detect the route/config cache files via Laravel's own accessors instead
+            // of a hardcoded name (`routes-v7.php`/`config.php`). The route-cache filename
+            // carries a framework format-version suffix (v6 -> v7 historically) and both
+            // paths honor the APP_ROUTES_CACHE / APP_CONFIG_CACHE env overrides; a literal
+            // name silently stops matching after a framework bump, leaving stale caches.
+            if (file_exists(app()->getCachedRoutesPath())) {
                 Artisan::call('route:clear');
                 Artisan::call('route:cache');
             }
-    
-            // Check if file cache exist then clear cache and create new cache
-            if(file_exists(base_path('bootstrap/cache/config.php'))) {
+
+            if (file_exists(app()->getCachedConfigPath())) {
                 Artisan::call('config:clear');
                 Artisan::call('config:cache');
             }
+
+            // WHY: clear compiled Blade unconditionally. Unlike route/config, `view:clear`
+            // only deletes regenerated-on-demand files (storage/framework/views/*.php) — it
+            // never creates a persistent cache the site did not opt into. Blade's mtime-based
+            // recompile misses a newly published view whose mtime is <= the stale compiled
+            // file (tarball checkout keeping old timestamps, clock skew in containers), so an
+            // explicit clear is required for `--publish` and every extension flow to take effect.
+            Artisan::call('view:clear');
         } catch (\Throwable $e) {
             gp247_report($e->getMessage());
         }
-
-
     }
 }
 

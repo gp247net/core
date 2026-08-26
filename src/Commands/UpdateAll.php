@@ -125,8 +125,9 @@ class UpdateAll extends GP247Command
             $done[] = 'gp247:language-update';
         }
 
-        // WHY: publish before the cache rebuild so freshly published views are
-        // picked up by the view cache. Opt-in only — empty when no --publish.
+        // WHY: publish before the cache rebuild so the following gp247:cache-rebuild
+        // clears the compiled Blade of the freshly published views (they recompile
+        // lazily on the next request). Opt-in only — empty when no --publish.
         $published = $this->runPublish($tokens);
 
         $this->info('==> gp247:cache-rebuild');
