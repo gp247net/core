@@ -68,6 +68,23 @@ class AdminStore extends Model
     }
 
     /**
+     * Store titles keyed by store id, for admin store pickers. The
+     * admin_store table has no name column — the title lives in the
+     * per-language description row — so callers must NOT pluck('name');
+     * falls back to the store code when the locale has no description.
+     *
+     * @return array<int|string, string>
+     */
+    public static function getListTitle(): array
+    {
+        return self::getListAll()->map(function ($store) {
+            $title = $store->getTitle();
+
+            return $title !== '' ? $title : (string) $store->code;
+        })->all();
+    }
+
+    /**
      * [getAll active description]
      *
      * @return  [type]  [return description]
@@ -274,14 +291,22 @@ class AdminStore extends Model
         //Add config default for new store
         session(['lastStoreId' => $storeId]);
         session(['lastStoreTemplate' => $store->template]);
+        // WHY: seeders moved in 2.x (GP247\Core\DB\seeders -> GP247\Core\Database\Seeders,
+        // GP247\Shop\DB\seeders -> GP247\Shop\Admin\Database\Seeders); the old string
+        // class names kept working nowhere and only surfaced when a plugin (e.g.
+        // MultiStorePro) created a sub-store. ::class references fail at parse-time
+        // instead of runtime if they move again.
         \Illuminate\Support\Facades\Artisan::call('db:seed', [
-            '--class' => '\GP247\Core\DB\seeders\DataStoreSeeder',
+            '--class' => \GP247\Core\Database\Seeders\DataStoreSeeder::class,
             '--force' => true
         ]);
-        \Illuminate\Support\Facades\Artisan::call('db:seed', [
-            '--class' => '\GP247\Shop\DB\seeders\DataShopDefaultSeeder',
-            '--force' => true
-        ]);
+        // WHY: gp247/shop is optional for core — skip its default data on a core-only site.
+        if (class_exists(\GP247\Shop\Admin\Database\Seeders\DataShopDefaultSeeder::class)) {
+            \Illuminate\Support\Facades\Artisan::call('db:seed', [
+                '--class' => \GP247\Shop\Admin\Database\Seeders\DataShopDefaultSeeder::class,
+                '--force' => true
+            ]);
+        }
 
         //Setup store with template
         $template = $store->template;
