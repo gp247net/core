@@ -176,10 +176,59 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
         }
     }
 
-    
-if (!function_exists('gp247_extension_check_active') && !in_array('gp247_extension_check_active', config('gp247_functions_except', []))) {
 
-    // Check extension is active
+if (!function_exists('gp247_extension_source_exists') && !in_array('gp247_extension_source_exists', config('gp247_functions_except', []))) {
+    /**
+     * Check the extension source code is present on disk.
+     *
+     * DB config (admin_config) and the filesystem (app/GP247/<type>/<key>/) drift
+     * independently — DB migrated from another environment, folder removed over
+     * FTP, incomplete deploy. "Active" must therefore mean config flag AND
+     * loadable code; this predicate is the single definition of "code present",
+     * using the same disk signal as gp247_extension_get_all_local() (AppConfig.php).
+     *
+     * The result is memoized per request: at most one file_exists() per group|key.
+     *
+     * @param string $group Plugins|Templates (anything else is treated as Plugins).
+     * @param string $key   Extension key (folder name).
+     * @return bool True when app/GP247/<type>/<key>/AppConfig.php exists.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-active-requires-source
+     * @aidlc-adr plugin-manager_active-check-source-presence
+     */
+    function gp247_extension_source_exists($group, $key)
+    {
+        static $memo = [];
+
+        $type = $group === 'Templates' ? 'Templates' : 'Plugins';
+        $cacheKey = $type . '|' . $key;
+        if (!array_key_exists($cacheKey, $memo)) {
+            $memo[$cacheKey] = file_exists(app_path('GP247/' . $type . '/' . $key . '/AppConfig.php'));
+        }
+
+        return $memo[$cacheKey];
+    }
+}
+
+if (!function_exists('gp247_extension_check_active') && !in_array('gp247_extension_check_active', config('gp247_functions_except', []))) {
+    /**
+     * Check an extension is active: DB flag on AND source present on disk.
+     *
+     * For group Plugins/Templates an orphaned record (DB active, source missing)
+     * soft-degrades: returns false and reports via gp247_report() — WITHOUT mutating the DB
+     * (this runs on every front request; auto-deactivating on the read path would
+     * race between instances and hide the drift from the admin). Other groups
+     * keep the DB-only behavior.
+     *
+     * @param string $group Config group (Plugins, Templates, ...).
+     * @param string $key   Extension key.
+     * @return bool
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-active-requires-source
+     * @aidlc-adr plugin-manager_active-check-source-presence
+     */
     function gp247_extension_check_active($group, $key)
     {
         $checkConfig = AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)
@@ -188,11 +237,22 @@ if (!function_exists('gp247_extension_check_active') && !in_array('gp247_extensi
         ->where('value', 1)
         ->first();
 
-        if ($checkConfig) {
-            return true;
-        } else {
+        if (!$checkConfig) {
             return false;
         }
+
+        if (in_array($group, ['Plugins', 'Templates'], true) && !gp247_extension_source_exists($group, $key)) {
+            // WHY: report once per request per extension — this helper is called from
+            // layouts/menus many times per page; repeating the same line is log spam.
+            static $warned = [];
+            if (!isset($warned[$group . '|' . $key])) {
+                $warned[$group . '|' . $key] = true;
+                gp247_report('[gp247 extension] "' . $group . '/' . $key . '" is active in DB but its source is missing on disk (app/GP247/' . $group . '/' . $key . '). Treated as inactive — reinstall the extension or clean up the orphaned config record.');
+            }
+            return false;
+        }
+
+        return true;
     }
 }
 
@@ -271,20 +331,32 @@ if (!function_exists('gp247_extension_get_via_code') && !in_array('gp247_extensi
     /**
      * Get all class plugin actived
      *
+     * Orphaned plugins (DB record active but source missing on disk) are skipped
+     * with a warning — a missing Payment/Shipping/Total class would otherwise be
+     * instantiated later and turn checkout fatal.
+     *
      * @param   [string]  $code  Payment, Shipping
      * @param   [boolean]  $active  true, false
      *
      * @return  [array]
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-active-requires-source
+     * @aidlc-adr plugin-manager_active-check-source-presence
      */
     function gp247_extension_get_via_code(string $code, bool $active = true)
     {
         $code = gp247_word_format_class($code);
-        
+
         $pluginsActived = [];
         $allPlugins = gp247_extension_get_installed(type: 'Plugins', active: $active);
         if (count($allPlugins)) {
             foreach ($allPlugins as $keyPlugin => $plugin) {
                 if (gp247_config($keyPlugin) == 1 && $plugin['code'] == $code) {
+                    if (!gp247_extension_source_exists('Plugins', $keyPlugin)) {
+                        gp247_report('[gp247 extension] Plugin "' . $keyPlugin . '" (code ' . $code . ') is active in DB but its source is missing on disk. Skipped.');
+                        continue;
+                    }
                     $pluginsActived[$keyPlugin] = $plugin;
                 }
             }
