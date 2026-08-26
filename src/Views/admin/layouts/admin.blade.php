@@ -77,7 +77,12 @@
         <main class="flex-1 p-4 sm:p-6">
             @include('gp247-admin::partials.breadcrumb', ['title' => $pageTitle, 'breadcrumb' => $breadcrumb ?? null])
 
-            {{ $slot }}
+            {{-- Page body: $slot for Livewire layouts; @yield('main') so a classic
+                 @extends('gp247-admin::layouts.admin') + @section('main') page (the
+                 documented v1->v2 plugin minimal path) renders too instead of
+                 crashing on an undefined $slot. Exactly one of the two is non-empty. --}}
+            {{ $slot ?? '' }}
+            @yield('main')
         </main>
 
         {{-- WHY: 'hidden_copyright_footer_admin' (General settings) had no admin
