@@ -208,7 +208,14 @@ class InstallerWizard extends Component
             Artisan::call('config:clear');
 
             Artisan::call('migrate', ['--force' => true]);
-            Artisan::call('db:seed', ['--class' => 'DataDefaultSeeder', '--force' => true]);
+            // WHY: a bare class name is prefixed with Database\Seeders\ by
+            // Laravel's SeedCommand, which crashed with "Target class
+            // [Database\Seeders\DataDefaultSeeder] does not exist". Use the
+            // package FQCNs and run the SAME three seeders as the CLI
+            // installer (Commands/Install.php) so both paths seed identically.
+            Artisan::call('db:seed', ['--class' => \GP247\Core\Database\Seeders\DataDefaultSeeder::class, '--force' => true]);
+            Artisan::call('db:seed', ['--class' => \GP247\Core\Database\Seeders\DataStoreSeeder::class, '--force' => true]);
+            Artisan::call('db:seed', ['--class' => \GP247\Core\Database\Seeders\DataLocaleSeeder::class, '--force' => true]);
 
             $this->createAdminUser();
 
