@@ -124,13 +124,18 @@ if (!function_exists('gp247_store_check_multi_store_installed') && !in_array('gp
     /**
      * Check plugin multi store installed
      * Multistore only have different domain
-     * It is necessary to check if the domain is active 
+     * It is necessary to check if the domain is active
+     *
+     * WHY two keys: the Free edition was renamed `MultiStorePro` -> `MultiStore`
+     * (P0.5). Reading both keeps sites that installed the old key working, and is
+     * semantically correct — Free or Pro, either one enables multi-store. Mirrors
+     * gp247_store_check_multi_partner_installed() above, which checks three keys.
      *
      * @return
      */
         function gp247_store_check_multi_store_installed()
         {
-            return gp247_config_global('MultiStorePro');
+            return gp247_config_global('MultiStore') || gp247_config_global('MultiStorePro');
         }
 }
 
