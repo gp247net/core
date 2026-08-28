@@ -221,7 +221,7 @@ if (!function_exists('gp247_store_process_domain') && !in_array('gp247_store_pro
 
 /**
  * Get store list of links grouped by link_id.
- * Requires gp247/front to be installed (FrontLinkStore model).
+ * Requires gp247/front to be installed (FrontLink model).
  * Returns empty collection when front package is absent.
  *
  * @param array $arrLinkId
@@ -229,19 +229,22 @@ if (!function_exists('gp247_store_process_domain') && !in_array('gp247_store_pro
  *
  * @aidlc-unit compat-foundation
  * @aidlc-story US-CMP-006
+ * @aidlc-adr multi-store_one-to-one-store-ownership
  */
 if (!function_exists('gp247_store_get_list_domain_of_array_link') && !in_array('gp247_store_get_list_domain_of_array_link', config('gp247_functions_except', []))) {
     function gp247_store_get_list_domain_of_array_link($arrLinkId)
     {
         // WHY: front package is optional when core runs standalone (MC-009 / US-CMP-006).
-        if (!class_exists(\GP247\Front\Models\FrontLinkStore::class)) {
+        if (!class_exists(\GP247\Front\Models\FrontLink::class)) {
             return collect();
         }
+        // WHY: 1-1 ownership — resolve each link's owning store from its own store_id
+        // column (join admin_store) and keep the groupBy('link_id') shape.
         $tableStore = (new \GP247\Core\Models\AdminStore)->getTable();
-        $tableLinkStore = (new \GP247\Front\Models\FrontLinkStore)->getTable();
-        return \GP247\Front\Models\FrontLinkStore::select($tableStore.'.code', $tableStore.'.id', 'link_id')
-            ->leftJoin($tableStore, $tableStore.'.id', $tableLinkStore.'.store_id')
-            ->whereIn('link_id', $arrLinkId)
+        $tableLink = (new \GP247\Front\Models\FrontLink)->getTable();
+        return \GP247\Front\Models\FrontLink::select($tableStore.'.code', $tableStore.'.id', $tableLink.'.id as link_id')
+            ->join($tableStore, $tableStore.'.id', $tableLink.'.store_id')
+            ->whereIn($tableLink.'.id', $arrLinkId)
             ->get()
             ->groupBy('link_id');
     }
@@ -249,7 +252,7 @@ if (!function_exists('gp247_store_get_list_domain_of_array_link') && !in_array('
 
 /**
  * Get list of store IDs associated with a link.
- * Requires gp247/front to be installed (FrontLinkStore model).
+ * Requires gp247/front to be installed (FrontLink model).
  * Returns empty array when front package is absent.
  *
  * @param mixed $cId Link ID
@@ -257,17 +260,19 @@ if (!function_exists('gp247_store_get_list_domain_of_array_link') && !in_array('
  *
  * @aidlc-unit compat-foundation
  * @aidlc-story US-CMP-006
+ * @aidlc-adr multi-store_one-to-one-store-ownership
  */
 if (!function_exists('gp247_store_get_list_domain_of_link_detail') && !in_array('gp247_store_get_list_domain_of_link_detail', config('gp247_functions_except', []))) {
     function gp247_store_get_list_domain_of_link_detail($cId)
     {
         // WHY: front package is optional when core runs standalone (MC-009 / US-CMP-006).
-        if (!class_exists(\GP247\Front\Models\FrontLinkStore::class)) {
+        if (!class_exists(\GP247\Front\Models\FrontLink::class)) {
             return [];
         }
-        return \GP247\Front\Models\FrontLinkStore::where('link_id', $cId)
-            ->pluck('store_id')
-            ->toArray();
+        // WHY: 1-1 ownership — a link owns a single store_id column; return it as a
+        // 1-element array to keep the historical array return shape.
+        $storeId = \GP247\Front\Models\FrontLink::where('id', $cId)->value('store_id');
+        return $storeId ? [$storeId] : [];
     }
 }
 

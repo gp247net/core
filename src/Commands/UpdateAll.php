@@ -109,6 +109,18 @@ class UpdateAll extends GP247Command
         }
         $done[] = 'gp247:core-update';
 
+        // WHY: only touch the front (CMS) when it is actually installed
+        // (create-tables migration recorded) — running its upgrade otherwise is
+        // meaningless. gp247:front-update is the front counterpart of
+        // gp247:shop-update (added with the store 1-1 standardization).
+        if ($this->frontInstalled()) {
+            $this->info('==> gp247:front-update');
+            if ($this->runArtisan('gp247:front-update') !== Command::SUCCESS) {
+                return $this->respondFailure('front_update_failed', 'gp247:front-update failed', ['completed' => $done]);
+            }
+            $done[] = 'gp247:front-update';
+        }
+
         // WHY: only touch the shop when it is actually installed (create-tables
         // migration recorded) — running its upgrade otherwise is meaningless.
         if ($this->shopInstalled()) {
@@ -235,6 +247,23 @@ class UpdateAll extends GP247Command
         }
 
         return $published;
+    }
+
+    /**
+     * Whether the front (CMS) module is installed (its create-tables migration ran).
+     *
+     * @return bool
+     */
+    protected function frontInstalled(): bool
+    {
+        try {
+            return DB::connection(GP247_DB_CONNECTION)
+                ->table('migrations')
+                ->where('migration', '00_00_00_create_tables_front')
+                ->exists();
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
