@@ -1,0 +1,14 @@
+# Core upgrade migrations
+#
+# Idempotent, non-destructive migrations that bring an INSTALLED site from a
+# released version to the next one. Run by `gp247:core-update` (and therefore by
+# `gp247:update`) via `migrate --path`, never by the create-tables migration in
+# the parent folder.
+#
+# Contract: ADR compat-foundation_public-release-migration-policy (P1-P4),
+# NFR-MAINT-breaking-change-migration. Every breaking schema OR data-semantics
+# change released from v2.2 onward must ship a file here (or in the front/shop
+# equivalent) so an installed site converts automatically.
+#
+# This placeholder keeps the folder present in git while it is empty, so the
+# `migrate --path` above resolves instead of failing on a missing directory.
