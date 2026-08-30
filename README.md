@@ -34,7 +34,7 @@ Main components in the GP247 ecosystem:
 
 ## Laravel core:
 
-GP247 2.x
+GP247 3.x
 
 > Core laravel framework 13.x 
 

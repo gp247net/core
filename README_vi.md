@@ -34,7 +34,7 @@ Các thành phần chính trong hệ sinh thái của GP247:
 
 ## Core Laravel:
 
-GP247 2.x
+GP247 3.x
 
 > Core laravel framework 13.x 
 
