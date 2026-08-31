@@ -452,7 +452,7 @@ class ExtensionInstaller
             // A JSON error body means the server refused (e.g. license problem).
             $jsonData = json_decode((string) $data, true);
             if (json_last_error() === JSON_ERROR_NONE && isset($jsonData['error']) && $jsonData['error'] == 1) {
-                return ['error' => 1, 'msg' => $jsonData['msg'] ?? 'Download failed', 'detail' => $jsonData['detail'] ?? ''];
+                return ['error' => 1, 'msg' => $jsonData['msg'] ?? 'Download failed', 'detail' => $jsonData['detail'] ?? '', 'expire' => $jsonData['expire'] ?? null];
             }
 
             $pathTmp = $key.'_'.time();

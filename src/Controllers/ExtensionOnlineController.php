@@ -315,8 +315,9 @@ trait ExtensionOnlineController
             if (is_array($response) && ($response['error'] ?? 1) == 1) {
                 $detail = $response['detail'] ?? '';
                 if (in_array($detail, ['required', 'invalid', 'version', 'expired', 'domain'], true)) {
-                    gp247_extension_set_license_status($this->groupType, $key, ['valid' => false, 'reason' => $detail, 'expire' => null, 'checked' => true]);
-                    return response()->json(['error' => 1, 'msg' => $this->licenseStatusMessage(['valid' => false, 'reason' => $detail], $key)]);
+                    $expire = $response['expire'] ?? null;
+                    gp247_extension_set_license_status($this->groupType, $key, ['valid' => false, 'reason' => $detail, 'expire' => $expire, 'checked' => true]);
+                    return response()->json(['error' => 1, 'msg' => $this->licenseStatusMessage(['valid' => false, 'reason' => $detail, 'expire' => $expire], $key)]);
                 }
             } elseif (is_array($response) && ($response['error'] ?? 1) == 0) {
                 // Server accepted the license (the zip was served) — record valid.
