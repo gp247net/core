@@ -11,6 +11,15 @@ return [
 
         'forgot_password'     => env('GP247_ADMIN_FORGOT_PASSWORD', 1), //Enable feature forgot password
 
+        // Seam: admin store-context resolver. Default null = pin ROOT (single-store
+        // behaviour unchanged, no query). The MultiStore Pro edition runtime-appends
+        // a callable here (Provider.php, when active) that resolves + permission-checks
+        // the selected store. ADR multi-store_admin-store-scope-seam.
+        'store_resolver'      => null,
+        // Seam: header widgets. Default [] = header unchanged. Plugins runtime-append
+        // Livewire component FQCNs (e.g. Pro store switcher). ADR admin-shell_header-widget-registry.
+        'header_widgets'      => [],
+
          // Default, all tables have prefix GP247_DB_PREFIX can be customized add new fields.
         'schema_customize' => env('GP247_ADMIN_SCHEMA_CUSTOMIZE', ''), //List tables can be customized add new fields, ex: 'table1,table2'
 

@@ -42,6 +42,17 @@ abstract class ResourcePanel extends GP247AdminComponent
     public array $form = [];
 
     /**
+     * Store picked on create (root admin) / the record's store on edit (read-only),
+     * for store-scoped resources. Unused when the screen is not store-scoped or when
+     * multi-store/multi-vendor is not installed. See storeScoped()/currentStore().
+     *
+     * @var string
+     * @aidlc-story US-admin-shell-store-scoped-resource
+     * @aidlc-adr admin-shell_store-scoped-resource-panel
+     */
+    public string $formStoreId = '';
+
+    /**
      * Id of the record being edited; null = creating. Set from the edit/{id}
      * route segment in mount() so the edit state lives in the path and survives a
      * refresh / is shareable. Edit is reached by navigating to the edit route;
@@ -158,6 +169,176 @@ abstract class ResourcePanel extends GP247AdminComponent
     protected function defaultSort(): array
     {
         return ['id', 'desc'];
+    }
+
+    // --- Store scoping (opt-in; ADR admin-shell_store-scoped-resource-panel) -----
+
+    /**
+     * Store-scoping config for this resource, or null (default) when the resource is
+     * not store-scoped. Shape: ['display' => 'name'|'title'] — the column the blade
+     * uses to label the record next to its store line.
+     *
+     * @return array<string, mixed>|null
+     *
+     * @aidlc-story US-admin-shell-store-scoped-resource
+     * @aidlc-adr admin-shell_store-scoped-resource-panel
+     */
+    protected function storeScoped(): ?array
+    {
+        return null;
+    }
+
+    /**
+     * Whether store scoping is active: the resource opted in AND multi-store or
+     * multi-vendor is installed. When false the panel behaves exactly as before —
+     * no picker, no store column, no extra query (single-store parity,
+     * RISK-TECH-store-scope-single-store-regression).
+     *
+     * @return bool
+     */
+    public function storeScopeActive(): bool
+    {
+        return $this->storeScoped() !== null
+            && function_exists('gp247_store_check_multi_domain_installed')
+            && gp247_store_check_multi_domain_installed();
+    }
+
+    /**
+     * The admin's current store context (ROOT at root admin; the assigned/selected
+     * store for a store-admin or the Pro switcher).
+     *
+     * @return int|string
+     */
+    protected function storeContext()
+    {
+        return session('adminStoreId', defined('GP247_STORE_ID_ROOT') ? GP247_STORE_ID_ROOT : 1);
+    }
+
+    /**
+     * @return bool Whether the context is the root store (no sub-store scope).
+     */
+    protected function isRootScope(): bool
+    {
+        $root = defined('GP247_STORE_ID_ROOT') ? GP247_STORE_ID_ROOT : 1;
+
+        return (string) $this->storeContext() === (string) $root;
+    }
+
+    /**
+     * Livewire hook: when the create picker changes the store, clear the store-
+     * dependent form fields (declared in storeScoped()['reset']) so a stale
+     * cross-store reference can't linger, and toast the user that related data
+     * below changed (ADR admin-shell_store-scoped-resource-panel).
+     *
+     * @param mixed $value
+     * @return void
+     */
+    public function updatedFormStoreId($value): void
+    {
+        if (!$this->storeScopeActive() || $this->editingId !== null) {
+            return; // store is immutable on edit; nothing to do off create.
+        }
+
+        foreach ((array) ($this->storeScoped()['reset'] ?? []) as $field) {
+            $current = $this->form[$field] ?? null;
+            $this->form[$field] = is_array($current) ? [] : '';
+        }
+        $this->resetValidation();
+        $this->notify('info', gp247_language_render('admin.store.store_changed_notice'));
+    }
+
+    /**
+     * The store the current form is bound to, for filtering related option lists:
+     *  - not active → the context (legacy behaviour, ROOT at root admin);
+     *  - editing → the record's store (formStoreId, set by fillForm; immutable);
+     *  - creating while scoped → the context (forced);
+     *  - creating at root → the picked store, or null until the user picks one.
+     *
+     * @return int|string|null
+     */
+    protected function currentStore()
+    {
+        if (!$this->storeScopeActive()) {
+            return $this->storeContext();
+        }
+        if ($this->editingId !== null && $this->editingId !== '') {
+            // Immutable on edit: read the record's own store from the DB, NOT the
+            // (client-tamperable) formStoreId property (ADR 1-1 / SR-4).
+            $recStore = $this->baseQuery()->whereKey($this->editingId)->value('store_id');
+
+            return $recStore !== null ? $recStore : $this->storeContext();
+        }
+        if (!$this->isRootScope()) {
+            return $this->storeContext();
+        }
+
+        return $this->formStoreId !== '' ? $this->formStoreId : null;
+    }
+
+    /**
+     * Server-authoritative store for a NEW record: the context when scoped (forced),
+     * else the validated picked store at root. persist() calls this to set store_id
+     * on create ONLY — never on edit (store_id is immutable, ADR 1-1).
+     *
+     * @return int|string
+     */
+    protected function resolveCreateStore()
+    {
+        if (!$this->storeScopeActive() || !$this->isRootScope()) {
+            return $this->storeContext();
+        }
+
+        return $this->formStoreId;
+    }
+
+    /**
+     * Localised store title for a record's store_id, for the list "store line".
+     *
+     * @param int|string|null $storeId
+     * @return string
+     */
+    public function storeLabel($storeId): string
+    {
+        if ($storeId === null || $storeId === '') {
+            return '';
+        }
+        $titles = \GP247\Core\Models\AdminStore::getListTitle();
+
+        return (string) ($titles[$storeId] ?? $storeId);
+    }
+
+    /**
+     * Store options (id => title) for the create picker (root admin, store-scoped).
+     *
+     * @return array<int|string, string>
+     */
+    public function storeOptions(): array
+    {
+        return \GP247\Core\Models\AdminStore::getListTitle();
+    }
+
+    /**
+     * Whether to show the store PICKER (store-scoped create at root admin). When
+     * false but store-scoped is active, the blade shows the store read-only.
+     *
+     * @return bool
+     */
+    public function showStorePicker(): bool
+    {
+        return $this->storeScopeActive() && $this->editingId === null && $this->isRootScope();
+    }
+
+    /**
+     * Localised label of the form's current store (for the read-only display on
+     * edit / scoped create).
+     *
+     * @return string
+     */
+    public function currentStoreLabel(): string
+    {
+        $store = $this->currentStore();
+
+        return $this->storeLabel($store === null || $store === '' ? $this->storeContext() : $store);
     }
 
     /**
@@ -286,6 +467,10 @@ abstract class ResourcePanel extends GP247AdminComponent
     {
         $this->editingId = null;
         $this->form = $this->formDefaults();
+        // Store-scoped create: default the picker to the current context store (ROOT
+        // at root admin), so a create that never touches the picker keeps the legacy
+        // "current store" behaviour; the user changes it to assign to another store.
+        $this->formStoreId = $this->storeScopeActive() ? (string) $this->storeContext() : '';
         $this->resetValidation();
     }
 
@@ -357,7 +542,19 @@ abstract class ResourcePanel extends GP247AdminComponent
     public function save(): void
     {
         $this->authorizeAction($this->editingId !== null ? 'update' : 'store');
-        $this->validate();
+
+        // Validate the screen's rules together with the store-pick rule (when a
+        // store-scoped resource is being created at root admin), in ONE pass so all
+        // errors surface at once. Scoped context / edit / non-store-scoped screens
+        // add no store rule (ADR admin-shell_store-scoped-resource-panel).
+        $rules = $this->rules();
+        $messages = [];
+        if ($this->storeScopeActive() && $this->editingId === null && $this->isRootScope()) {
+            $rules['formStoreId'] = ['required', \Illuminate\Validation\Rule::exists((new \GP247\Core\Models\AdminStore)->getTable(), 'id')];
+            $messages['formStoreId.required'] = gp247_language_render('admin.store.select_store_required');
+            $messages['formStoreId.exists']   = gp247_language_render('admin.store.select_store_required');
+        }
+        $this->validate($rules, $messages);
         // richFields are excluded so admin-authored rich HTML isn't escaped.
         $this->persist(gp247_clean($this->form, $this->richFields));
 

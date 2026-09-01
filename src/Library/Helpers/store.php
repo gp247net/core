@@ -276,3 +276,37 @@ if (!function_exists('gp247_store_get_list_domain_of_link_detail') && !in_array(
     }
 }
 
+/**
+ * Resolve the admin's current store-context id.
+ *
+ * Default = ROOT, with no DB query and no work on the hot path unless a resolver
+ * is registered. When the Pro edition registers a callable at
+ * config('gp247-config.admin.store_resolver'), that callable decides the store
+ * (and MUST do its own permission check — the value's origin is user input).
+ * Fail-safe: an empty/non-callable registry, a null/falsy result, or any thrown
+ * error all fall back to ROOT, so a broken resolver can never leak another store
+ * nor blank the context. An empty registry ⇒ behaviour identical to the previous
+ * hard-pinned ROOT (NFR-MAINT-admin-store-scope-parity).
+ *
+ * @aidlc-unit multi-store-pro
+ * @aidlc-story US-multi-store-pro-admin-store-switcher
+ * @aidlc-adr multi-store_admin-store-scope-seam
+ * @return int|string
+ */
+if (!function_exists('gp247_admin_store_resolve') && !in_array('gp247_admin_store_resolve', config('gp247_functions_except', []))) {
+    function gp247_admin_store_resolve()
+    {
+        $resolver = config('gp247-config.admin.store_resolver');
+        if (empty($resolver) || !is_callable($resolver)) {
+            return GP247_STORE_ID_ROOT;
+        }
+        try {
+            $storeId = call_user_func($resolver);
+        } catch (\Throwable $e) {
+            gp247_report($e);
+            return GP247_STORE_ID_ROOT;
+        }
+        return $storeId ?: GP247_STORE_ID_ROOT;
+    }
+}
+

@@ -40,6 +40,14 @@
     </div>
 
     <div class="flex items-center gap-2">
+        {{-- Header widget registry (ADR admin-shell_header-widget-registry): plugins
+             runtime-append Livewire component FQCNs to
+             config('gp247-config.admin.header_widgets'). Default [] renders nothing —
+             header stays identical for single-store / Free (NFR-MAINT-admin-store-scope-parity). --}}
+        @foreach (config('gp247-config.admin.header_widgets', []) as $gp247HeaderWidgetIndex => $gp247HeaderWidget)
+            @livewire($gp247HeaderWidget, [], 'gp247-header-widget-'.$gp247HeaderWidgetIndex)
+        @endforeach
+
         @if ($hasStorefront)
             <a href="{{ gp247_route_front('front.home') }}" target="_blank" rel="noopener"
                 class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"

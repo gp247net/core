@@ -16,7 +16,11 @@ class AdminStoreId
     public function handle($request, Closure $next)
     {
         if (admin()->user()) {
-            session(['adminStoreId' => GP247_STORE_ID_ROOT]);
+            // WHY: default ROOT (no query) unless the Pro edition registers a
+            // store_resolver; the resolver runs its own permission check before
+            // the value reaches the session (single seam — ADR
+            // multi-store_admin-store-scope-seam).
+            session(['adminStoreId' => gp247_admin_store_resolve()]);
         } else {
             session()->forget('adminStoreId');
         }
