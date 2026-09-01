@@ -372,6 +372,19 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.store.domain_exist','text' => 'Domain exist already','position' => 'store.admin','location' => 'en'],
             ['code' => 'admin.store.code_exist','text' => 'Code exist already','position' => 'store.admin','location' => 'en'],
             ['code' => 'admin.store.value_cannot_change','text' => 'This value cannot be changed','position' => 'store.admin','location' => 'en'],
+            // Store-scoped content assignment (modification 20260901T091356) — the store
+            // picker on create/edit forms + related-integrity messages, shared by every
+            // store-scoped admin screen via the store-scope-picker/line partials.
+            ['code' => 'admin.store.scope_label','text' => 'Thuộc cửa hàng','position' => 'store.admin','location' => 'vi'],
+            ['code' => 'admin.store.scope_label','text' => 'Store','position' => 'store.admin','location' => 'en'],
+            ['code' => 'admin.store.select_store','text' => 'Chọn cửa hàng','position' => 'store.admin','location' => 'vi'],
+            ['code' => 'admin.store.select_store','text' => 'Select store','position' => 'store.admin','location' => 'en'],
+            ['code' => 'admin.store.select_store_required','text' => 'Vui lòng chọn cửa hàng','position' => 'store.admin','location' => 'vi'],
+            ['code' => 'admin.store.select_store_required','text' => 'Please select a store','position' => 'store.admin','location' => 'en'],
+            ['code' => 'admin.store.related_wrong_store','text' => 'Dữ liệu liên quan không thuộc cửa hàng đã chọn','position' => 'store.admin','location' => 'vi'],
+            ['code' => 'admin.store.related_wrong_store','text' => 'The related item does not belong to the selected store','position' => 'store.admin','location' => 'en'],
+            ['code' => 'admin.store.store_changed_notice','text' => 'Đã đổi cửa hàng — các lựa chọn liên quan đã được đặt lại','position' => 'store.admin','location' => 'vi'],
+            ['code' => 'admin.store.store_changed_notice','text' => 'Store changed — related selections were reset','position' => 'store.admin','location' => 'en'],
             ['code' => 'admin.store.config_layout','text' => 'Cấu hình bố cục cửa hàng','position' => 'admin.config_layout','location' => 'vi'],
             ['code' => 'admin.store.config_layout','text' => 'Config layout shop','position' => 'admin.config_layout','location' => 'en'],
             ['code' => 'store.display.product_top','text' => 'Top product','position' => 'store.admin','location' => 'en'],
