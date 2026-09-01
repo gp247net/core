@@ -142,4 +142,34 @@ trait HasStoreScopeUi
 
         return $this->storeLabel($store);
     }
+
+    /**
+     * Validation rule to require a valid store on scoped create at root admin. A
+     * FormComponent host merges this into rules() so it can never persist a blank
+     * store_id (parity with ResourcePanel::save()). Empty otherwise (edit / scoped
+     * context / single-store).
+     *
+     * @return array<string, mixed>
+     */
+    protected function storeScopeCreateRules(): array
+    {
+        if (!$this->showStorePicker()) {
+            return [];
+        }
+
+        return ['formStoreId' => ['required', \Illuminate\Validation\Rule::exists((new AdminStore)->getTable(), 'id')]];
+    }
+
+    /**
+     * Localised messages for the store-required rule, to merge into messages().
+     *
+     * @return array<string, string>
+     */
+    protected function storeScopeMessages(): array
+    {
+        return [
+            'formStoreId.required' => gp247_language_render('admin.store.select_store_required'),
+            'formStoreId.exists'   => gp247_language_render('admin.store.select_store_required'),
+        ];
+    }
 }
