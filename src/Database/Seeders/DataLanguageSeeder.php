@@ -385,6 +385,14 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.store.related_wrong_store','text' => 'The related item does not belong to the selected store','position' => 'store.admin','location' => 'en'],
             ['code' => 'admin.store.store_changed_notice','text' => 'Đã đổi cửa hàng — các lựa chọn liên quan đã được đặt lại','position' => 'store.admin','location' => 'vi'],
             ['code' => 'admin.store.store_changed_notice','text' => 'Store changed — related selections were reset','position' => 'store.admin','location' => 'en'],
+            // Store online/maintenance state (the `active` flag): live vs maintenance —
+            // renamed from the ambiguous "Active" label. active=1 → live, 0 → maintenance.
+            ['code' => 'admin.store.state','text' => 'Trạng thái bảo trì','position' => 'store.admin','location' => 'vi'],
+            ['code' => 'admin.store.state','text' => 'Maintenance status','position' => 'store.admin','location' => 'en'],
+            ['code' => 'admin.store.state_live','text' => 'Live','position' => 'store.admin','location' => 'vi'],
+            ['code' => 'admin.store.state_live','text' => 'Live','position' => 'store.admin','location' => 'en'],
+            ['code' => 'admin.store.state_maintenance','text' => 'Bảo trì','position' => 'store.admin','location' => 'vi'],
+            ['code' => 'admin.store.state_maintenance','text' => 'Maintenance','position' => 'store.admin','location' => 'en'],
             ['code' => 'admin.store.config_layout','text' => 'Cấu hình bố cục cửa hàng','position' => 'admin.config_layout','location' => 'vi'],
             ['code' => 'admin.store.config_layout','text' => 'Config layout shop','position' => 'admin.config_layout','location' => 'en'],
             ['code' => 'store.display.product_top','text' => 'Top product','position' => 'store.admin','location' => 'en'],

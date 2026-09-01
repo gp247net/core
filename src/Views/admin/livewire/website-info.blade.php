@@ -50,12 +50,20 @@
 @endphp
 
 <div class="space-y-6">
-    {{-- Active toggle --}}
-    <label class="inline-flex cursor-pointer items-center gap-3">
-        <input type="checkbox" wire:model.live="active" class="peer sr-only">
-        <span class="relative h-6 w-11 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-blue-600 peer-checked:after:translate-x-5 dark:bg-gray-600"></span>
-        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.active') }}</span>
-    </label>
+    {{-- Site online / maintenance state (the store `active` flag: on = live, off =
+         maintenance). Renamed from the ambiguous "Active" label to Live / Maintenance. --}}
+    <div class="inline-flex items-center gap-3">
+        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.store.state') }}:</span>
+        <label class="inline-flex cursor-pointer items-center gap-2">
+            <input type="checkbox" wire:model.live="active" class="peer sr-only">
+            <span class="relative h-6 w-11 rounded-full bg-gray-300 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-blue-600 peer-checked:after:translate-x-5 dark:bg-gray-600"></span>
+            @if ($active)
+                <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-300">{{ gp247_language_render('admin.store.state_live') }}</span>
+            @else
+                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">{{ gp247_language_render('admin.store.state_maintenance') }}</span>
+            @endif
+        </label>
+    </div>
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {{-- Left: store fields --}}
