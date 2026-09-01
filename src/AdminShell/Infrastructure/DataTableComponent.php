@@ -132,6 +132,23 @@ abstract class DataTableComponent extends GP247AdminComponent
     }
 
     /**
+     * Optional query constraints applied to BOTH the listing query and the delete
+     * query (e.g. store scoping). Default: none — no behaviour change for existing
+     * screens. A store-scoped screen overrides this to filter by store so the list
+     * shows only its rows AND cross-store rows can never be deleted from it.
+     *
+     * @param mixed $query The Eloquent builder to constrain in place.
+     * @return void
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-SADM-store-content-assignment
+     * @aidlc-adr admin-shell_store-scoped-resource-panel
+     */
+    protected function constrain($query): void
+    {
+    }
+
+    /**
      * Per-resource list view; empty falls back to the generic data-table
      * partial (used by embedded/test components).
      *
@@ -259,6 +276,9 @@ abstract class DataTableComponent extends GP247AdminComponent
     {
         $query = $this->query()->newQuery();
 
+        // Screen-level constraints (e.g. store scoping) before search/sort/paginate.
+        $this->constrain($query);
+
         if ($this->relations() !== []) {
             $query->with($this->relations());
         }
@@ -299,7 +319,11 @@ abstract class DataTableComponent extends GP247AdminComponent
             return;
         }
 
-        $this->query()->newQuery()->whereIn('id', $ids)->get()->each->delete();
+        // Apply the same screen-level constraints (store scoping) so a crafted id
+        // list can never delete a row outside this screen's scope.
+        $query = $this->query()->newQuery();
+        $this->constrain($query);
+        $query->whereIn('id', $ids)->get()->each->delete();
     }
 
     /**
