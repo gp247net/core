@@ -295,14 +295,38 @@ if (!function_exists('gp247_process_private_folder') && !in_array('gp247_process
 
     function gp247_process_private_folder()
     {
-        // For link uploads?type=
-        //Process private folder for laravel file manager if packages multi app exist
-        if (session('partner_id') && \Illuminate\Support\Str::startsWith(request('type'),['pmo_','partner_'])) {
+        // The LFM private folder = the WORKING STORE of the current action (mod
+        // 20260902T072138, ADR admin-shell_lfm-working-dir). Files of a store are kept in
+        // a per-store subfolder; root content stays shared (return null).
+        $root = defined('GP247_STORE_ID_ROOT') ? GP247_STORE_ID_ROOT : 1;
+
+        // Multi-vendor partner keeps its own mechanism (separate plugin).
+        if (session('partner_id') && \Illuminate\Support\Str::startsWith(request('type'), ['pmo_', 'partner_'])) {
             return session('partner_id');
         }
-        if (session('adminStoreId') && \Illuminate\Support\Str::startsWith(request('type'),['vendor_','store_','shop_','partner_'])) {
-            return session('adminStoreId');
+
+        // Scoped-login session (store-admin on its domain / vendor on its path):
+        // session('adminStoreId') is FIXED to that store — the working store is it.
+        // WHY no type-prefix check anymore: the old branch keyed off types starting with
+        // 'store_'/'shop_', but real field types are 'product'/'category'/... — it never
+        // matched (dead code). session('adminStoreId') is fixed per session (switcher gone).
+        $sessionStore = session('adminStoreId');
+        if ($sessionStore && (string) $sessionStore !== (string) $root) {
+            return $sessionStore;
         }
-        return ;
+
+        // Root session: the working store comes from the form that OPENED the LFM window
+        // (?working_store=...). The LfmWorkingStore middleware validates it (must be a real
+        // store) and remembers it in session('lfmWorkingStore') on the popup-load request,
+        // because LFM's later upload/list calls are separate AJAX requests that do NOT carry
+        // the query param. media-input ALWAYS sends working_store (empty for root content) so
+        // every popup open RESETS it — the store-A form then the root-logo form can't leave a
+        // stale store. Read the already-validated remembered value (ADR admin-shell_lfm-working-dir).
+        $working = session('lfmWorkingStore');
+        if ($working && (string) $working !== (string) $root) {
+            return $working;
+        }
+
+        return;
     }
 }

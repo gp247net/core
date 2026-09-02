@@ -1,5 +1,12 @@
 <?php
-Route::group(['prefix' => 'uploads', 'namespace' => '\\UniSharp\\LaravelFilemanager\\Controllers\\'], function () {
+// LfmWorkingStore captures ?working_store=<store> (sent by media-input on popup open) into
+// the session so LFM's later upload/list AJAX — which drop the query param — resolve the
+// same per-store folder (ADR admin-shell_lfm-working-dir).
+Route::group([
+    'prefix' => 'uploads',
+    'namespace' => '\\UniSharp\\LaravelFilemanager\\Controllers\\',
+    'middleware' => [\GP247\Core\Middleware\LfmWorkingStore::class],
+], function () {
 
     // display main layout
     Route::get('/', [

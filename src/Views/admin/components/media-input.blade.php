@@ -32,12 +32,19 @@
     'error' => null,
     'help' => null,
     'required' => false,
+    // WHY working-store (mod 20260902T072138): the store this content belongs to, passed
+    // per-request to LFM so its images land in that store's folder (root session drives it
+    // from the form: create = picked store, edit = record store_id). Null/root = shared.
+    'workingStore' => null,
 ])
 
 @php
     $id = $attributes->get('id', $name);
     // Same LFM endpoint the legacy admin uses (admin base + lfm url prefix).
     $lfmPrefix = gp247_route_admin('admin.home') . '/' . config('lfm.url_prefix');
+    // Always send working_store (empty for root content) so each LFM open RESETS the
+    // remembered working store — never leaves a stale one from a previous form.
+    $workingParam = '&working_store=' . urlencode((string) ($workingStore ?? ''));
     $initialPreview = $value ? gp247_file($value) : '';
     $inputClasses = 'block w-full rounded-l-lg border px-3 py-2 text-sm shadow-sm '
         . 'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 '
@@ -71,7 +78,7 @@
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     preview = items.length ? items[0].thumb_url : '';
                 };
-                window.open('{{ $lfmPrefix }}?type={{ $type }}', 'GP247FileManager', 'width=900,height=600');
+                window.open('{{ $lfmPrefix }}?type={{ $type }}{{ $workingParam }}', 'GP247FileManager', 'width=900,height=600');
             "
             class="inline-flex shrink-0 items-center gap-1.5 rounded-r-lg border border-l-0 border-gray-300 bg-white px-4 py-2 text-sm font-medium text-blue-600 whitespace-nowrap transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-400 dark:hover:bg-gray-600">
             <i class="fa fa-image text-xs"></i>
