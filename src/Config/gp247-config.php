@@ -19,6 +19,13 @@ return [
         // Seam: header widgets. Default [] = header unchanged. Plugins runtime-append
         // Livewire component FQCNs (e.g. Pro store switcher). ADR admin-shell_header-widget-registry.
         'header_widgets'      => [],
+        // Seam: admin action fence. Default null = no fence (authorization unchanged).
+        // A plugin runtime-appends a callable (AdminUserContract $user, ?string $screenUri,
+        // string $action): ?string — return a deny reason to VETO the action BEFORE the RBAC
+        // authorizer runs (so it also binds administrators), or null to leave the decision to
+        // RBAC. A veto can only add "deny", never "allow"; a throwing fence fails closed.
+        // Read at call time (order-independent of provider boot). ADR admin-shell_action-fence-seam.
+        'action_fence'        => null,
 
          // Default, all tables have prefix GP247_DB_PREFIX can be customized add new fields.
         'schema_customize' => env('GP247_ADMIN_SCHEMA_CUSTOMIZE', ''), //List tables can be customized add new fields, ex: 'table1,table2'

@@ -37,6 +37,14 @@ final class AuthorizeAdminAction
     private array $readOnlyMethods;
 
     /**
+     * Optional veto fence injected directly (tests / explicit wiring). When null the
+     * fence is read from config('gp247-config.admin.action_fence') at call time.
+     *
+     * @var callable|null
+     */
+    private $fence;
+
+    /**
      * @param PermissionResolver     $resolver         Maps component identifiers to permission keys.
      * @param AdminActionAuthorizer  $authorizer       Pure authorization decision core.
      * @param string[]|null          $readOnlyMethods  Override the read-only method list, if needed.
@@ -45,8 +53,10 @@ final class AuthorizeAdminAction
         private PermissionResolver $resolver,
         private AdminActionAuthorizer $authorizer,
         ?array $readOnlyMethods = null,
+        ?callable $fence = null,
     ) {
         $this->readOnlyMethods = $readOnlyMethods ?? self::DEFAULT_READ_ONLY_METHODS;
+        $this->fence = $fence;
     }
 
     /**
@@ -68,7 +78,71 @@ final class AuthorizeAdminAction
     ): AuthorizationDecision {
         $isMutating = !in_array($action, $this->readOnlyMethods, true);
 
+        // Seam (ADR admin-shell_action-fence-seam): a registered fence may VETO before the
+        // RBAC core decides. The veto is independent of roles, so it binds administrators
+        // too; it can only add a "deny", never an "allow". Empty seam = no-op.
+        $veto = $this->fenceVeto($user, $screenUri, $action);
+        if ($veto !== null) {
+            return AuthorizationDecision::deny($veto);
+        }
+
         return $this->authorizer->authorize($user, $screenUri, $isMutating);
+    }
+
+    /**
+     * Run the configured veto fence, if any.
+     *
+     * WHY fail-closed: a fence exists to narrow access; if it cannot answer (throws) the
+     * safe outcome is to deny — never to fall through to the broader RBAC decision.
+     *
+     * @param AdminUserContract $user      Authenticated admin user.
+     * @param string|null       $screenUri Admin path of the screen.
+     * @param string            $action    Method being invoked.
+     * @return string|null Deny reason when vetoed; null to let RBAC decide.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-multi-store-pro-store-admin-fence
+     * @aidlc-adr admin-shell_action-fence-seam
+     */
+    private function fenceVeto(AdminUserContract $user, ?string $screenUri, string $action): ?string
+    {
+        $fence = $this->fence ?? self::configuredFence();
+        if ($fence === null) {
+            return null;
+        }
+
+        try {
+            $veto = $fence($user, $screenUri, $action);
+        } catch (\Throwable $e) {
+            if (function_exists('gp247_report')) {
+                gp247_report($e);
+            }
+
+            return 'action_fence_error';
+        }
+
+        return (is_string($veto) && $veto !== '') ? $veto : null;
+    }
+
+    /**
+     * The fence registered in config('gp247-config.admin.action_fence'), read at call time.
+     *
+     * WHY call-time + container-safe: plugins register the fence in their provider boot,
+     * which may run after this singleton was built; and this class is unit-tested without
+     * a Laravel container, where config() is unavailable — both cases must resolve to null.
+     *
+     * @return callable|null
+     */
+    private static function configuredFence(): ?callable
+    {
+        $app = \Illuminate\Container\Container::getInstance();
+        if ($app === null || !$app->bound('config')) {
+            return null;
+        }
+
+        $fence = $app->make('config')->get('gp247-config.admin.action_fence');
+
+        return (!empty($fence) && is_callable($fence)) ? $fence : null;
     }
 
     /**
