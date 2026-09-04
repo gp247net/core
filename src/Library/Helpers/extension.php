@@ -327,6 +327,52 @@ if (!function_exists('gp247_extension_after_update') && !in_array('gp247_extensi
 }
 
 
+if (!function_exists('gp247_extension_scope') && !in_array('gp247_extension_scope', config('gp247_functions_except', []))) {
+    /**
+     * The store-scope class a plugin/template declares in its gp247.json.
+     *
+     * "global"   — system-wide only (no per-store enable/settings). Default when the
+     *              key is absent, so pre-existing plugins keep their exact behaviour.
+     * "store"    — per-store enable + settings (shipping/discount/tax…), shown on the
+     *              config screen behind the ConfigForm store picker.
+     * "platform" — configured only by the platform owner at GLOBAL (e.g. in-marketplace
+     *              payment); a vendor/store-admin never sees the screen.
+     *
+     * Read from disk (not the class) so it is known before the plugin is booted;
+     * memoized per request. A missing/unreadable manifest ⇒ "global" (fail-safe).
+     *
+     * @param string $group Plugins|Templates.
+     * @param string $key   Extension key (e.g. "ShippingStandard").
+     * @return string One of "global"|"store"|"platform".
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-per-store-plugin-config
+     * @aidlc-adr plugin-manager_per-store-plugin-config
+     */
+    function gp247_extension_scope(string $group, string $key): string
+    {
+        static $memo = [];
+
+        $type = $group === 'Templates' ? 'Templates' : 'Plugins';
+        $cacheKey = $type . '|' . $key;
+        if (!array_key_exists($cacheKey, $memo)) {
+            $scope = 'global';
+            $path = app_path('GP247/' . $type . '/' . $key . '/gp247.json');
+            if (is_file($path)) {
+                $config = json_decode((string) file_get_contents($path), true);
+                $declared = is_array($config) ? ($config['storeScope'] ?? null) : null;
+                if (in_array($declared, ['global', 'store', 'platform'], true)) {
+                    $scope = $declared;
+                }
+            }
+            $memo[$cacheKey] = $scope;
+        }
+
+        return $memo[$cacheKey];
+    }
+}
+
+
 if (!function_exists('gp247_extension_get_via_code') && !in_array('gp247_extension_get_via_code', config('gp247_functions_except', []))) {
     /**
      * Get all class plugin actived
@@ -335,24 +381,34 @@ if (!function_exists('gp247_extension_get_via_code') && !in_array('gp247_extensi
      * with a warning — a missing Payment/Shipping/Total class would otherwise be
      * instantiated later and turn checkout fatal.
      *
+     * Enable/disable is resolved for the current EFFECTIVE store (gp247_plugin_store_id):
+     * the config lookup uses that store id, so a plugin turned off for one store is
+     * absent from that store's checkout while global config still gates the whole system
+     * (ADR plugin-manager_per-store-plugin-config). On a single-store site the effective
+     * store is ROOT ⇒ falls back to GLOBAL ⇒ behaviour unchanged.
+     *
      * @param   [string]  $code  Payment, Shipping
      * @param   [boolean]  $active  true, false
      *
      * @return  [array]
      *
      * @aidlc-unit plugin-manager
-     * @aidlc-story US-PLG-active-requires-source
-     * @aidlc-adr plugin-manager_active-check-source-presence
+     * @aidlc-story US-PLG-active-requires-source, US-PLG-per-store-plugin-config
+     * @aidlc-adr plugin-manager_active-check-source-presence, plugin-manager_per-store-plugin-config
      */
     function gp247_extension_get_via_code(string $code, bool $active = true)
     {
         $code = gp247_word_format_class($code);
 
+        // WHY: resolve enable/disable against the effective store (per-store toggle),
+        // not always GLOBAL — a single seam so no topology branch leaks in here.
+        $storeId = function_exists('gp247_plugin_store_id') ? gp247_plugin_store_id() : null;
+
         $pluginsActived = [];
         $allPlugins = gp247_extension_get_installed(type: 'Plugins', active: $active);
         if (count($allPlugins)) {
             foreach ($allPlugins as $keyPlugin => $plugin) {
-                if (gp247_config($keyPlugin) == 1 && $plugin['code'] == $code) {
+                if (gp247_config($keyPlugin, $storeId) == 1 && $plugin['code'] == $code) {
                     if (!gp247_extension_source_exists('Plugins', $keyPlugin)) {
                         gp247_report('[gp247 extension] Plugin "' . $keyPlugin . '" (code ' . $code . ') is active in DB but its source is missing on disk. Skipped.');
                         continue;

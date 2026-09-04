@@ -18,8 +18,15 @@ class LogOperation
     public function handle(Request $request, \Closure $next)
     {
         if ($this->shouldLogOperation($request)) {
-            //Default except password for security
-            $adminLogExcept = ['password', 'password_confirmation'];
+            // Default except: never log credentials/secrets in request input. Covers the
+            // secret admin_config field names (smtp_password, *_client_secret, captcha
+            // secret, license) so an at-rest secret is not leaked via the operation log
+            // (ADR compat-foundation_config-secret-at-rest, NFR-SEC-config-secret-at-rest).
+            $adminLogExcept = [
+                'password', 'password_confirmation',
+                'smtp_password', 'client_secret', 'client_id', 'secret', 'secrect_key',
+                'api_secret', 'api_key', 'token', 'license',
+            ];
 
             $adminLogExcept = array_merge($adminLogExcept, explode(',', config('gp247-config.admin.admin_log_except')));
             $log = [

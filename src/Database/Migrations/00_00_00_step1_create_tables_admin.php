@@ -98,7 +98,7 @@ return new class extends Migration
             $table->string('group', 50)->nullable();
             $table->string('code', 50)->index();
             $table->string('key', 50);
-            $table->string('value', 500)->nullable();
+            $table->text('value')->nullable();
             $table->integer('security')->default(0)->nullable();
             $table->uuid('store_id')->default(0);
             $table->integer('sort')->default(0);

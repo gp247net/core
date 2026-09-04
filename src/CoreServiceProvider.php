@@ -31,6 +31,7 @@ use GP247\Core\Commands\ExtRegisterLicense;
 use GP247\Core\Commands\InstallAll;
 use GP247\Core\Commands\UpdateAll;
 use GP247\Core\Commands\CacheRebuild;
+use GP247\Core\Commands\EncryptionKeyRotate;
 use GP247\Core\Commands\Doctor;
 use GP247\Core\Commands\Info;
 use GP247\Core\Middleware\Localization;
@@ -87,6 +88,7 @@ class CoreServiceProvider extends ServiceProvider
         ExtRegisterLicense::class,
         UpdateAll::class,
         CacheRebuild::class,
+        EncryptionKeyRotate::class,
         // WHY: Info stays in the runtime tier — it reads gp247_* helpers
         // (gp247_composer_get_package_installed / gp247_extension_*) that are only
         // loaded after the installed-gate, so it cannot run pre-install.

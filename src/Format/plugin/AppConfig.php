@@ -150,6 +150,13 @@ class AppConfig extends ExtensionConfigDefault
     /**
      * Get info plugin
      *
+     * WHY (per-store aware, ADR plugin-manager_per-store-plugin-config): a plugin that
+     * declares "storeScope": "store" in gp247.json should read its settings for the
+     * EFFECTIVE store, not GLOBAL — use gp247_config($key, gp247_plugin_store_id())
+     * (the seam resolves admin session / marketplace checkout / storefront domain), so
+     * one plugin serves both a multi-store and a marketplace site unchanged. On a
+     * single-store site the seam is ROOT ⇒ falls back to GLOBAL ⇒ identical behaviour.
+     *
      * @return  [type]  [return description]
      */
     public function getInfo()

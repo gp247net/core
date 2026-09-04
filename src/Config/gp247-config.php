@@ -1,5 +1,22 @@
 <?php
 return [
+    // At-rest secret encryption (ADR compat-foundation_config-secret-at-rest).
+    'security' => [
+        // Dedicated encryption key for stored secrets, separate from APP_KEY so an
+        // APP_KEY change (key:generate, .env copy) does not destroy them. When empty,
+        // falls back to APP_KEY (gp247:doctor warns). Rotate with gp247:encryption-key-rotate.
+        'encryption_key'          => env('GP247_ENCRYPTION_KEY', ''),
+        // Previous dedicated keys (comma-separated) kept only so old rows still decrypt
+        // during/after a rotation; drop once gp247:encryption-key-rotate reports 0 old rows.
+        'encryption_previous_keys' => array_values(array_filter(array_map('trim', explode(',', (string) env('GP247_ENCRYPTION_PREVIOUS_KEYS', ''))))),
+        // Tables/columns that hold at-rest secrets, so gp247:doctor and
+        // gp247:encryption-key-rotate cover every encrypted column, not just config.
+        // A plugin appends its own in Provider.php (runtime-config-append idiom).
+        'encrypted_columns'       => [
+            'admin_config' => ['value'],
+        ],
+    ],
+
     'admin' => [
         //Enable, disable page libary online
         'api_plugins'      => env('GP247_ADMIN_API_PLUGIN', 1),
@@ -26,6 +43,14 @@ return [
         // RBAC. A veto can only add "deny", never "allow"; a throwing fence fails closed.
         // Read at call time (order-independent of provider boot). ADR admin-shell_action-fence-seam.
         'action_fence'        => null,
+        // Seam: admin path segments a store-scoped plugin config screen lives under.
+        // Default [] = none. A plugin whose gp247.json declares storeScope=store
+        // runtime-appends its admin segment here (Provider.php, when active) so the
+        // MultiStore Pro StoreFence classifies that screen as STORE_SCOPED — letting a
+        // store-admin reach the config screen of their own store. A storeScope=platform
+        // plugin (e.g. in-marketplace payment) does NOT append, staying GLOBAL (owner
+        // only). ADR plugin-manager_per-store-plugin-config.
+        'store_scoped_segments' => [],
 
          // Default, all tables have prefix GP247_DB_PREFIX can be customized add new fields.
         'schema_customize' => env('GP247_ADMIN_SCHEMA_CUSTOMIZE', ''), //List tables can be customized add new fields, ex: 'table1,table2'

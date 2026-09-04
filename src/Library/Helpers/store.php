@@ -310,3 +310,42 @@ if (!function_exists('gp247_admin_store_resolve') && !in_array('gp247_admin_stor
     }
 }
 
+
+/**
+ * The store a PLUGIN's config/behaviour applies to for the current request — the
+ * single "effective store" seam that lets one plugin serve both supported topologies
+ * (ADR plugin-manager_per-store-plugin-config):
+ *   - admin request  → session('adminStoreId')  (ROOT at root admin; the bound store
+ *     for a store-admin/vendor — same value ResourcePanel/ConfigForm scope to);
+ *   - marketplace checkout → session('storeCheckout') (cart is grouped per store, one
+ *     order per vendor; app.storeId stays ROOT on the shared marketplace domain);
+ *   - everything else → config('app.storeId') (the domain's store in multi-store;
+ *     ROOT on a single-store site).
+ *
+ * Callers read config with gp247_config($key, gp247_plugin_store_id()) and filter
+ * enable/disable with the same value, so no per-topology condition is scattered across
+ * plugins. On a single-store site every branch resolves to ROOT ⇒ gp247_config's
+ * per-store memo means no extra query (NFR-MAINT-store-scope-single-mechanism).
+ *
+ * @aidlc-unit plugin-manager
+ * @aidlc-story US-PLG-per-store-plugin-config
+ * @aidlc-adr plugin-manager_per-store-plugin-config
+ * @return int|string
+ */
+if (!function_exists('gp247_plugin_store_id') && !in_array('gp247_plugin_store_id', config('gp247_functions_except', []))) {
+    function gp247_plugin_store_id()
+    {
+        // Admin context: the session store the admin shell already resolved + checked.
+        if (function_exists('admin') && admin()->user()) {
+            return session('adminStoreId', GP247_STORE_ID_ROOT);
+        }
+        // Marketplace checkout: the vendor store the cart segment belongs to.
+        $storeCheckout = session('storeCheckout');
+        if (!empty($storeCheckout)) {
+            return $storeCheckout;
+        }
+        // Storefront: the store serving this domain (ROOT on a single-store site).
+        return config('app.storeId', GP247_STORE_ID_ROOT);
+    }
+}
+
