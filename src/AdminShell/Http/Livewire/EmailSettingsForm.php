@@ -11,9 +11,10 @@ use Illuminate\Contracts\View\View;
  *
  * Mirrors the legacy two-column layout: an "Email mode" card (email_action_*
  * keys + the global `smtp_mode` toggle) and an "SMTP configuration" card that is
- * shown only while SMTP mode is on. The store-scoped smtp and email_action keys
- * use the inherited live-edit pipeline ($values + updatedValues); the smtp_mode
- * toggle lives in the global config group and is persisted separately.
+ * shown only while SMTP mode is on. All fields commit only on Save (ADR-005
+ * amended 2026-09-05): the store-scoped smtp and email_action keys via the
+ * inherited save()/$values pipeline, and the global `smtp_mode` flag via this
+ * class's save() override (it lives in the 'global' group, outside keys()).
  *
  * @aidlc-unit admin-shell-rbac
  * @aidlc-story US-UI-005, US-UI-008
@@ -62,10 +63,32 @@ class EmailSettingsForm extends StoreConfigForm
         return [
             'email_action_mode' => 'bool',
             'email_action_queue' => 'bool',
+            // WHY: a fixed dropdown, not free text — the value maps token-exactly via
+            // SmtpTransport::scheme() (only lowercase 'ssl'/'tls' work), so a typo like
+            // "SSL" would silently downgrade to an unencrypted connection.
+            'smtp_security' => 'select',
             'smtp_port' => 'number',
             // WHY: render as a masked password field, never plain text
             // (NFR-SEC-mail-secret-display, RISK-SEC-mail-password-plaintext).
             'smtp_password' => 'password',
+        ];
+    }
+
+    /**
+     * Select options for the smtp_security dropdown. Empty value = no encryption;
+     * 'tls' = STARTTLS (port 587), 'ssl' = implicit TLS/smtps (port 465). Tokens are
+     * lowercase to match SmtpTransport::scheme() exactly.
+     *
+     * @return array<string, array<int|string, string>>
+     */
+    protected function fieldOptions(): array
+    {
+        return [
+            'smtp_security' => [
+                '' => gp247_language_quickly('email.config_smtp.smtp_security_none', 'None (no encryption)'),
+                'tls' => gp247_language_quickly('email.config_smtp.smtp_security_tls', 'TLS — STARTTLS (port 587)'),
+                'ssl' => gp247_language_quickly('email.config_smtp.smtp_security_ssl', 'SSL — implicit TLS (port 465)'),
+            ],
         ];
     }
 
@@ -98,23 +121,45 @@ class EmailSettingsForm extends StoreConfigForm
     }
 
     /**
-     * Persist the global SMTP-mode toggle the moment it changes (Layer-2 gated).
+     * Persist the global SMTP-mode flag as part of Save (no longer a live hook).
+     *
+     * WHY: smtp_mode lives in the 'global' config group, outside the store-scoped
+     * keys() that the parent save() iterates, so it is written here rather than by
+     * the inherited persistValue(). Called only by save() — nothing persists on
+     * change, so a stray toggle never reaches the DB (ADR-005 amended 2026-09-05).
      *
      * @return void
-     * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
      */
-    public function updatedSmtpMode(): void
+    private function persistSmtpMode(): void
     {
-        $this->authorizeAction('update');
-
+        // (string) cast: store_id is char(36); an int bind coerces the column to
+        // DOUBLE (ADR compat-foundation_store-id-string-identity).
         $globalStore = defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : 0;
 
         AdminConfig::where('key', 'smtp_mode')
             ->where('group', 'global')
-            ->where('store_id', $globalStore)
+            ->where('store_id', (string) $globalStore)
             ->update(['value' => $this->smtpMode ? '1' : '0']);
+    }
 
-        $this->notify('success', gp247_language_render('admin.setting_saved'));
+    /**
+     * Persist the whole form on explicit Save: the global smtp_mode flag plus the
+     * store-scoped email_action_* / smtp_* keys handled by the parent. No field
+     * persists on change — the Save button is the single commit point, matching the
+     * generic config screen (ADR-005 amended 2026-09-05).
+     *
+     * @return void
+     * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
+     */
+    public function save(): void
+    {
+        // Authorize before the first write so an unauthorized Save persists nothing.
+        $this->authorizeAction('update');
+        $this->persistSmtpMode();
+
+        // Parent persists keys() (email_action_* + smtp_*) and emits the single
+        // "setting saved" toast for the whole form.
+        parent::save();
     }
 
     /**
@@ -162,10 +207,12 @@ class EmailSettingsForm extends StoreConfigForm
     {
         $configs = $this->configs()->keyBy('key');
         $types = $configs->mapWithKeys(fn ($c) => [$c->key => $this->typeOf($c->key)])->all();
+        $options = $configs->mapWithKeys(fn ($c) => [$c->key => $this->optionsOf($c->key)])->all();
 
         return view('gp247-admin::livewire.email-settings', [
             'configs' => $configs,
             'types' => $types,
+            'options' => $options,
             'modeKeys' => $this->modeKeys(),
             'smtpKeys' => $this->smtpKeys(),
             'mailGuide' => $this->mailGuide(),
