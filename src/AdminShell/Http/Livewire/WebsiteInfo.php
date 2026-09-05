@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
+use GP247\Core\AdminShell\Infrastructure\HasStoreScopeUi;
 use GP247\Core\Models\AdminLanguage;
 use GP247\Core\Models\AdminStore;
 use Illuminate\Contracts\View\View;
@@ -23,7 +24,22 @@ use Illuminate\Contracts\View\View;
  */
 class WebsiteInfo extends GP247AdminComponent
 {
+    use HasStoreScopeUi;
+
     protected ?string $permission = 'store.full';
+
+    /**
+     * Opt into per-store scoping (guarded at runtime by
+     * gp247_store_check_multi_domain_installed(), so single-store sites are unaffected):
+     * a store-admin edits their own bound store, the root admin may pick a sub-store.
+     * (mod 20260905T230324, ADR admin-shell_website-info-store-scope.)
+     *
+     * @return bool
+     */
+    protected function storeScopeOptIn(): bool
+    {
+        return true;
+    }
 
     // WHY: this screen's slug ('store.full') is not an admin_<resource> convention
     // name, so the base cannot derive the screen path from it — declare the real
@@ -73,11 +89,29 @@ class WebsiteInfo extends GP247AdminComponent
     private const RICH_FIELDS = ['maintain_content'];
 
     /**
-     * @return int|string The single root store id.
+     * @return int|string The ROOT store id (default scope + single-store fallback).
+     */
+    private function rootStoreId()
+    {
+        return defined('GP247_STORE_ID_ROOT') ? GP247_STORE_ID_ROOT : 1;
+    }
+
+    /**
+     * The store this screen edits — the "effective store" (mod 20260905T230324;
+     * root picker dropped mod 20260905T233706): the ROOT admin always edits ROOT
+     * here (per-store identity is managed at gp247_admin/MultiStore, so a picker
+     * would duplicate it); a bound store-admin edits their own store (storeContext);
+     * scope off / single-store → ROOT (parity). No {id} on the route ⇒ no IDOR.
+     *
+     * @return int|string
      */
     private function storeId()
     {
-        return defined('GP247_STORE_ID_ROOT') ? GP247_STORE_ID_ROOT : 1;
+        if (!$this->storeScopeActive() || $this->isRootScope()) {
+            return $this->rootStoreId();
+        }
+
+        return $this->storeContext();
     }
 
     /**
@@ -89,7 +123,7 @@ class WebsiteInfo extends GP247AdminComponent
     }
 
     /**
-     * Load the store record + descriptions into editable state.
+     * Load the effective store record into editable state.
      *
      * @return void
      */
@@ -97,6 +131,17 @@ class WebsiteInfo extends GP247AdminComponent
     {
         parent::mount();
 
+        $this->loadStore();
+    }
+
+    /**
+     * Load the effective store's scalar fields + multilingual descriptions into the
+     * editable component state.
+     *
+     * @return void
+     */
+    private function loadStore(): void
+    {
         $model = $this->storeModel();
         if ($model === null) {
             return;
@@ -145,6 +190,16 @@ class WebsiteInfo extends GP247AdminComponent
         $clean = gp247_clean((string) $value);
 
         if ($key === 'domain') {
+            // WHY domain is platform-owner only: it drives multi-domain routing and the
+            // store-admin domain guard. A bound store-admin (isRootScope() === false)
+            // must never change it — reject server-side even if the field were forged
+            // (the blade also hides it for non-root). mod 20260905T230324,
+            // RISK-SEC-website-info-domain-hijack.
+            if (!$this->isRootScope()) {
+                $this->notify('error', gp247_language_render('admin.permission_denied'));
+
+                return;
+            }
             $domain = function_exists('gp247_store_process_domain') ? gp247_store_process_domain($clean) : $clean;
             $taken = AdminStore::where('domain', $domain)->where('id', '<>', $this->storeId())->exists();
             if ($taken) {
@@ -381,7 +436,10 @@ class WebsiteInfo extends GP247AdminComponent
             'languageOptions' => $languageOptions,
             'currencyOptions' => $currencyOptions,
             'templateOptions' => $templateOptions,
-            'isRoot' => $this->storeId() === (defined('GP247_STORE_ID_ROOT') ? GP247_STORE_ID_ROOT : 1),
+            // WHY isRootScope() (not storeId===ROOT): domain is editable only in ROOT
+            // context (the ROOT admin editing ROOT); a bound store-admin (non-root
+            // context) never sees it (mod 20260905T230324, RISK-SEC-website-info-domain-hijack).
+            'isRoot' => $this->isRootScope(),
         ])->layout('gp247-admin::layouts.admin', ['title' => gp247_language_render('admin.store.title')]);
     }
 }
