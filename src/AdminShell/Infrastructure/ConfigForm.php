@@ -243,8 +243,10 @@ abstract class ConfigForm extends GP247AdminComponent
      */
     protected function configs(): Collection
     {
+        // (string) cast: store_id is char(36); an int bind coerces the column to DOUBLE
+        // (ADR compat-foundation_store-id-string-identity).
         return AdminConfig::where('group', $this->group())
-            ->where('store_id', $this->storeId())
+            ->where('store_id', (string) $this->storeId())
             ->when($this->keys() !== [], fn ($q) => $q->whereIn('key', $this->keys()))
             ->orderBy('sort')
             ->get();
@@ -262,7 +264,7 @@ abstract class ConfigForm extends GP247AdminComponent
         }
 
         return AdminConfig::where('group', $this->group())
-            ->where('store_id', $this->scopeStoreId())
+            ->where('store_id', (string) $this->scopeStoreId())
             ->when($this->keys() !== [], fn ($q) => $q->whereIn('key', $this->keys()))
             ->get()
             ->keyBy('key');
@@ -468,12 +470,12 @@ abstract class ConfigForm extends GP247AdminComponent
         if ($this->isSubStoreScope()) {
             $base = AdminConfig::where('group', $this->group())
                 ->where('key', $key)
-                ->where('store_id', $this->storeId())
+                ->where('store_id', (string) $this->storeId())
                 ->first();
             $row = AdminConfig::firstOrNew([
                 'group' => $this->group(),
                 'key' => $key,
-                'store_id' => $this->scopeStoreId(),
+                'store_id' => (string) $this->scopeStoreId(),
             ]);
             if ($base !== null) {
                 $row->code = $base->code;
@@ -496,7 +498,7 @@ abstract class ConfigForm extends GP247AdminComponent
             }
             AdminConfig::where('key', $key)
                 ->where('group', $this->group())
-                ->where('store_id', $this->scopeStoreId())
+                ->where('store_id', (string) $this->scopeStoreId())
                 ->update($update);
         }
     }
@@ -517,7 +519,7 @@ abstract class ConfigForm extends GP247AdminComponent
         }
         AdminConfig::where('group', $this->group())
             ->where('key', $key)
-            ->where('store_id', $this->scopeStoreId())
+            ->where('store_id', (string) $this->scopeStoreId())
             ->delete();
 
         $this->loadValues();
