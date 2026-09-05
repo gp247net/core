@@ -358,7 +358,10 @@
 
     {{-- Scope legend --}}
     @if ($groupType === 'Plugins')
-    <div class="flex flex-wrap gap-x-5 gap-y-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+    <div class="gp247-legend-bar border-t border-gray-100 bg-gray-50/60 px-4 py-2.5 dark:border-gray-700/60 dark:bg-gray-800/30">
+        <span class="gp247-legend-title">
+            <i class="fas fa-info-circle"></i>{{ gp247_language_render('admin.extension.scope') }}
+        </span>
         <span class="gp247-legend"><span class="gp247-legend-dot gp247-scope-store"></span>{{ gp247_language_render('admin.extension.legend_store') }}</span>
         <span class="gp247-legend"><span class="gp247-legend-dot gp247-scope-global"></span>{{ gp247_language_render('admin.extension.legend_global') }}</span>
     </div>
@@ -473,11 +476,30 @@
 .dark .gp247-scope-store    { color: #5dcaa5; background: rgba(15, 110, 86, .18); }
 .dark .gp247-scope-global   { color: #b4b2a9; background: rgba(90, 89, 84, .25); }
 
-/* Scope legend */
-.gp247-legend {
+/* Scope legend — spacing controlled here (Tailwind gap utilities are not all in the
+   prebuilt bundle, so they would collapse to 0 and cram the items together). */
+.gp247-legend-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 22px;
+    row-gap: 8px;
+}
+.gp247-legend-title {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #9ca3af;
+}
+.dark .gp247-legend-title { color: #6b7280; }
+.gp247-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     font-size: 12px;
     color: #64748b;
 }
