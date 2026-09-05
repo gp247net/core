@@ -88,6 +88,26 @@
             </form>
         </div>
 
+        @php
+            // Pre-pass: count online plugins per configCode bucket for the filter chip bar
+            // (US-PLG-config-code-filter). Counts reflect the CURRENT page only — the online
+            // list is server-paginated and the marketplace API may omit 'code' (then Other).
+            // NO active check. Plugins tab only.
+            $pluginConfigCounts = [];
+            if ($groupType === 'Plugins' && $arrExtensions) {
+                foreach ($arrExtensions as $pcfItem) {
+                    $pcfBucket = gp247_plugin_config_group($pcfItem['code'] ?? '');
+                    $pluginConfigCounts[$pcfBucket] = ($pluginConfigCounts[$pcfBucket] ?? 0) + 1;
+                }
+            }
+        @endphp
+
+        {{-- Alpine scope for the configCode filter (chips + rows share $store.pluginConfigFilter) --}}
+        <div @if ($groupType === 'Plugins') x-data @endif>
+        @if ($groupType === 'Plugins')
+            @include('gp247-admin::partials.plugin-config-filter', ['groupCounts' => $pluginConfigCounts])
+        @endif
+
         {{-- Table --}}
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -150,8 +170,15 @@
                                     'unverified' => ['cls' => 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600', 'title' => gp247_language_render('admin.extension.license_unverified', ['key' => $extension['key']])],
                                     'none'       => ['cls' => 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600', 'title' => gp247_language_render('admin.extension.license_label')],
                                 ][$licState];
+                                // configCode filter bucket for this online item (defensive:
+                                // empty when the API omits 'code' -> Other). US-PLG-config-code-filter.
+                                $pcfRowBucket = gp247_plugin_config_group($extension['code'] ?? '');
                             @endphp
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                @if ($groupType === 'Plugins')
+                                    data-config-group="{{ $pcfRowBucket }}"
+                                    x-show="$store.pluginConfigFilter.visible('{{ $pcfRowBucket }}')"
+                                @endif>
 
                                 {{-- Image --}}
                                 <td class="px-4 py-3">
@@ -325,6 +352,7 @@
                 </tbody>
             </table>
         </div>
+        </div>{{-- /Alpine filter scope --}}
 
         {{-- Pagination --}}
         @if (!empty($htmlPaging) || !empty($resultItems))

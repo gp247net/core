@@ -1,7 +1,7 @@
 {{--
-    Single live-editing config input bound to values.<key> (ADR-005): a checkbox
-    (bool), a numeric input (number) or a text input. Persists via the component's
-    updatedValues() hook (checkbox = live, number/text = on blur).
+    Single config input bound (deferred) to values.<key> (ADR-005, amended 2026-09-05):
+    a checkbox (bool), number, select, password or text input. Edits stay in the buffer;
+    the component's save() writes them all on Submit — nothing persists on change.
 
     @aidlc-unit admin-shell-rbac
     @aidlc-story US-UI-005
@@ -14,17 +14,17 @@
          The knob is a real element (not an ::after pseudo) so it relies only on
          standard utilities the build is known to emit. --}}
     <label class="relative inline-flex h-6 w-11 cursor-pointer items-center">
-        <input type="checkbox" wire:model.live="values.{{ $key }}" class="peer sr-only">
+        <input type="checkbox" wire:model="values.{{ $key }}" class="peer sr-only">
         <span class="absolute inset-0 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500 dark:bg-gray-600"></span>
         <span class="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
     </label>
 @elseif ($type === 'bool')
-    <x-gp247::checkbox wire:model.live="values.{{ $key }}" />
+    <x-gp247::checkbox wire:model="values.{{ $key }}" />
 @elseif ($type === 'number')
-    <input type="number" wire:model.live.blur="values.{{ $key }}"
+    <input type="number" wire:model="values.{{ $key }}"
         class="w-28 rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
 @elseif ($type === 'select')
-    <select wire:model.live="values.{{ $key }}"
+    <select wire:model="values.{{ $key }}"
         class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
         @foreach ($options ?? [] as $value => $label)
             <option value="{{ $value }}">{{ $label }}</option>
@@ -34,9 +34,9 @@
     {{-- WHY: secrets (e.g. smtp_password) must not render as readable text
          (NFR-SEC-mail-secret-display). autocomplete off avoids the browser
          offering the admin's own saved passwords. --}}
-    <input type="password" autocomplete="new-password" wire:model.blur="values.{{ $key }}"
+    <input type="password" autocomplete="new-password" wire:model="values.{{ $key }}"
         class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
 @else
-    <input type="text" wire:model.live.blur="values.{{ $key }}"
+    <input type="text" wire:model="values.{{ $key }}"
         class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
 @endif

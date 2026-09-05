@@ -1,7 +1,8 @@
 {{--
     Settings table for a key/value admin_config group (ADR-005). Two columns —
-    "Setting | Value" — matching the legacy admin look. Values edit inline and
-    persist live (checkbox toggle / number-blur / text-blur), no submit button.
+    "Setting | Value" — matching the legacy admin look. Values are edited in a deferred
+    buffer and written only when the admin clicks Save (ADR-005, amended 2026-09-05:
+    submit-based, no live per-field write — a stray change never reaches the DB by accident).
 
     Per-store scope (ADR plugin-manager_per-store-plugin-config): when $storeScope is
     true the screen shows a scope picker (root admin) or the bound store (store-admin);
@@ -31,7 +32,7 @@
             @if ($this->showStorePicker())
                 <select wire:model.live="formStoreId" data-testid="config-form-store-select"
                     class="w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
-                    <option value="">— {{ gp247_language_quickly('admin.store.scope_global', 'Shared config') }} —</option>
+                    <option value="">— {{ gp247_language_quickly('admin.store.scope_global', 'Default config') }} —</option>
                     @foreach ($this->storeOptions() as $sid => $stitle)
                         <option value="{{ $sid }}">{{ $stitle }}</option>
                     @endforeach
@@ -98,5 +99,16 @@
                 @endforelse
             </tbody>
         </table>
+    </div>
+
+    {{-- Explicit save: values are edited in a deferred buffer and only written on click,
+         so no field change hits the DB by accident (ADR-005 amended 2026-09-05). --}}
+    <div class="mt-4 flex justify-end">
+        <button type="button" wire:click="save" data-testid="config-form-submit"
+            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60 dark:focus:ring-offset-gray-800"
+            wire:loading.attr="disabled" wire:target="save">
+            <i class="fas fa-save"></i>
+            {{ gp247_language_render('admin.save') }}
+        </button>
     </div>
 </div>

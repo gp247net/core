@@ -37,6 +37,23 @@ trait  ExtensionController
         // WHY: cache only — the local screen must never block on the marketplace API
         $arrUpdates = (new \GP247\Core\Library\ExtensionUpdateManager)->getAvailableUpdates();
 
+        // Per-store enable context (Plugins only). On a multi-store/marketplace site the
+        // root admin can pick a store and toggle each storeScope=store plugin on/off for
+        // just that store; single-store sites see no selector and behave exactly as before
+        // (US-PLG-per-store-plugin-enable-list, NFR-MAINT-store-scope-single-mechanism).
+        $perStoreEnable = $this->groupType === 'Plugins'
+            && function_exists('gp247_store_check_multi_domain_installed')
+            && gp247_store_check_multi_domain_installed();
+        $storeList = $perStoreEnable ? \GP247\Core\Models\AdminStore::getListTitle() : [];
+        $selectedStoreId = '';
+        if ($perStoreEnable) {
+            $req = (string) request('store_id', '');
+            // Only honour a store the admin actually owns; anything else = GLOBAL view.
+            if ($req !== '' && array_key_exists($req, $storeList)) {
+                $selectedStoreId = $req;
+            }
+        }
+
         return view('gp247-admin::screen.extension')->with(
             [
                 "title"               => gp247_language_render('admin.extension.management', ['extension' => $this->groupType]),
@@ -47,8 +64,40 @@ trait  ExtensionController
                 "extensionProtected"  => $extensionProtected,
                 "listUrlAction"       => $listUrlAction,
                 "arrUpdates"          => $arrUpdates,
+                "perStoreEnable"      => $perStoreEnable,
+                "storeList"           => $storeList,
+                "selectedStoreId"     => $selectedStoreId,
             ]
         );
+    }
+
+    /**
+     * Whether an enable/disable request targets a single store (the per-store toggle on
+     * the list) rather than the system-wide flag. True only for a Plugins request that
+     * carries a valid store_id, on a multi-store site, for an installed storeScope=store
+     * plugin — otherwise the caller falls back to the global path (or reports an error
+     * when a store_id was given but is not eligible).
+     *
+     * @param string $key     Plugin key.
+     * @param mixed  $storeId Requested store id (empty ⇒ global request).
+     * @return bool
+     */
+    protected function isPerStoreEnableRequest(string $key, $storeId): bool
+    {
+        if ($this->groupType !== 'Plugins' || $storeId === null || (string) $storeId === '') {
+            return false;
+        }
+        if (!function_exists('gp247_store_check_multi_domain_installed') || !gp247_store_check_multi_domain_installed()) {
+            return false;
+        }
+        if (gp247_extension_scope('Plugins', $key) !== 'store') {
+            return false;
+        }
+        if (!\GP247\Core\Models\AdminStore::where('id', $storeId)->exists()) {
+            return false;
+        }
+        // The plugin must be installed system-wide before a store can override its state.
+        return gp247_extension_check_installed('Plugins', $key);
     }
 
     /**
@@ -93,6 +142,18 @@ trait  ExtensionController
     public function enable()
     {
         $key = request('key');
+        $storeId = request('store_id');
+
+        // Per-store toggle: flip only this store's override row, leaving the system-wide
+        // flag (and install state) untouched (US-PLG-per-store-plugin-enable-list).
+        if ((string) $storeId !== '') {
+            if (!$this->isPerStoreEnableRequest($key, $storeId)) {
+                return response()->json(['error' => 1, 'msg' => 'Invalid per-store enable request']);
+            }
+            gp247_plugin_store_enable_set($key, $storeId, true);
+            return response()->json(['error' => 0, 'msg' => gp247_language_render('admin.msg_change_success')]);
+        }
+
         $response = (new ExtensionInstaller)->enable($this->groupType, $key);
         if (is_array($response) && ($response['error'] ?? 1) == 0) {
             gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
@@ -108,6 +169,17 @@ trait  ExtensionController
     public function disable()
     {
         $key = request('key');
+        $storeId = request('store_id');
+
+        // Per-store toggle: flip only this store's override row (US-PLG-per-store-plugin-enable-list).
+        if ((string) $storeId !== '') {
+            if (!$this->isPerStoreEnableRequest($key, $storeId)) {
+                return response()->json(['error' => 1, 'msg' => 'Invalid per-store disable request']);
+            }
+            gp247_plugin_store_enable_set($key, $storeId, false);
+            return response()->json(['error' => 0, 'msg' => gp247_language_render('admin.msg_change_success')]);
+        }
+
         // Guards (template-in-use) are enforced inside the shared installer.
         $response = (new ExtensionInstaller)->disable($this->groupType, $key);
         if (is_array($response) && ($response['error'] ?? 1) == 0) {

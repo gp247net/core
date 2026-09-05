@@ -43,6 +43,11 @@ trait ExtensionOnlineController
                 $arrExtensions[] = [
                     'sku'             => $data['sku'] ?? '',
                     'key'             => $data['key'] ?? '',
+                    // Defensive: the marketplace API may not send a configCode yet. When
+                    // absent the plugin falls into the "Other" filter bucket on the online
+                    // tab (US-PLG-config-code-filter); it starts filtering by category the
+                    // moment the API returns 'code'. No behaviour change when empty.
+                    'code'            => $data['code'] ?? '',
                     'name'            => $data['name'] ?? '',
                     'description'     => $data['description'] ?? '',
                     'image'           => $data['image'] ?? '',

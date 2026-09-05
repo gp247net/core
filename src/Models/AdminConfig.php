@@ -102,7 +102,10 @@ class AdminConfig extends Model
         // (same group/key, store_id=<store>) must NOT shadow it in this list, or a
         // store toggle would corrupt the system-wide plugin roster
         // (ADR plugin-manager_per-store-plugin-config).
-        $query =  self::where('group', 'Plugins')->where('store_id', GP247_STORE_ID_GLOBAL);
+        // WHY (string) 0: store_id is char(36) (ids like "STO-xxx"). Binding the int 0
+        // makes MySQL cast every non-numeric store_id to 0, so a store row would loose-match
+        // GLOBAL. Comparing against the string "0" keeps it an exact GLOBAL-only filter.
+        $query =  self::where('group', 'Plugins')->where('store_id', (string) GP247_STORE_ID_GLOBAL);
         if ($onlyActive) {
             $query = $query->where('value', 1);
         }
@@ -119,7 +122,7 @@ class AdminConfig extends Model
     public static function getTemplateCode($onlyActive = true)
     {
         // WHY: GLOBAL-only, same reason as getPluginCode (per-store rows must not shadow).
-        $query =  self::where('group', 'Templates')->where('store_id', GP247_STORE_ID_GLOBAL);
+        $query =  self::where('group', 'Templates')->where('store_id', (string) GP247_STORE_ID_GLOBAL);
         if ($onlyActive) {
             $query = $query->where('value', 1);
         }
@@ -136,7 +139,7 @@ class AdminConfig extends Model
     public static function getExtensionCode($onlyActive = true)
     {
         // WHY: GLOBAL-only, same reason as getPluginCode (per-store rows must not shadow).
-        $query =  self::whereIn('group', ['Plugins', 'Templates'])->where('store_id', GP247_STORE_ID_GLOBAL);
+        $query =  self::whereIn('group', ['Plugins', 'Templates'])->where('store_id', (string) GP247_STORE_ID_GLOBAL);
         if ($onlyActive) {
             $query = $query->where('value', 1);
         }
@@ -154,7 +157,7 @@ class AdminConfig extends Model
     {
         // WHY: GLOBAL-only, same reason as getPluginCode (per-store rows must not shadow).
         $query =  self::where('group', 'Plugins')
-        ->where('store_id', GP247_STORE_ID_GLOBAL)
+        ->where('store_id', (string) GP247_STORE_ID_GLOBAL)
         ->where('code', 'like', '%Captcha')
         ->where('key', 'like', '%Captcha');
         if ($onlyActive) {

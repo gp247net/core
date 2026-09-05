@@ -42,6 +42,15 @@ abstract class ConfigForm extends GP247AdminComponent
     /** @var array<string, bool> key => whether the shown value is inherited from the base (GLOBAL) row. */
     public array $inherited = [];
 
+    /**
+     * Snapshot of the loaded values (secrets excluded) used by save() to persist only the
+     * keys the admin actually changed — so a sub-store Save never materialises overrides for
+     * untouched, still-inherited keys.
+     *
+     * @var array<string, mixed>
+     */
+    public array $original = [];
+
     /** @var bool Effective on/off of the plugin at the selected sub-store (store-scope only). */
     public bool $storeEnabled = true;
 
@@ -309,6 +318,13 @@ abstract class ConfigForm extends GP247AdminComponent
             $this->values[$key] = $this->isBooleanType($key) ? (bool) (int) $raw : (string) $raw;
         }
 
+        // Snapshot for save()'s dirty check; exclude secrets (never keep a real secret in a
+        // public, browser-serialized property — they are handled by the blank-skip rule).
+        $this->original = [];
+        foreach ($this->values as $k => $v) {
+            $this->original[$k] = $this->isSecretKey($k, $frame) ? null : $v;
+        }
+
         $this->storeEnabled = $this->resolveStoreEnabled();
     }
 
@@ -323,20 +339,10 @@ abstract class ConfigForm extends GP247AdminComponent
         if (!$this->showStoreEnableToggle()) {
             return true;
         }
-        $global = defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : 0;
-        $row = AdminConfig::where('group', 'Plugins')
-            ->where('key', $this->enableKey())
-            ->where('store_id', $this->scopeStoreId())
-            ->first();
-        if ($row !== null) {
-            return (bool) (int) $row->value;
-        }
-        $globalRow = AdminConfig::where('group', 'Plugins')
-            ->where('key', $this->enableKey())
-            ->where('store_id', $global)
-            ->first();
 
-        return $globalRow === null ? true : (bool) (int) $globalRow->value;
+        // Shared read semantics with the "Manage Plugin" list toggle so the two enable
+        // channels never drift (NFR-MAINT-store-scope-single-mechanism).
+        return gp247_plugin_store_enabled($this->enableKey(), $this->scopeStoreId());
     }
 
     /**
@@ -385,15 +391,79 @@ abstract class ConfigForm extends GP247AdminComponent
      * @return void
      * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
      */
-    public function updatedValues($value, $key): void
+    /**
+     * Persist every editable key at once (explicit Save — no live per-field write, so a
+     * mis-typed field or a stray dropdown change never reaches the DB until the admin
+     * commits; ADR-005 amended 2026-09-05). The store picker, the per-store enable toggle
+     * and "use shared config" stay immediate (deliberate single controls).
+     *
+     * @return void
+     * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
+     */
+    /**
+     * Hook: normalise/clamp a submitted value before persistence. Override in a subclass
+     * (e.g. CacheConfigForm clamps cache_time to a sane minimum). Default: unchanged.
+     *
+     * @param string $key   Config key.
+     * @param mixed  $value  Submitted value.
+     * @return mixed Normalised value.
+     */
+    protected function normalizeValue(string $key, $value)
+    {
+        return $value;
+    }
+
+    public function save(): void
     {
         $this->authorizeAction('update');
+
+        foreach ($this->keys() as $key) {
+            $this->persistValue($key, $this->values[$key] ?? null);
+        }
+
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
+    }
+
+    /**
+     * Persist one key to the effective scope (base GLOBAL or the selected sub-store),
+     * honouring at-rest secret encryption and the write-only rule. Not a Livewire hook —
+     * called only by save() so nothing is written implicitly on field change.
+     *
+     * @param string $key   Config key.
+     * @param mixed  $value  Submitted value.
+     * @return void
+     */
+    private function persistValue(string $key, $value): void
+    {
+        // Let a subclass clamp/normalise a value before it is stored (e.g. CacheConfigForm
+        // forcing a minimum cache_time). Default: unchanged.
+        $value = $this->normalizeValue($key, $value);
+
+        $isSecret = $this->isSecretKey($key, $this->configs());
+
+        // Write-only secret: a blank secret field means "keep the stored one" — never
+        // overwrite an existing secret (or create an empty sub-store override) with '',
+        // which is what an untouched password field submits (NFR-SEC-mail-secret-display,
+        // mirrors LoginSocial::save()).
+        if ($isSecret && !$this->isBooleanType($key) && (string) $value === '') {
+            return;
+        }
+
+        // At a sub-store scope, only write keys the admin actually changed, so untouched
+        // (still-inherited) keys are NOT materialised into overrides on Save. Secrets skip
+        // this check: a non-blank secret is always an intentional new value. Base scope
+        // has no inheritance, so it persists the whole form.
+        if ($this->isSubStoreScope() && !$isSecret) {
+            $isBool = $this->isBooleanType($key);
+            $norm = fn ($v) => $isBool ? ($v ? '1' : '0') : (string) $v;
+            if ($norm($value) === $norm($this->original[$key] ?? null)) {
+                return;
+            }
+        }
 
         $stored = $this->isBooleanType($key)
             ? ($value ? '1' : '0')
             : gp247_clean((string) $value);
-
-        $isSecret = $this->isSecretKey($key, $this->configs());
 
         if ($this->isSubStoreScope()) {
             $base = AdminConfig::where('group', $this->group())
@@ -429,8 +499,6 @@ abstract class ConfigForm extends GP247AdminComponent
                 ->where('store_id', $this->scopeStoreId())
                 ->update($update);
         }
-
-        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**
@@ -471,21 +539,10 @@ abstract class ConfigForm extends GP247AdminComponent
         if (!$this->showStoreEnableToggle()) {
             return;
         }
-        $global = AdminConfig::where('group', 'Plugins')
-            ->where('key', $this->enableKey())
-            ->where('store_id', defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : 0)
-            ->first();
-        $row = AdminConfig::firstOrNew([
-            'group' => 'Plugins',
-            'key' => $this->enableKey(),
-            'store_id' => $this->scopeStoreId(),
-        ]);
-        if ($global !== null && !$row->exists) {
-            $row->code = $global->code;
-            $row->detail = $global->detail;
-        }
-        $row->value = $value ? '1' : '0';
-        $row->save();
+
+        // Shared write semantics with the "Manage Plugin" list toggle (one truth, two
+        // writers — NFR-MAINT-store-scope-single-mechanism).
+        gp247_plugin_store_enable_set($this->enableKey(), $this->scopeStoreId(), (bool) $value);
 
         $this->notify('success', gp247_language_render('admin.setting_saved'));
     }

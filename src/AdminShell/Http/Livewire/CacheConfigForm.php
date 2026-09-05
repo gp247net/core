@@ -80,27 +80,27 @@ class CacheConfigForm extends ConfigForm
      * A mistyped 0/negative/non-numeric value would otherwise be stored verbatim
      * and, on some drivers, Cache::put(..., 0) means "no expiry" (cache forever) —
      * the opposite of the admin's intent. Clamp anything below the lower bound back
-     * to the 600s fallback and re-sync the bound value so the UI reflects it.
+     * to the 600s fallback on Save. Runs at the base persist choke (normalizeValue),
+     * which the submit-based save() calls per key (ADR-005 amended 2026-09-05).
      *
-     * @param mixed  $value The new value.
-     * @param string $key   The changed config key (the `values.<key>` segment).
-     * @return void
-     * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
+     * @param string $key   The config key.
+     * @param mixed  $value The submitted value.
+     * @return mixed The normalised value.
      *
      * @aidlc-unit admin-shell
      * @aidlc-story US-AUI-cache-config-hardening
      */
-    public function updatedValues($value, $key): void
+    protected function normalizeValue(string $key, $value)
     {
         if ($key === 'cache_time') {
             $seconds = is_numeric($value) ? (int) $value : 0;
             if ($seconds < 1) {
                 $seconds = self::CACHE_TIME_FALLBACK;
             }
-            $value = (string) $seconds;
-            $this->values[$key] = $value;
+
+            return (string) $seconds;
         }
 
-        parent::updatedValues($value, $key);
+        return $value;
     }
 }

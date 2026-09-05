@@ -331,19 +331,32 @@ if (!function_exists('gp247_extension_scope') && !in_array('gp247_extension_scop
     /**
      * The store-scope class a plugin/template declares in its gp247.json.
      *
-     * "global"   — system-wide only (no per-store enable/settings). Default when the
-     *              key is absent, so pre-existing plugins keep their exact behaviour.
-     * "store"    — per-store enable + settings (shipping/discount/tax…), shown on the
-     *              config screen behind the ConfigForm store picker.
-     * "platform" — configured only by the platform owner at GLOBAL (e.g. in-marketplace
-     *              payment); a vendor/store-admin never sees the screen.
+     * The scope answers exactly ONE question — "can this plugin's settings / on-off
+     * differ per store?" — so it is binary:
+     *
+     * "global" — one shared value for the whole system (no per-store enable/settings).
+     *            Default when the key is absent, so pre-existing plugins keep their
+     *            exact behaviour.
+     * "store"  — per-store enable + settings (shipping/discount/payment account…),
+     *            resolved store → GLOBAL through the effective-store seam.
+     *
+     * WHETHER a store-admin/vendor may self-configure a "store" plugin is a SEPARATE
+     * knob: the plugin's Provider appends its admin segment to
+     * gp247-config.admin.store_scoped_segments (vendor may) or deliberately does not
+     * (owner-only, e.g. a payment account the root admin sets per store but a vendor
+     * must never touch). The scope does not encode that.
+     *
+     * Legacy: "platform" (pre-2026-09-05) conflated "per-store values" with "vendor
+     * barred". It is accepted as a deprecated alias of "store" — its only real user
+     * (PaypalExpress) already stored credentials per store — and reported once so the
+     * manifest can be migrated.
      *
      * Read from disk (not the class) so it is known before the plugin is booted;
      * memoized per request. A missing/unreadable manifest ⇒ "global" (fail-safe).
      *
      * @param string $group Plugins|Templates.
      * @param string $key   Extension key (e.g. "ShippingStandard").
-     * @return string One of "global"|"store"|"platform".
+     * @return string One of "global"|"store".
      *
      * @aidlc-unit plugin-manager
      * @aidlc-story US-PLG-per-store-plugin-config
@@ -361,7 +374,12 @@ if (!function_exists('gp247_extension_scope') && !in_array('gp247_extension_scop
             if (is_file($path)) {
                 $config = json_decode((string) file_get_contents($path), true);
                 $declared = is_array($config) ? ($config['storeScope'] ?? null) : null;
-                if (in_array($declared, ['global', 'store', 'platform'], true)) {
+                if ($declared === 'platform') {
+                    // Deprecated alias: keep working, nudge the manifest to "store".
+                    gp247_report('[gp247 extension] ' . $type . '/' . $key . ': storeScope "platform" is deprecated — use "store" (per-store values) and keep the plugin out of store_scoped_segments if vendors must not configure it.');
+                    $declared = 'store';
+                }
+                if (in_array($declared, ['global', 'store'], true)) {
                     $scope = $declared;
                 }
             }
@@ -372,6 +390,89 @@ if (!function_exists('gp247_extension_scope') && !in_array('gp247_extension_scop
     }
 }
 
+
+if (!function_exists('gp247_plugin_store_enabled') && !in_array('gp247_plugin_store_enabled', config('gp247_functions_except', []))) {
+    /**
+     * Whether a plugin is enabled for a specific store, honouring store→GLOBAL inheritance.
+     *
+     * The single read semantics shared by BOTH per-store enable channels — the "Manage
+     * Plugin" list toggle and the ConfigForm enableKey toggle — so the two never drift:
+     * the store's own row wins; absent, it inherits the GLOBAL row; absent too, defaults
+     * to enabled (a store inherits an installed plugin until explicitly turned off).
+     *
+     * This is the per-store OVERRIDE state only; the global on/off (and install state)
+     * still gates the whole system elsewhere (gp247_extension_get_via_code AND-combines them).
+     *
+     * @param string     $key     Plugin key (admin_config group "Plugins"), e.g. "ShippingStandard".
+     * @param int|string $storeId The store to read the override for.
+     * @return bool True when enabled (or inherited-enabled) for that store.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-per-store-plugin-enable-list
+     * @aidlc-adr plugin-manager_per-store-plugin-config
+     */
+    function gp247_plugin_store_enabled(string $key, $storeId): bool
+    {
+        $global = defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : 0;
+
+        $row = \GP247\Core\Models\AdminConfig::where('group', 'Plugins')
+            ->where('key', $key)
+            ->where('store_id', $storeId)
+            ->first();
+        if ($row !== null) {
+            return (bool) (int) $row->value;
+        }
+
+        $globalRow = \GP247\Core\Models\AdminConfig::where('group', 'Plugins')
+            ->where('key', $key)
+            ->where('store_id', $global)
+            ->first();
+
+        return $globalRow === null ? true : (bool) (int) $globalRow->value;
+    }
+}
+
+if (!function_exists('gp247_plugin_store_enable_set') && !in_array('gp247_plugin_store_enable_set', config('gp247_functions_except', []))) {
+    /**
+     * Turn a plugin on/off for a specific store (lazy upsert of the store's "Plugins" row).
+     *
+     * The single write semantics shared by BOTH per-store enable channels (list toggle +
+     * ConfigForm enableKey), so a plugin toggled in one place reads back identically in the
+     * other. A brand-new store row copies group metadata (code/detail) from the GLOBAL row so
+     * every code/group-based read resolves it without knowing about the store. Writing goes
+     * through Eloquent save() (the value is "0"/"1", never a secret).
+     *
+     * @param string     $key     Plugin key (admin_config group "Plugins").
+     * @param int|string $storeId The store to write the override for.
+     * @param bool       $enabled New state.
+     * @return void
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-per-store-plugin-enable-list
+     * @aidlc-adr plugin-manager_per-store-plugin-config
+     */
+    function gp247_plugin_store_enable_set(string $key, $storeId, bool $enabled): void
+    {
+        $global = defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : 0;
+
+        $globalRow = \GP247\Core\Models\AdminConfig::where('group', 'Plugins')
+            ->where('key', $key)
+            ->where('store_id', $global)
+            ->first();
+
+        $row = \GP247\Core\Models\AdminConfig::firstOrNew([
+            'group'    => 'Plugins',
+            'key'      => $key,
+            'store_id' => $storeId,
+        ]);
+        if ($globalRow !== null && !$row->exists) {
+            $row->code = $globalRow->code;
+            $row->detail = $globalRow->detail;
+        }
+        $row->value = $enabled ? '1' : '0';
+        $row->save();
+    }
+}
 
 if (!function_exists('gp247_extension_get_via_code') && !in_array('gp247_extension_get_via_code', config('gp247_functions_except', []))) {
     /**
@@ -566,5 +667,59 @@ if (!function_exists('gp247_extension_delete_license') && !in_array('gp247_exten
             ->where('group', 'ExtensionLicense')
             ->where('key', $type.'.'.$key)
             ->delete();
+    }
+}
+
+if (!function_exists('gp247_plugin_config_group_labels') && !in_array('gp247_plugin_config_group_labels', config('gp247_functions_except', []))) {
+    /**
+     * The ordered plugin-classification buckets used by the plugin-manager screen filter
+     * (US-PLG-config-code-filter): configCode -> language key, in fixed display order, with
+     * "Other" as the residual bucket last.
+     *
+     * Single source of truth so the filter chip bar, the per-row bucket attribute and any
+     * count share one order and one label set. Pure data — no DB, no active check.
+     *
+     * @return array<string, string> Bucket code => language key, ordered.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-config-code-filter
+     * @aidlc-adr plugin-manager_config-code-filter
+     */
+    function gp247_plugin_config_group_labels(): array
+    {
+        return [
+            'Payment'   => 'admin.menu_titles.plugin_group_payment',
+            'Shipping'  => 'admin.menu_titles.plugin_group_shipping',
+            'Promotion' => 'admin.menu_titles.plugin_group_promotion',
+            'Marketing' => 'admin.menu_titles.plugin_group_marketing',
+            'Content'   => 'admin.menu_titles.plugin_group_content',
+            'Business'  => 'admin.menu_titles.plugin_group_business',
+            'Security'  => 'admin.menu_titles.plugin_group_security',
+            'Other'     => 'admin.menu_titles.plugin_group_other',
+        ];
+    }
+}
+
+if (!function_exists('gp247_plugin_config_group') && !in_array('gp247_plugin_config_group', config('gp247_functions_except', []))) {
+    /**
+     * Map a plugin's configCode to one of the fixed filter buckets. Any code that is not one
+     * of the five known values (or is empty) falls into "Other".
+     *
+     * Used to tag each plugin row on the plugin-manager screen (local + online tabs) so the
+     * client-side multi-select filter can show/hide by bucket. No active check by design —
+     * the filter classifies every listed plugin regardless of enabled state.
+     *
+     * @param string|null $code The plugin's configCode (admin_config `code` / AppConfig::$configCode).
+     * @return string One of: Payment, Shipping, Promotion, Marketing, Security, Other.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-config-code-filter
+     * @aidlc-adr plugin-manager_config-code-filter
+     */
+    function gp247_plugin_config_group(?string $code): string
+    {
+        $known = gp247_plugin_config_group_labels();
+        unset($known['Other']);
+        return ($code !== null && $code !== '' && array_key_exists($code, $known)) ? $code : 'Other';
     }
 }
