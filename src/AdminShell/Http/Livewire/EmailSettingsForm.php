@@ -28,13 +28,23 @@ class EmailSettingsForm extends StoreConfigForm
     public bool $smtpMode = false;
 
     /**
+     * Whether outgoing mail is queued (global config `email_action_queue`). A single
+     * site-wide switch managed only by the site (root) admin — like `smtp_mode` — since
+     * queuing depends on the server's queue worker/cron, not per-store (upgraded to the
+     * 'global' group in the DB + DataDefaultSeeder). Store-admins never flip it.
+     *
+     * @var bool
+     */
+    public bool $queueMode = false;
+
+    /**
      * Keys shown in the "Email mode" card.
      *
      * @return array<int, string>
      */
     protected function modeKeys(): array
     {
-        return ['email_action_mode', 'email_action_queue'];
+        return ['email_action_mode'];
     }
 
     /**
@@ -61,8 +71,7 @@ class EmailSettingsForm extends StoreConfigForm
     protected function fieldTypes(): array
     {
         return [
-            'email_action_mode' => 'bool',
-            'email_action_queue' => 'bool',
+            'email_action_mode' => 'toggle',
             // WHY: a fixed dropdown, not free text — the value maps token-exactly via
             // SmtpTransport::scheme() (only lowercase 'ssl'/'tls' work), so a typo like
             // "SSL" would silently downgrade to an unencrypted connection.
@@ -118,6 +127,14 @@ class EmailSettingsForm extends StoreConfigForm
             ->value('value');
 
         $this->smtpMode = (bool) (int) $value;
+
+        // email_action_queue is now a GLOBAL switch too (like smtp_mode): site-admin only.
+        $queue = AdminConfig::where('key', 'email_action_queue')
+            ->where('group', 'global')
+            ->where('store_id', $globalStore)
+            ->value('value');
+
+        $this->queueMode = (bool) (int) $queue;
     }
 
     /**
@@ -143,6 +160,23 @@ class EmailSettingsForm extends StoreConfigForm
     }
 
     /**
+     * Persist the global `email_action_queue` flag on Save — same site-admin-only,
+     * base-scope-only rule as smtp_mode (it lives in the 'global' group, outside the
+     * store-scoped keys()). Called by save() only when NOT at a sub-store scope.
+     *
+     * @return void
+     */
+    private function persistQueueMode(): void
+    {
+        $globalStore = defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : 0;
+
+        AdminConfig::where('key', 'email_action_queue')
+            ->where('group', 'global')
+            ->where('store_id', (string) $globalStore)
+            ->update(['value' => $this->queueMode ? '1' : '0']);
+    }
+
+    /**
      * Persist the whole form on explicit Save: the global smtp_mode flag plus the
      * store-scoped email_action_* / smtp_* keys handled by the parent. No field
      * persists on change — the Save button is the single commit point, matching the
@@ -163,6 +197,7 @@ class EmailSettingsForm extends StoreConfigForm
         // not just by hiding the toggle in the view.
         if (!$this->isSubStoreScope()) {
             $this->persistSmtpMode();
+            $this->persistQueueMode();
         }
 
         // Parent persists keys() (email_action_* + smtp_*) and emits the single
@@ -194,7 +229,7 @@ class EmailSettingsForm extends StoreConfigForm
     protected function mailGuide(): array
     {
         $connection = (string) config('queue.default');
-        $queueOn = !empty($this->values['email_action_queue']);
+        $queueOn = $this->queueMode;
         $autoScheduler = (bool) config('gp247-config.mail.schedule_queue_worker', true);
 
         $state = \GP247\Core\Mail\MailQueueAdvisor::guideState($queueOn, $connection, $autoScheduler);
@@ -233,6 +268,8 @@ class EmailSettingsForm extends StoreConfigForm
             // at any sub-store (a store-admin, or the root admin viewing a picked store),
             // so only the site owner flips the system-wide switch (decision 5.1).
             'showGlobalSmtpToggle' => !$this->isSubStoreScope(),
+            // email_action_queue is a global site-admin-only switch too — same gate.
+            'showGlobalQueueToggle' => !$this->isSubStoreScope(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->heading()]);
     }
 }

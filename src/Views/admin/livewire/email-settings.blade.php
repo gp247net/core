@@ -119,7 +119,30 @@
                         {{ gp247_language_render('admin.use_smtp') }}
                     </td>
                     <td class="py-3 align-middle">
-                        <x-gp247::checkbox wire:model="smtpMode" />
+                        <label class="relative inline-flex h-6 w-11 cursor-pointer items-center">
+                            <input type="checkbox" wire:model="smtpMode" class="peer sr-only">
+                            <span class="absolute inset-0 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500 dark:bg-gray-600"></span>
+                            <span class="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                        </label>
+                    </td>
+                </tr>
+                @endif
+
+                {{-- Global mail-queue toggle: like smtp_mode, `email_action_queue` is a single
+                     site-wide flag (queuing depends on the server's worker/cron, not per-store),
+                     managed only at the ROOT base scope. Hidden at any sub-store so a store-admin
+                     never flips it. Persisted only on Save. --}}
+                @if ($showGlobalQueueToggle)
+                <tr wire:key="cfg-email_action_queue">
+                    <td class="py-3 pr-4 align-middle text-sm text-gray-700 dark:text-gray-200">
+                        {!! gp247_language_render('email.email_action.email_action_queue') !!}
+                    </td>
+                    <td class="py-3 align-middle">
+                        <label class="relative inline-flex h-6 w-11 cursor-pointer items-center">
+                            <input type="checkbox" wire:model="queueMode" class="peer sr-only">
+                            <span class="absolute inset-0 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500 dark:bg-gray-600"></span>
+                            <span class="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                        </label>
                     </td>
                 </tr>
                 @endif
