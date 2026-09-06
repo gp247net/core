@@ -204,6 +204,24 @@ abstract class ResourcePanel extends GP247AdminComponent
     }
 
     /**
+     * Whether to render store-scope CHROME (create picker, per-record store line):
+     * store scope is active AND the ROOT admin is logged in. A bound store-admin
+     * already works inside one store, so the "which store" chrome is redundant and is
+     * hidden (US-admin-shell-store-scope-ui-root-only).
+     *
+     * DISPLAY gate only — never a data gate. The list query constraint, create-store
+     * forcing (resolveCreateStore) and edit immutability keep a store-admin bound to
+     * their store through storeScopeActive()/isRootScope(), left untouched
+     * (RISK-SEC-store-scope-ui-data-conflation).
+     *
+     * @return bool
+     */
+    public function storeScopeUiVisible(): bool
+    {
+        return $this->storeScopeActive() && $this->isRootScope();
+    }
+
+    /**
      * The admin's current store context (ROOT at root admin; the assigned/selected
      * store for a store-admin or the Pro switcher).
      *

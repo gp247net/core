@@ -41,7 +41,13 @@ trait  ExtensionController
         // root admin can pick a store and toggle each storeScope=store plugin on/off for
         // just that store; single-store sites see no selector and behave exactly as before
         // (US-PLG-per-store-plugin-enable-list, NFR-MAINT-store-scope-single-mechanism).
+        // Chrome shows only for the ROOT admin: a bound store-admin never sees the
+        // per-store selector (US-admin-shell-store-scope-ui-root-only). The per-store
+        // enable data itself is unchanged and still keyed by store_id server-side.
+        $rootStore = defined('GP247_STORE_ID_ROOT') ? GP247_STORE_ID_ROOT : 1;
+        $isRootAdmin = (string) session('adminStoreId', $rootStore) === (string) $rootStore;
         $perStoreEnable = $this->groupType === 'Plugins'
+            && $isRootAdmin
             && function_exists('gp247_store_check_multi_domain_installed')
             && gp247_store_check_multi_domain_installed();
         $storeList = $perStoreEnable ? \GP247\Core\Models\AdminStore::getListTitle() : [];

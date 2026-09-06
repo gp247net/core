@@ -20,6 +20,9 @@
       - $options (array<string,array>) key => [value => label, ...], for "select" keys (smtp_security)
       - $modeKeys (string[]), $smtpKeys (string[])
       - $mailGuide (array{state,connection,cron}) — environment-aware delivery guidance
+      - $storeScope (bool) — store-scope chrome visible (ROOT admin + multi-store; US-admin-shell-store-scope-ui-root-only)
+      - $subStoreScope (bool) — ROOT admin is viewing a picked sub-store (drives inherit/reset badges)
+      - $showGlobalSmtpToggle (bool) — show the global "Use SMTP" switch (ROOT base scope only)
 --}}
 @php
     // WHY: environment-aware reminder so the site owner picks the right delivery
@@ -62,6 +65,28 @@
         <div class="mt-1 text-xs opacity-80">{{ gp247_language_render('admin.email_guide_optout') }}</div>
     @endif
 </div>
+@if ($storeScope)
+    {{-- Store scope picker (US-AUI-core-config-store-scope): base tier = ROOT, so the
+         first item is the root config; a bound store-admin sees their store read-only. --}}
+    <div class="mb-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-900/10">
+        <label class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">
+            <i class="fas fa-store text-gray-400"></i> {{ gp247_language_render('admin.store.scope_label') }}
+        </label>
+        @if ($this->showStorePicker())
+            <select wire:model.live="formStoreId" data-testid="config-form-store-select"
+                class="w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
+                <option value="">— {{ $this->scopeBaseLabel() }} —</option>
+                @foreach ($this->storePickerOptions() as $sid => $stitle)
+                    <option value="{{ $sid }}">{{ $stitle }}</option>
+                @endforeach
+            </select>
+        @else
+            <div class="max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                <i class="fas fa-store text-gray-400"></i> {{ $this->currentStoreLabel() }}
+            </div>
+        @endif
+    </div>
+@endif
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
     {{-- Email mode --}}
     <x-gp247::card :title="gp247_language_render('admin.email_mode')">
@@ -76,15 +101,19 @@
                             </td>
                             <td class="py-3 align-middle">
                                 @include('gp247-admin::partials.config-field', ['key' => $key, 'type' => $types[$key] ?? 'text'])
+                                @include('gp247-admin::partials.config-store-badge', ['key' => $key, 'subStoreScope' => $subStoreScope])
                             </td>
                         </tr>
                     @endif
                 @endforeach
 
-                {{-- Global SMTP-mode toggle: controls visibility of the SMTP card and
-                     is persisted only on Save (deferred), like every other field. The
-                     card still shows/hides instantly because Alpine reads $wire.smtpMode
-                     on the client — no server round-trip is needed for x-show. --}}
+                {{-- Global SMTP-mode toggle: "does this site use SMTP at all?" stays a
+                     single GLOBAL flag managed only at the root (base) scope. It is
+                     hidden at a sub-store scope so a store-admin never toggles the
+                     system-wide switch (US-AUI-core-config-store-scope, decision 5.1).
+                     Persisted only on Save (deferred); the SMTP card still shows/hides
+                     instantly because Alpine reads $wire.smtpMode on the client. --}}
+                @if ($showGlobalSmtpToggle)
                 <tr wire:key="cfg-smtp_mode">
                     <td class="py-3 pr-4 align-middle text-sm text-gray-700 dark:text-gray-200">
                         {{ gp247_language_render('admin.use_smtp') }}
@@ -93,6 +122,7 @@
                         <x-gp247::checkbox wire:model="smtpMode" />
                     </td>
                 </tr>
+                @endif
             </tbody>
             <tfoot>
                 <tr><td colspan="2" class="pt-3 text-xs text-gray-400 dark:text-gray-500">{{ gp247_language_render('admin.smtp_help') }}</td></tr>
@@ -114,6 +144,7 @@
                                 </td>
                                 <td class="py-3 align-middle">
                                     @include('gp247-admin::partials.config-field', ['key' => $key, 'type' => $types[$key] ?? 'text', 'placeholder' => $smtpPlaceholders[$key] ?? '', 'options' => $options[$key] ?? []])
+                                    @include('gp247-admin::partials.config-store-badge', ['key' => $key, 'subStoreScope' => $subStoreScope])
                                 </td>
                             </tr>
                         @endif

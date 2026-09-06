@@ -29,7 +29,6 @@ class DataStoreSeeder extends Seeder
             ['group' => '','code' => 'admin_config','key' => 'hidden_copyright_footer','value' => '0','sort' => '0','detail' => 'admin.env.hidden_copyright_footer','store_id' => $storeId],
             ['group' => '','code' => 'admin_config','key' => 'hidden_copyright_footer_admin','value' => '0','sort' => '0','detail' => 'admin.env.hidden_copyright_footer_admin','store_id' => $storeId],
             ['group' => '','code' => 'email_action','key' => 'email_action_mode','value' => '0','sort' => '0','detail' => 'email.email_action.email_action_mode','store_id' => $storeId],
-            ['group' => '','code' => 'email_action','key' => 'email_action_queue','value' => '0','sort' => '1','detail' => 'email.email_action.email_action_queue','store_id' => $storeId],
             ['group' => '','code' => 'smtp_config','key' => 'smtp_host','value' => '','sort' => '1','detail' => 'email.config_smtp.smtp_host','store_id' => $storeId],
             ['group' => '','code' => 'smtp_config','key' => 'smtp_user','value' => '','sort' => '2','detail' => 'email.config_smtp.smtp_user','store_id' => $storeId],
             ['group' => '','code' => 'smtp_config','key' => 'smtp_password','value' => '','sort' => '3','detail' => 'email.config_smtp.smtp_password','store_id' => $storeId],

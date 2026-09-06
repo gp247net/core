@@ -6,6 +6,7 @@ use GP247\Core\Models\AdminConfig;
 use GP247\Core\Models\AdminStore;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\Locked;
 
 /**
  * Abstract base for settings screens backed by the key/value admin_config table
@@ -35,6 +36,20 @@ use Illuminate\Support\Collection;
 abstract class ConfigForm extends GP247AdminComponent
 {
     use HasStoreScopeUi;
+
+    /**
+     * When set (by a parent screen embedding this form, e.g. StoreConfigManager at
+     * gp247_admin/MultiStore/config/{store}), the form edits THIS store's config
+     * regardless of the session/picker — the caller owns "which store". #[Locked] so
+     * the client cannot forge it. Empty/null → the standalone behaviour: ROOT for the
+     * root admin (no picker), the bound store for a store-admin (mod 20260906T000000).
+     *
+     * @var string|null
+     * @aidlc-story US-AUI-core-config-store-scope
+     * @aidlc-adr admin-shell_core-config-store-scope
+     */
+    #[Locked]
+    public ?string $scopeStoreIdOverride = null;
 
     /** @var array<string, mixed> Editable key => value map (booleans cast to bool). */
     public array $values = [];
@@ -121,11 +136,32 @@ abstract class ConfigForm extends GP247AdminComponent
      */
     protected function scopeStoreId()
     {
+        // Embedded (StoreConfigManager passes the store id): that store wins over the
+        // session/picker — the host owns "which store" (mod 20260906T000000).
+        if ($this->scopeStoreIdOverride !== null && $this->scopeStoreIdOverride !== '') {
+            return $this->scopeStoreIdOverride;
+        }
+
+        // Standalone (store_config): no picker anymore — formStoreId is only set for a
+        // bound store-admin (mount()); the root admin resolves to the base store (ROOT).
         if ($this->storeScopeActive() && $this->formStoreId !== '') {
             return $this->formStoreId;
         }
 
         return $this->storeId();
+    }
+
+    /**
+     * No store picker on the config screens (mod 20260906T000000): the root admin edits
+     * ROOT here, a store-admin their bound store, and per-store config for the root admin
+     * lives at gp247_admin/MultiStore/config/{store} (which embeds this form with an
+     * override). Inheritance/override badges still render (they key off isSubStoreScope()).
+     *
+     * @return bool
+     */
+    public function storeScopeUiVisible(): bool
+    {
+        return false;
     }
 
     /**
@@ -358,6 +394,40 @@ abstract class ConfigForm extends GP247AdminComponent
     }
 
     /**
+     * Label for the scope picker's first item — the base (shared) scope. Defaults to
+     * the generic "shared/global" wording used by plugin config screens whose base is
+     * the virtual GLOBAL tier; a variant whose base is a real store (StoreConfigForm,
+     * base = ROOT) overrides this so the option reads as that root store rather than a
+     * "global" tier that does not exist for core config.
+     *
+     * @return string
+     */
+    public function scopeBaseLabel(): string
+    {
+        return gp247_language_quickly('admin.store.scope_global', 'Default config');
+    }
+
+    /**
+     * Store options for the scope picker, excluding the base store itself: the base is
+     * already the picker's first ("shared") item, so listing it again as a selectable
+     * sub-store would create two entries resolving to the same rows. For plugin config
+     * (base = virtual GLOBAL, never an AdminStore row) this removes nothing; for
+     * StoreConfigForm (base = ROOT, a real store) it drops the duplicate ROOT entry.
+     *
+     * @return array<int|string, string>
+     */
+    public function storePickerOptions(): array
+    {
+        $base = (string) $this->storeId();
+
+        return array_filter(
+            $this->storeOptions(),
+            fn ($sid) => (string) $sid !== $base,
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
      * Whether the value cell for a key is currently an inherited (shared) value.
      *
      * @param string $key Config key.
@@ -562,8 +632,11 @@ abstract class ConfigForm extends GP247AdminComponent
             'types' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->typeOf($c->key)])->all(),
             'options' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->optionsOf($c->key)])->all(),
             'hints' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->hintOf($c->key)])->all(),
-            'storeScope' => $this->storeScopeActive(),
-            'subStoreScope' => $this->isSubStoreScope(),
+            // Chrome (picker + per-key badges) shows only for the ROOT admin; a bound
+            // store-admin edits their store's config with no store-scope chrome
+            // (US-admin-shell-store-scope-ui-root-only). Data scope is unchanged.
+            'storeScope' => $this->storeScopeUiVisible(),
+            'subStoreScope' => $this->isSubStoreScope() && $this->isRootScope(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->heading()]);
     }
 }

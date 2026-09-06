@@ -32,8 +32,8 @@
             @if ($this->showStorePicker())
                 <select wire:model.live="formStoreId" data-testid="config-form-store-select"
                     class="w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
-                    <option value="">— {{ gp247_language_quickly('admin.store.scope_global', 'Default config') }} —</option>
-                    @foreach ($this->storeOptions() as $sid => $stitle)
+                    <option value="">— {{ $this->scopeBaseLabel() }} —</option>
+                    @foreach ($this->storePickerOptions() as $sid => $stitle)
                         <option value="{{ $sid }}">{{ $stitle }}</option>
                     @endforeach
                 </select>
@@ -86,9 +86,12 @@
                                     @if ($this->isInherited($config->key))
                                         <span class="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">{{ gp247_language_quickly('admin.store.value_inherited', 'Inherited from shared') }}</span>
                                     @else
-                                        <span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{{ gp247_language_quickly('admin.store.value_own', 'Custom') }}</span>
+                                        {{-- Overridden for this store: a single reset action (icon + label) that
+                                             deletes the override so the key falls back to the default config. --}}
                                         <button type="button" wire:click="resetToGlobal('{{ $config->key }}')" data-testid="config-form-reset-{{ $config->key }}"
-                                            class="text-xs text-blue-600 hover:underline dark:text-blue-400">{{ gp247_language_quickly('admin.store.use_shared', 'Use shared config') }}</button>
+                                            class="inline-flex items-center gap-2 text-xs text-blue-600 hover:underline dark:text-blue-400">
+                                            <i class="fas fa-undo"></i> {{ gp247_language_quickly('admin.store.use_shared', 'Reset to default') }}
+                                        </button>
                                     @endif
                                 </div>
                             @endif

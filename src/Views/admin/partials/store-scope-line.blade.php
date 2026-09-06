@@ -11,7 +11,7 @@
     @aidlc-story US-SADM-store-content-assignment
     @aidlc-adr admin-shell_store-scoped-resource-panel
 --}}
-@if ($this->storeScopeActive())
+@if ($this->storeScopeUiVisible())
     <span class="mt-0.5 block text-xs font-normal text-gray-400 dark:text-gray-500">
         <i class="fas fa-store"></i> {{ $this->storeLabel($storeId ?? null) }}
     </span>

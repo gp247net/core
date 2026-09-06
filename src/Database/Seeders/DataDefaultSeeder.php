@@ -170,6 +170,7 @@ class DataDefaultSeeder extends Seeder
             ['group' => 'global','code' => 'cache','key' => 'cache_page','value' => '0','sort' => '8','detail' => 'admin.cache.cache_page','store_id' => 0],
             ['group' => 'global','code' => 'cache','key' => 'cache_country','value' => '0','sort' => '10','detail' => 'admin.cache.cache_country','store_id' => 0],
             ['group' => 'global','code' => 'env_mail','key' => 'smtp_mode','value' => '','sort' => '0','detail' => 'email.smtp_mode','store_id' => 0],
+            ['group' => 'global','code' => 'email_action','key' => 'email_action_queue','value' => '0','sort' => '1','detail' => 'email.email_action.email_action_queue','store_id' => 0],
             ['group' => 'global','code' => 'password_policy','key' => 'admin_password_min','value' => '6','sort' => '0','detail' => 'admin.password_policy.min','store_id' => 0],
             ['group' => 'global','code' => 'password_policy','key' => 'admin_password_max','value' => '16','sort' => '0','detail' => 'admin.password_policy.max','store_id' => 0],
             ['group' => 'global','code' => 'password_policy','key' => 'admin_password_letter','value' => '0','sort' => '1','detail' => 'admin.password_policy.letter','store_id' => 0],

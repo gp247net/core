@@ -9,11 +9,40 @@
     @aidlc-story US-UI-005
     @aidlc-adr ADR-001, ADR-005
 
+    Per-store (independent, US-AUI-core-config-store-scope): when $storeScope is true a
+    root admin picks which store's custom configs to manage (every store — including
+    ROOT — is a full independent set, no inheritance); a bound store-admin sees their
+    store read-only. Renders nothing when single-store (parity).
+
+    @aidlc-story US-UI-005, US-AUI-core-config-store-scope
+
     Variables:
       - $rows (Collection of AdminConfig)
       - $heading (string)
+      - $storeScope (bool) — per-store scope UI is active
 --}}
 <div class="max-w-4xl">
+    @if ($storeScope)
+        <div class="mb-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-900/10">
+            <label class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                <i class="fas fa-store text-gray-400"></i> {{ gp247_language_render('admin.store.scope_label') }}
+            </label>
+            @if ($this->showStorePicker())
+                {{-- Independent per-store: list every store (ROOT included) — there is no
+                     "shared" base to keep as a separate first item. --}}
+                <select wire:model.live="formStoreId" data-testid="custom-config-store-select"
+                    class="w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
+                    @foreach ($this->storeOptions() as $sid => $stitle)
+                        <option value="{{ $sid }}">{{ $stitle }}</option>
+                    @endforeach
+                </select>
+            @else
+                <div class="max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                    <i class="fas fa-store text-gray-400"></i> {{ $this->currentStoreLabel() }}
+                </div>
+            @endif
+        </div>
+    @endif
     {{-- Save feedback is shown by the global top-right notifications block
          (<x-gp247::toast>), so there is no inline notice pushing the layout. --}}
     <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">

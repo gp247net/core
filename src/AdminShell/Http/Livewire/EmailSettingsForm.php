@@ -155,7 +155,15 @@ class EmailSettingsForm extends StoreConfigForm
     {
         // Authorize before the first write so an unauthorized Save persists nothing.
         $this->authorizeAction('update');
-        $this->persistSmtpMode();
+
+        // smtp_mode is a single GLOBAL switch ("does this site use SMTP at all?")
+        // managed only at the base (root) scope. A sub-store Save never touches it, so
+        // a store-admin can never flip the system-wide switch — only their own SMTP
+        // params (US-AUI-core-config-store-scope, decision 5.1). Enforced server-side,
+        // not just by hiding the toggle in the view.
+        if (!$this->isSubStoreScope()) {
+            $this->persistSmtpMode();
+        }
 
         // Parent persists keys() (email_action_* + smtp_*) and emits the single
         // "setting saved" toast for the whole form.
@@ -216,6 +224,15 @@ class EmailSettingsForm extends StoreConfigForm
             'modeKeys' => $this->modeKeys(),
             'smtpKeys' => $this->smtpKeys(),
             'mailGuide' => $this->mailGuide(),
+            // Per-store scope UI (US-AUI-core-config-store-scope): the two-card view
+            // renders its own picker/badges since it does not use the generic table.
+            // Chrome shows only for the ROOT admin (US-admin-shell-store-scope-ui-root-only).
+            'storeScope' => $this->storeScopeUiVisible(),
+            'subStoreScope' => $this->isSubStoreScope() && $this->isRootScope(),
+            // The global "Use SMTP" switch is shown only at the ROOT base scope: hidden
+            // at any sub-store (a store-admin, or the root admin viewing a picked store),
+            // so only the site owner flips the system-wide switch (decision 5.1).
+            'showGlobalSmtpToggle' => !$this->isSubStoreScope(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->heading()]);
     }
 }

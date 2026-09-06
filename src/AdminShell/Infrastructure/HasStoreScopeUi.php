@@ -56,6 +56,24 @@ trait HasStoreScopeUi
     }
 
     /**
+     * Whether to render store-scope CHROME (picker, per-record store line, inherit/
+     * reset badges): store scope is active AND the ROOT admin is logged in. A bound
+     * store-admin already works inside a single store, so the "which store" chrome is
+     * redundant noise for them and is hidden (US-admin-shell-store-scope-ui-root-only).
+     *
+     * This gates DISPLAY only. It must NEVER gate data scoping — store-admins stay
+     * constrained to their own store through storeScopeActive()-driven query limits,
+     * create-store forcing and config sub-store writes, which are left untouched
+     * (RISK-SEC-store-scope-ui-data-conflation).
+     *
+     * @return bool
+     */
+    public function storeScopeUiVisible(): bool
+    {
+        return $this->storeScopeActive() && $this->isRootScope();
+    }
+
+    /**
      * The admin's current store context (ROOT at root admin; the assigned/selected
      * store for a store-admin or the Pro switcher).
      *
