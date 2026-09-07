@@ -327,16 +327,24 @@
                     const root = this.$root;
                     root.querySelectorAll('input[data-ss-hidden]').forEach(el => el.remove());
                     const name = root.dataset.ssName;
-                    if (!name) return;
-                    const vals = Array.isArray(val) ? val : (val != null ? [val] : []);
-                    vals.forEach(v => {
-                        const inp = document.createElement('input');
-                        inp.type = 'hidden';
-                        inp.name = multiple ? name + '[]' : name;
-                        inp.value = v;
-                        inp.dataset.ssHidden = '';
-                        root.appendChild(inp);
-                    });
+                    if (name) {
+                        const vals = Array.isArray(val) ? val : (val != null ? [val] : []);
+                        vals.forEach(v => {
+                            const inp = document.createElement('input');
+                            inp.type = 'hidden';
+                            inp.name = multiple ? name + '[]' : name;
+                            inp.value = v;
+                            inp.dataset.ssHidden = '';
+                            root.appendChild(inp);
+                        });
+                    }
+                    // WHY: a Blade+Alpine parent (no Livewire) has no $wire to observe
+                    // and cannot see the hidden-input write, so it would miss selection
+                    // changes. Emit a bubbling CustomEvent it can bind with
+                    // @gp247-ss:change to run follow-up logic (e.g. customer auto-fill
+                    // on the admin order-create screen). Fires in every mode after the
+                    // sync above; harmless for Livewire screens that don't listen.
+                    this.$dispatch('gp247-ss:change', { value: val, name: name || null });
                 },
 
                 // ── Helpers for template ──────────────────────────────────────
@@ -423,6 +431,9 @@
                     </span>
                 </template>
 
+                {{-- WHY: pass caller attributes (e.g. data-testid) through to the real
+                     interactive input; the component owns its DOM (wire:ignore) so it must
+                     forward them explicitly. `id`/`class` stay component-managed. --}}
                 <input x-ref="tagInput"
                     type="text"
                     class="gp247-ss-tag-input"
@@ -433,12 +444,15 @@
                     @keydown.backspace="onBackspace"
                     @keydown.enter.prevent="allowCustom && addCustom()"
                     autocomplete="off"
+                    {{ $attributes->except(['id', 'class']) }}
                     id="{{ $id }}" />
             </div>
         @else
             {{-- Single: text input row ───────────────────────────── --}}
             <div class="gp247-ss-row {{ $error ? 'gp247-error' : '' }}"
                 @click="$refs.input.focus(); onInputFocus()">
+                {{-- WHY: forward caller attributes (e.g. data-testid) to the real input;
+                     the component owns its DOM (wire:ignore). `id`/`class` stay managed. --}}
                 <input x-ref="input"
                     type="text"
                     id="{{ $id }}"
@@ -447,7 +461,8 @@
                     x-model="query"
                     @focus="onInputFocus"
                     @blur="onInputBlur"
-                    autocomplete="off" />
+                    autocomplete="off"
+                    {{ $attributes->except(['id', 'class']) }} />
 
                 @if ($clearable)
                     <button type="button" class="gp247-ss-btn"
