@@ -330,7 +330,14 @@ class CoreServiceProvider extends ServiceProvider
             //Load Plugin Provider
             try {
                 foreach (glob(app_path().'/GP247/Plugins/*/Provider.php') as $filename) {
-                    require_once $filename;
+                    // WHY `require`, not `require_once`: a plugin Provider.php is a
+                    // top-level script run in this provider's context, not a class. With
+                    // require_once it executes only for the FIRST application boot of the
+                    // PHP process, so any later boot in the same process (PHPUnit — one
+                    // app per test — or Octane / queue workers) silently loses every
+                    // plugin view namespace, guard, hook and route. Plugins keep their
+                    // declarations in function.php behind function_exists() guards.
+                    require $filename;
                 }
                 foreach (glob(app_path().'/GP247/Plugins/*/Route.php') as $filename) {
                     $this->loadRoutesFrom($filename);
