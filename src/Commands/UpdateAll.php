@@ -5,6 +5,7 @@ namespace GP247\Core\Commands;
 use GP247\Core\Console\GP247Command;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use GP247\Core\Support\TemplateSourceAudit;
 
 /**
  * Orchestrate a safe post-`composer update` refresh for a live site: core-update,
@@ -38,8 +39,24 @@ class UpdateAll extends GP247Command
         'core-public',
         'core-view',
         'front-public',
+        'front-template',
         'front-view',
         'shop-view-admin',
+        'shop-view-front',
+    ];
+
+    /**
+     * Tokens whose destination is the default template GP247Front. A site that
+     * uses a different template must never have this directory re-created by an
+     * update (RISK-OPS-template-resurrection): `--publish=all` silently expanded
+     * to these and resurrected a directory the site had deliberately removed.
+     *
+     * @var array<int, string>
+     */
+    private const GP247FRONT_TOKENS = [
+        'front-public',
+        'front-template',
+        'front-view',
         'shop-view-front',
     ];
 
@@ -53,6 +70,7 @@ class UpdateAll extends GP247Command
     private const DESTRUCTIVE_TOKENS = [
         'core-view',
         'front-public',
+        'front-template',
         'front-view',
         'shop-view-admin',
         'shop-view-front',
@@ -66,16 +84,17 @@ class UpdateAll extends GP247Command
     private const DESTINATIONS = [
         'core-public'     => 'public/GP247 (compiled admin assets)',
         'core-view'       => 'resources/views/vendor/gp247-admin',
-        'front-public'    => 'public/GP247/Templates/GP247Front (in-place-built storefront CSS)',
-        'front-view'      => 'app/GP247/Templates/GP247Front (live storefront templates)',
+        'front-public'    => 'public/GP247/Templates/GP247Front (compiled storefront CSS of the GP247Front template)',
+        'front-template'  => 'app/GP247/Templates/GP247Front (the GP247Front extension shell: AppConfig/Provider/Route/config/function/Lang)',
+        'front-view'      => 'app/GP247/Templates/GP247Front (the whole GP247Front Blade tree — served from the package unless published)',
         'shop-view-admin' => 'resources/views/vendor/gp247-shop-admin',
-        'shop-view-front' => 'app/GP247/Templates/GP247Front (live storefront templates)',
+        'shop-view-front' => 'app/GP247/Templates/GP247Front (shop screens of the GP247Front Blade tree — served from the package unless published)',
     ];
 
     /** @var string */
     protected $signature = 'gp247:update
         {--overwrite-lang : Also run gp247:language-update (overwrites edited translations)}
-        {--publish= : Re-publish assets/views by tag token, comma-separated: core-public,core-view,front-public,front-view,shop-view-admin,shop-view-front,all. Default: none. Only core-public is safe; view/template tokens overwrite your customizations (see command-line-reference for the impact of each).}';
+        {--publish= : Re-publish assets/views by tag token, comma-separated: core-public,core-view,front-public,front-template,front-view,shop-view-admin,shop-view-front,all. Default: none. "all" skips GP247Front targets on a site that uses another template. Only core-public is safe; view/template tokens overwrite your customizations (see command-line-reference for the impact of each).}';
 
     /** @var string */
     protected $description = 'Update GP247 after composer update (core [+shop], safe for live sites)';
@@ -146,6 +165,8 @@ class UpdateAll extends GP247Command
         $this->runArtisan('gp247:cache-rebuild');
         $done[] = 'gp247:cache-rebuild';
 
+        $this->hintTemplatePrune();
+
         return $this->respondSuccess(['completed' => $done, 'published' => $published]);
     }
 
@@ -185,10 +206,75 @@ class UpdateAll extends GP247Command
         // WHY: 'all' expands to the canonical token order so publish/report
         // ordering is deterministic regardless of how the user typed it.
         if (in_array('all', $parts, true)) {
-            return self::VALID_TOKENS;
+            // WHY filtered here and not in runPublish(): 'all' is a wish for
+            // "refresh what this site has", not an instruction to create a
+            // template the site does not use. A token the operator typed by name
+            // is their own decision and still goes through (they get the warning).
+            return $this->filterTemplateTokens(self::VALID_TOKENS);
         }
 
         return $parts;
+    }
+
+    /**
+     * Drop GP247Front's publish tokens when this site does not use that template.
+     *
+     * Only applied to the 'all' expansion — see resolvePublishTokens().
+     *
+     * @param array<int, string> $tokens Canonical token list.
+     * @return array<int, string>
+     */
+    private function filterTemplateTokens(array $tokens): array
+    {
+        if ($this->gp247FrontInUse()) {
+            return $tokens;
+        }
+
+        $dropped = array_values(array_intersect($tokens, self::GP247FRONT_TOKENS));
+        if (empty($dropped)) {
+            return $tokens;
+        }
+
+        $this->addWarning(
+            'Skipped ' . implode(', ', $dropped) . ': this site does not use the GP247Front template '
+            . '(publishing them would re-create app/GP247/Templates/GP247Front). '
+            . 'Pass the token by name if you really want it.'
+        );
+
+        return array_values(array_diff($tokens, $dropped));
+    }
+
+    /**
+     * Whether the GP247Front template is present on this site.
+     *
+     * True when it is the configured default, when any store selects it, or when
+     * its directory still exists. WHY three signals: the directory alone is not
+     * enough (a site may have deleted it), the config alone is not enough (it is
+     * an env var a site can repoint), and the store rows alone are not enough
+     * (the database may be unreachable during an update).
+     *
+     * @return bool
+     */
+    protected function gp247FrontInUse(): bool
+    {
+        if (defined('GP247_TEMPLATE_FRONT_DEFAULT') && GP247_TEMPLATE_FRONT_DEFAULT === 'GP247Front') {
+            return true;
+        }
+
+        if (is_dir(app_path('GP247/Templates/GP247Front'))) {
+            return true;
+        }
+
+        try {
+            return DB::connection(GP247_DB_CONNECTION)
+                ->table('admin_store')
+                ->where('template', 'GP247Front')
+                ->exists();
+        } catch (\Throwable $e) {
+            // WHY false: with no database to ask, the filesystem already said the
+            // template is absent — re-creating it would be the surprising choice.
+            return false;
+        }
     }
 
     /**
@@ -247,6 +333,42 @@ class UpdateAll extends GP247Command
         }
 
         return $published;
+    }
+
+    /**
+     * Point at gp247:template-prune when published template files are identical
+     * to the package copy — those files can never receive an update again, which
+     * is invisible unless someone says so right after an update.
+     *
+     * Only a hint: deleting files on a live site is the operator's decision, so
+     * this command never does it (RISK-OPS-template-prune-dataloss).
+     *
+     * @return void
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-template-source-lifecycle
+     */
+    private function hintTemplatePrune(): void
+    {
+        try {
+            $stats = TemplateSourceAudit::stats();
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if (($stats['identical'] ?? 0) < 1) {
+            return;
+        }
+
+        // WHY guarded: --json must carry exactly one envelope on STDOUT.
+        if ($this->isJson()) {
+            return;
+        }
+
+        $this->info('');
+        $this->info('Note: '.$stats['identical'].' published template file(s) are identical to the package copy, '
+            . 'so updates can never reach them. Hand them back with:');
+        $this->info('  php artisan gp247:template-prune <Template> --dry-run');
     }
 
     /**

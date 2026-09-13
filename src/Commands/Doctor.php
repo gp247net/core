@@ -7,6 +7,7 @@ use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use GP247\Core\Support\TemplateSourceAudit;
 
 /**
  * Diagnose the environment before/after install: PHP version, required PHP
@@ -86,6 +87,11 @@ class Doctor extends GP247Command
         // the pre-install gate (ADR compat-foundation_config-secret-at-rest).
         $checks[] = $this->secretDecryptableCheck($installed);
 
+        // Where the active template's files actually come from, and how much of a
+        // published copy is now dead weight shadowing the package
+        // (US-CLI-template-source-lifecycle). Read-only.
+        $checks[] = $this->templateSourceCheck();
+
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
         if (!$this->isJson()) {
@@ -113,6 +119,51 @@ class Doctor extends GP247Command
     {
         return ['name' => $name, 'status' => $status, 'detail' => $detail];
     }
+
+    /**
+     * Report where a template's views are served from.
+     *
+     * A template's Blade lives in the package that ships it and is only copied
+     * into app/GP247/Templates when the site publishes it to edit it. Files that
+     * were published but never edited are invisible debt: they shadow the package
+     * for ever, so no `composer update` can fix them. Count them and point at
+     * gp247:template-prune.
+     *
+     * Reports cleanly when gp247/front is absent (core runs without it,
+     * NFR-MAINT-001) and uses no gp247_* helper, because doctor is a
+     * bootstrap-tier command that must work before the platform is installed.
+     *
+     * @return array{name: string, status: string, detail: string}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-template-source-lifecycle
+     * @aidlc-adr frontend-template-dev_template-vendor-resident-views
+     */
+    protected function templateSourceCheck(): array
+    {
+        if (empty(TemplateSourceAudit::roots(false))) {
+            return $this->check('template_source', 'warn', 'no package provides template views (gp247/front not installed?)');
+        }
+
+        $stats = TemplateSourceAudit::stats();
+        $identical = $stats['identical'];
+        $edited = $stats['edited'];
+
+        if ($identical > 0) {
+            return $this->check(
+                'template_source',
+                'warn',
+                $identical.' published file(s) are identical to the package copy and will never receive updates'
+                    .($edited > 0 ? ', '.$edited.' customized' : '')
+                    .' — run "php artisan gp247:template-prune <Template>" to hand the untouched ones back'
+            );
+        }
+
+        return $this->check('template_source', 'pass', $edited > 0
+            ? $edited.' customized file(s); everything else served from the package'
+            : 'templates served from their package');
+    }
+
 
     /**
      * Verify every at-rest secret (admin_config.security = 1) still decrypts under the
