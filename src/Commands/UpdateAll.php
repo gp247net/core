@@ -16,9 +16,10 @@ use GP247\Core\Support\TemplateSourceAudit;
  * Re-publish is opt-in via --publish=<tokens>. composer update refreshes vendor
  * code but not the published copies under public/GP247, app/GP247 and
  * resources/views/vendor/*. Each token names a publish tag (naming its package),
- * and tokens are tiered by impact: gp247:core-public (compiled admin assets) is
- * safe to force; every view/template token overwrites the site's customization
- * surface. There is no --force flag — typing a destructive token IS the consent
+ * and tokens are tiered by impact: the compiled-asset tokens (gp247:core-public,
+ * gp247:front-public) are safe to force because public/ only mirrors a build that
+ * lives in the package; every view/template token overwrites the site's own
+ * customization surface. There is no --force flag — typing a destructive token IS the consent
  * (unlike gp247:install, which auto-detects packages); an interactive terminal
  * still warns and confirms (defaulting to "no").
  *
@@ -61,15 +62,19 @@ class UpdateAll extends GP247Command
     ];
 
     /**
-     * Tokens that overwrite a customization surface (views/templates or the
-     * in-place-built storefront CSS). These require consent; only core-public
-     * is safe to publish unconditionally.
+     * Tokens that overwrite a customization surface (views/templates). These
+     * require consent.
+     *
+     * front-public left this list in modification 20260913T200309: the storefront
+     * CSS used to be built in place under public/, so re-publishing destroyed the
+     * only copy. The build now lives in the package and public/ holds a
+     * regenerable mirror of it — the same shape as core-public, which has always
+     * been safe to force.
      *
      * @var array<int, string>
      */
     private const DESTRUCTIVE_TOKENS = [
         'core-view',
-        'front-public',
         'front-template',
         'front-view',
         'shop-view-admin',
@@ -84,7 +89,7 @@ class UpdateAll extends GP247Command
     private const DESTINATIONS = [
         'core-public'     => 'public/GP247 (compiled admin assets)',
         'core-view'       => 'resources/views/vendor/gp247-admin',
-        'front-public'    => 'public/GP247/Templates/GP247Front (compiled storefront CSS of the GP247Front template)',
+        'front-public'    => 'public/GP247/Templates/GP247Front (compiled storefront CSS/JS — regenerable mirror of the package build)',
         'front-template'  => 'app/GP247/Templates/GP247Front (the GP247Front extension shell: AppConfig/Provider/Route/config/function/Lang)',
         'front-view'      => 'app/GP247/Templates/GP247Front (the whole GP247Front Blade tree — served from the package unless published)',
         'shop-view-admin' => 'resources/views/vendor/gp247-shop-admin',
@@ -94,7 +99,7 @@ class UpdateAll extends GP247Command
     /** @var string */
     protected $signature = 'gp247:update
         {--overwrite-lang : Also run gp247:language-update (overwrites edited translations)}
-        {--publish= : Re-publish assets/views by tag token, comma-separated: core-public,core-view,front-public,front-template,front-view,shop-view-admin,shop-view-front,all. Default: none. "all" skips GP247Front targets on a site that uses another template. Only core-public is safe; view/template tokens overwrite your customizations (see command-line-reference for the impact of each).}';
+        {--publish= : Re-publish assets/views by tag token, comma-separated: core-public,core-view,front-public,front-template,front-view,shop-view-admin,shop-view-front,all. Default: none. core-public and front-public are safe (compiled assets, regenerable); view/template tokens overwrite your customizations. "all" skips GP247Front targets on a site that uses another template (see command-line-reference).}';
 
     /** @var string */
     protected $description = 'Update GP247 after composer update (core [+shop], safe for live sites)';
