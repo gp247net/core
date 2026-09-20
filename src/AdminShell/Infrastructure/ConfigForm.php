@@ -244,6 +244,39 @@ abstract class ConfigForm extends GP247AdminComponent
     }
 
     /**
+     * Keys that are shown but cannot be edited on this screen, with the reason.
+     *
+     * A locked key still renders — so the admin learns the setting exists — but
+     * its input is disabled, a lock icon and `hint` explain why, and an optional
+     * `url`/`label` pair offers the way to unlock it (a licence, an add-on, a
+     * paid edition). save() never writes a locked key, so a stale value in the
+     * buffer cannot slip through.
+     *
+     * WHY a seam rather than hiding the key: hiding is the one thing a plugin
+     * must not do to a setting it wants the admin to want.
+     *
+     * @return array<string, array{hint: string, url?: string|null, label?: string|null}>
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-UI-005
+     */
+    protected function lockedKeys(): array
+    {
+        return [];
+    }
+
+    /**
+     * @param string $key Config key.
+     * @return array{hint: string, url?: string|null, label?: string|null}|null The lock, or null when editable.
+     */
+    public function lockOf(string $key): ?array
+    {
+        $lock = $this->lockedKeys()[$key] ?? null;
+
+        return is_array($lock) ? $lock : null;
+    }
+
+    /**
      * Whether the key holds a boolean value (checkbox/toggle widgets bind a boolean).
      *
      * @param string $key Config key.
@@ -490,6 +523,10 @@ abstract class ConfigForm extends GP247AdminComponent
         $this->authorizeAction('update');
 
         foreach ($this->keys() as $key) {
+            // A locked key is displayed, never written — whatever the buffer holds.
+            if ($this->lockOf($key) !== null) {
+                continue;
+            }
             $this->persistValue($key, $this->values[$key] ?? null);
         }
 
@@ -632,6 +669,7 @@ abstract class ConfigForm extends GP247AdminComponent
             'types' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->typeOf($c->key)])->all(),
             'options' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->optionsOf($c->key)])->all(),
             'hints' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->hintOf($c->key)])->all(),
+            'locked' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->lockOf($c->key)])->all(),
             // Chrome (picker + per-key badges) shows only for the ROOT admin; a bound
             // store-admin edits their store's config with no store-scope chrome
             // (US-admin-shell-store-scope-ui-root-only). Data scope is unchanged.

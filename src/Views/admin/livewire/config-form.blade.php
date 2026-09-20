@@ -20,6 +20,7 @@
       - $types (array<string,string>) — key => bool|number|select|password|text
       - $options (array<string,array>) — key => [value => label, ...], for "select" keys
       - $hints (array<string,string>) — key => inline unit hint beside the label (e.g. a currency code)
+      - $locked (array<string,array|null>) — key => ['hint','url','label'] when the key is shown but not editable here
       - $storeScope (bool) — per-store scope UI is active
       - $subStoreScope (bool) — a sub-store (override) scope is selected
 --}}
@@ -80,7 +81,22 @@
                             @endif
                         </td>
                         <td class="px-5 py-3 align-middle">
-                            @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type, 'options' => $options[$config->key] ?? []])
+                            @if (!empty($locked[$config->key] ?? null))
+                                {{-- Locked: the setting is shown so the admin knows it exists, but the input is
+                                     disabled and save() skips the key (ConfigForm::lockedKeys()). --}}
+                                <fieldset disabled class="m-0 border-0 p-0" data-testid="config-form-locked-{{ $config->key }}">
+                                    @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type, 'options' => $options[$config->key] ?? []])
+                                </fieldset>
+                                <div class="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <i class="fas fa-lock"></i>
+                                    <span>{{ $locked[$config->key]['hint'] ?? '' }}</span>
+                                    @if (!empty($locked[$config->key]['url']))
+                                        <a href="{{ $locked[$config->key]['url'] }}" class="text-blue-600 hover:underline dark:text-blue-400">{{ $locked[$config->key]['label'] ?? $locked[$config->key]['url'] }}</a>
+                                    @endif
+                                </div>
+                            @else
+                                @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type, 'options' => $options[$config->key] ?? []])
+                            @endif
                             @if ($subStoreScope)
                                 <div class="mt-1 flex items-center gap-2">
                                     @if ($this->isInherited($config->key))
