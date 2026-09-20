@@ -14,11 +14,13 @@ class AdminLog extends Model
         'POST' => 'yellow',
         'PUT' => 'blue',
         'DELETE' => 'red',
+        'LIVEWIRE' => 'purple',
     ];
 
     public static $methods = [
         'GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH',
         'LINK', 'UNLINK', 'COPY', 'HEAD', 'PURGE',
+        'LIVEWIRE',
     ];
 
     /**

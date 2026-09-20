@@ -300,6 +300,11 @@ class CoreServiceProvider extends ServiceProvider
                     PermissionMiddleware::class,
                 ]);
                 $this->app['router']->aliasMiddleware('gp247.livewire-guard', LivewireAuthGuard::class);
+                // Operation log for Livewire actions: `admin.log` (route middleware)
+                // never sees `livewire/update`, so every admin action is logged from
+                // Livewire's own `call` lifecycle instead — for plugins too, with no
+                // per-component code (US-admin-shell-livewire-operation-log).
+                Livewire::componentHook(\GP247\Core\AdminShell\Support\LivewireOperationLog::class);
                 $this->registerAdminRoutes();
                 $this->registerAuthorizationExceptionRendering();
             } catch (\Throwable $e) {

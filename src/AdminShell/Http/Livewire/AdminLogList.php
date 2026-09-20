@@ -3,6 +3,7 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\DataTableComponent;
+use GP247\Core\AdminShell\Support\LivewireOperationLog;
 use GP247\Core\Models\AdminLog;
 
 /**
@@ -86,5 +87,56 @@ class AdminLogList extends DataTableComponent
     protected function viewData(): array
     {
         return ['methodColors' => AdminLog::$methodColors];
+    }
+
+    /**
+     * What a row actually did, for the "detail" column: the action name, the
+     * fields it touched, its parameters, and the decoded input for the
+     * expandable view. A path alone says where the admin was, not what changed.
+     *
+     * - LIVEWIRE rows (LivewireOperationLog): action = the component method,
+     *   fields = the properties changed in that request, params = its arguments.
+     * - Classic POST/PUT/DELETE rows: fields = the top-level input keys.
+     * - GET rows carry no input and show nothing.
+     *
+     * Input is stored HTML-escaped by gp247_clean(), hence the decode first.
+     *
+     * @param AdminLog $row
+     * @return array{action: string|null, fields: array<int, string>, params: array<int, string>, full: string|null}
+     */
+    public function detail(AdminLog $row): array
+    {
+        $raw = html_entity_decode((string) $row->input, ENT_QUOTES);
+        $input = json_decode($raw, true);
+        $empty = ['action' => null, 'fields' => [], 'params' => [], 'full' => null];
+        if (!is_array($input) || $input === []) {
+            return $empty;
+        }
+
+        if ($row->method === LivewireOperationLog::METHOD) {
+            $action = trim((string) ($input['method'] ?? '')) ?: null;
+            $fields = array_map('strval', array_keys(is_array($input['changed'] ?? null) ? $input['changed'] : []));
+            // Scalars read as typed ("default", 5, true); arrays as compact JSON.
+            $params = array_map(
+                fn ($p) => is_string($p) ? $p : (string) json_encode($p, JSON_UNESCAPED_UNICODE),
+                array_values(is_array($input['params'] ?? null) ? $input['params'] : [])
+            );
+        } else {
+            // Framework plumbing carries no information about what was done.
+            unset($input['_token'], $input['_method']);
+            $action = null;
+            $fields = array_values(array_filter(array_map('strval', array_keys($input)), fn ($k) => $k !== 'page'));
+            $params = [];
+            if ($input === []) {
+                return $empty;
+            }
+        }
+
+        return [
+            'action' => $action,
+            'fields' => $fields,
+            'params' => $params,
+            'full' => (string) json_encode($input, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ];
     }
 }

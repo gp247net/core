@@ -25,6 +25,9 @@ return [
         //Config log access admin
         'admin_log_except'    => env('GP247_ADMIN_LOG_EXCEPT', ''), //Except log
         'admin_log'           => env('GP247_ADMIN_LOG', 1), //Log access admin
+        // Livewire actions on admin screens are logged too (AdminShell\Support\LivewireOperationLog);
+        // these action names are reads or framework plumbing, never operations.
+        'admin_log_livewire_except' => env('GP247_ADMIN_LOG_LIVEWIRE_EXCEPT', '$refresh,$commit,__dispatch,gotoPage,previousPage,nextPage,setPage,resetPage'),
 
         'forgot_password'     => env('GP247_ADMIN_FORGOT_PASSWORD', 1), //Enable feature forgot password
 
