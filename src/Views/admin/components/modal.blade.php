@@ -4,8 +4,16 @@
     Opened/closed via browser events targeted by `name`:
       window.dispatchEvent(new CustomEvent('open-modal',  { detail: 'confirm' }))
       window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirm' }))
-    or from Livewire: $this->dispatch('open-modal', 'confirm'). Closes on Escape
-    and backdrop click. Alpine ships with Livewire 4.
+      Alpine:   $dispatch('open-modal', 'confirm')
+      Livewire: $this->dispatch('open-modal', 'confirm')  or  ..., name: 'confirm')
+    Closes on Escape and backdrop click. Alpine ships with Livewire 4.
+
+    WHY isMine(): Livewire delivers dispatched params wrapped — a positional
+    param arrives as detail = ['confirm'], a named one as detail = {name:
+    'confirm'} — so a strict `detail === name` check only ever matched raw
+    browser/Alpine events, and every server-opened modal stayed shut (the
+    plan/dispute/review screens of MultiVendorPro). The matcher accepts the
+    three shapes; screens no longer need an Alpine bridge off a wire property.
 
     @aidlc-unit admin-shell-rbac
     @aidlc-story US-UI-002
@@ -22,9 +30,9 @@
 ])
 
 <div
-    x-data="{ open: false }"
-    x-on:open-modal.window="if ($event.detail === '{{ $name }}') open = true"
-    x-on:close-modal.window="if ($event.detail === '{{ $name }}') open = false"
+    x-data="{ open: false, isMine(d) { return d === '{{ $name }}' || (Array.isArray(d) && d[0] === '{{ $name }}') || (!!d && d.name === '{{ $name }}'); } }"
+    x-on:open-modal.window="if (isMine($event.detail)) open = true"
+    x-on:close-modal.window="if (isMine($event.detail)) open = false"
     x-on:keydown.escape.window="open = false"
     x-show="open"
     x-cloak
