@@ -255,7 +255,17 @@ abstract class ConfigForm extends GP247AdminComponent
      * WHY a seam rather than hiding the key: hiding is the one thing a plugin
      * must not do to a setting it wants the admin to want.
      *
-     * @return array<string, array{hint: string, url?: string|null, label?: string|null}>
+     * The optional `value` names the state that is ACTUALLY IN EFFECT while the
+     * key stays locked, and the screen displays that instead of the stored one.
+     * Without it a downgraded site shows whatever the paid edition last saved —
+     * a ticked switch for a feature its gate is blocking — so the screen claims
+     * the admin already has what the lock is offering to sell. The owner of the
+     * feature must name it, because only they know where a gated feature lands:
+     * `false` for a switch, but e.g. the "shipping" preset for a choice whose
+     * configured default is "confirm". It is display only: save() still skips
+     * locked keys, so the stored value survives and comes back on unlock.
+     *
+     * @return array<string, array{hint: string, url?: string|null, label?: string|null, value?: mixed}>
      *
      * @aidlc-unit admin-shell-rbac
      * @aidlc-story US-UI-005
@@ -382,6 +392,14 @@ abstract class ConfigForm extends GP247AdminComponent
                 // WHY: never surface the shared secret at a sub-store scope
                 // (NFR-SEC-plugin-secret-no-reveal). Empty = "using shared config".
                 $this->values[$key] = $this->isBooleanType($key) ? false : '';
+                continue;
+            }
+
+            $lock = $this->lockOf($key);
+            if ($lock !== null && array_key_exists('value', $lock)) {
+                // Locked with a declared effective state: show what is running,
+                // not what is stored (see lockedKeys()).
+                $this->values[$key] = $this->isBooleanType($key) ? (bool) $lock['value'] : (string) $lock['value'];
                 continue;
             }
 

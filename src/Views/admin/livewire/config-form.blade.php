@@ -67,7 +67,7 @@
             <thead class="bg-gray-50 dark:bg-gray-800">
                 <tr>
                     <th class="px-5 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $heading }}</th>
-                    <th class="w-64 px-5 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.value') }}</th>
+                    <th class="w-96 px-5 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.value') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -83,15 +83,30 @@
                         <td class="px-5 py-3 align-middle">
                             @if (!empty($locked[$config->key] ?? null))
                                 {{-- Locked: the setting is shown so the admin knows it exists, but the input is
-                                     disabled and save() skips the key (ConfigForm::lockedKeys()). --}}
-                                <fieldset disabled class="m-0 border-0 p-0" data-testid="config-form-locked-{{ $config->key }}">
-                                    @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type, 'options' => $options[$config->key] ?? []])
-                                </fieldset>
-                                <div class="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                    <i class="fas fa-lock"></i>
-                                    <span>{{ $locked[$config->key]['hint'] ?? '' }}</span>
-                                    @if (!empty($locked[$config->key]['url']))
-                                        <a href="{{ $locked[$config->key]['url'] }}" class="text-blue-600 hover:underline dark:text-blue-400">{{ $locked[$config->key]['label'] ?? $locked[$config->key]['url'] }}</a>
+                                     disabled and save() skips the key (ConfigForm::lockedKeys()).
+                                     Input and badge share ONE line — a locked row is then exactly as tall as an
+                                     editable one, so the table stays a table. Earlier revisions put the reason
+                                     and a separate "Upgrade" link below the input, and each string broke
+                                     wherever it happened to fit: rows two or three lines tall, ragged, with the
+                                     same CTA label repeated down the whole column. The badge carries the reason,
+                                     truncates instead of wrapping, and is itself the link; the CTA label moves
+                                     into title=. --}}
+                                @php $lock = $locked[$config->key]; @endphp
+                                <div class="flex items-center justify-between gap-3">
+                                    <fieldset disabled class="m-0 min-w-0 flex-1 border-0 p-0 opacity-70" data-testid="config-form-locked-{{ $config->key }}">
+                                        @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type, 'options' => $options[$config->key] ?? []])
+                                    </fieldset>
+                                    @if (!empty($lock['url']))
+                                        <a href="{{ $lock['url'] }}" title="{{ $lock['label'] ?? '' }}" data-testid="config-form-unlock-{{ $config->key }}"
+                                            class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-200 bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700 hover:underline dark:border-gray-700 dark:bg-gray-800 dark:text-amber-400">
+                                            <i class="fas fa-lock"></i>
+                                            <span class="truncate">{{ $lock['hint'] ?? '' }}</span>
+                                        </a>
+                                    @else
+                                        <span class="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                                            <i class="fas fa-lock"></i>
+                                            <span class="truncate">{{ $lock['hint'] ?? '' }}</span>
+                                        </span>
                                     @endif
                                 </div>
                             @else
