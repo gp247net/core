@@ -92,6 +92,9 @@ class Doctor extends GP247Command
         // (US-CLI-template-source-lifecycle). Read-only.
         $checks[] = $this->templateSourceCheck();
 
+        // PHP/Blade files that begin with a UTF-8 BOM. Read-only.
+        $checks[] = $this->fileBomCheck();
+
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
         if (!$this->isJson()) {
@@ -164,6 +167,90 @@ class Doctor extends GP247Command
             : 'templates served from their package');
     }
 
+
+    /**
+     * Report PHP/Blade files that begin with a UTF-8 byte-order mark (EF BB BF).
+     *
+     * A BOM sits OUTSIDE the PHP tags, so PHP echoes it before anything else the
+     * file produces. That breaks header()/redirect() with "headers already sent",
+     * puts a stray character in front of JSON/XML/CSV responses, and prepends an
+     * invisible character to a rendered view. Editors on Windows add it silently
+     * when saving as UTF-8, and nothing about it shows when reading the file or
+     * its diff — which is why a machine has to be the one looking.
+     *
+     * Reported as a warn, not a fail: it is a defect to clean up, not a reason to
+     * refuse to install or to gate CI on a third-party plugin the owner cannot fix
+     * today.
+     *
+     * Scans the site's own extensions and the GP247 packages — the code this
+     * install actually runs. Uses no gp247_* helper, because doctor is a
+     * bootstrap-tier command that must work before the platform is installed.
+     *
+     * @return array{name: string, status: string, detail: string}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-004
+     */
+    protected function fileBomCheck(): array
+    {
+        $roots = array_filter([
+            base_path('app/GP247'),
+            base_path('vendor/gp247/core/src'),
+            base_path('vendor/gp247/front/src'),
+            base_path('vendor/gp247/shop/src'),
+        ], 'is_dir');
+
+        $bom = chr(0xEF).chr(0xBB).chr(0xBF);
+        $found = [];
+
+        try {
+            foreach ($roots as $root) {
+                $files = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::LEAVES_ONLY
+                );
+
+                foreach ($files as $file) {
+                    if (!$file->isFile() || strtolower($file->getExtension()) !== 'php') {
+                        continue;
+                    }
+
+                    $handle = @fopen($file->getPathname(), 'rb');
+                    if ($handle === false) {
+                        continue;
+                    }
+                    $head = fread($handle, 3);
+                    fclose($handle);
+
+                    if ($head === $bom) {
+                        // Reported relative to the project root, with forward
+                        // slashes, so the path reads the same on every OS.
+                        $relative = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
+                        $found[] = str_replace(DIRECTORY_SEPARATOR, '/', $relative);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            return $this->check('file_bom', 'warn', 'could not scan: '.$e->getMessage());
+        }
+
+        if ($found === []) {
+            return $this->check('file_bom', 'pass', 'no file starts with a byte-order mark');
+        }
+
+        sort($found);
+        $shown = array_slice($found, 0, 3);
+        $more = count($found) - count($shown);
+
+        return $this->check(
+            'file_bom',
+            'warn',
+            count($found).' file(s) start with a UTF-8 BOM, which is echoed before any output: '
+                .implode(', ', $shown)
+                .($more > 0 ? ' (+'.$more.' more)' : '')
+                .' — re-save each as UTF-8 WITHOUT BOM'
+        );
+    }
 
     /**
      * Verify every at-rest secret (admin_config.security = 1) still decrypts under the
