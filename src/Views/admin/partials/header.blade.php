@@ -14,7 +14,7 @@
     $adminUser = admin()->user();
     $adminAvatar = ($adminUser && $adminUser->avatar)
         ? gp247_file($adminUser->avatar)
-        : gp247_file('GP247/Core/avatar/user.jpg');
+        : gp247_file('GP247/Core/avatar/user.png');
     // WHY: reuse the brownfield locale switch (session('locale') + admin.locale
     // route) so the new shell changes admin language exactly like the old header.
     $languages = gp247_language_all();
