@@ -5,6 +5,7 @@ namespace GP247\Core\Commands;
 use GP247\Core\Console\GP247Command;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
 
 /**
  * Orchestrate a full GP247 install in the correct order. This is the platform's
@@ -47,6 +48,15 @@ class InstallAll extends GP247Command
      * @var string
      */
     protected $description = 'Install GP247 end-to-end (auto-detects core + front + shop)';
+
+    /**
+     * Steps that need the site as it is AFTER the install: the gp247_* helpers load
+     * at boot only once gp247-installed.txt exists, so in this process (booted before
+     * the install) they are missing — gp247:shop-sample failed on the core id generator.
+     *
+     * @var array<int, string>
+     */
+    private const FRESH_PROCESS_STEPS = ['gp247:shop-sample'];
 
     /**
      * Orchestrate the install: detect packages, confirm, then run each step.
@@ -153,7 +163,9 @@ class InstallAll extends GP247Command
             // second prompt). front/shop-install expose no --force option.
             $args = $command === 'gp247:core-install' ? ['--force' => 1] : [];
 
-            $code = $this->runArtisan($command, $args);
+            $code = in_array($command, self::FRESH_PROCESS_STEPS, true)
+                ? $this->runInFreshProcess($command)
+                : $this->runArtisan($command, $args);
             if ($code !== Command::SUCCESS) {
                 return $this->respondFailure('step_failed', 'Step failed: ' . $command, [
                     'completed' => $done,
@@ -164,5 +176,34 @@ class InstallAll extends GP247Command
         }
 
         return $this->respondSuccess(['completed' => $done]);
+    }
+
+    /**
+     * Run one step as `php artisan <command>` in a new PHP process, so it boots the
+     * freshly installed site (helpers, providers, database) instead of this one.
+     *
+     * @param string $command Artisan command name.
+     * @return int Exit code of the child process.
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-005
+     */
+    private function runInFreshProcess(string $command): int
+    {
+        $arguments = [PHP_BINARY, base_path('artisan'), $command, '--no-interaction'];
+        if ($this->isJson()) {
+            $arguments[] = '--json';
+        }
+        $process = new Process($arguments, base_path());
+        $process->setTimeout(null);
+        $process->run(function ($type, $buffer) {
+            if ($this->isJson()) {
+                $this->writeStderr(rtrim($buffer));
+            } else {
+                $this->output->write($buffer);
+            }
+        });
+
+        return (int) $process->getExitCode();
     }
 }
