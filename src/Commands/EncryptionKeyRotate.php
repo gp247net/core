@@ -104,7 +104,7 @@ class EncryptionKeyRotate extends GP247Command
                 continue;
             }
 
-            $plain = gp247_secret_decrypt($value);
+            $plain = gp247_secret_decrypt($value, ['table' => $table, 'column' => $column, 'id' => $row->id]);
             if ($plain === '') {
                 // Fail-safe decrypt returns '' — do NOT overwrite (would destroy the row).
                 $failed++;

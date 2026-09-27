@@ -42,7 +42,16 @@ class Secret implements CastsAttributes
      */
     public function get(Model $model, string $key, $value, array $attributes): string
     {
-        return function_exists('gp247_secret_decrypt') ? gp247_secret_decrypt($value) : (string) $value;
+        if (!function_exists('gp247_secret_decrypt')) {
+            return (string) $value;
+        }
+
+        // Row identity only — lets a failure report say which row broke (never the value).
+        return gp247_secret_decrypt($value, [
+            'table'  => $model->getTable(),
+            'column' => $key,
+            'id'     => $attributes[$model->getKeyName()] ?? null,
+        ]);
     }
 
     /**

@@ -56,7 +56,15 @@ class AdminConfig extends Model
      */
     public function getValueAttribute($value): string
     {
-        return function_exists('gp247_secret_decrypt') ? gp247_secret_decrypt($value) : (string) $value;
+        if (!function_exists('gp247_secret_decrypt')) {
+            return (string) $value;
+        }
+
+        return gp247_secret_decrypt($value, [
+            'group'    => $this->attributes['group'] ?? null,
+            'key'      => $this->attributes['key'] ?? null,
+            'store_id' => $this->attributes['store_id'] ?? null,
+        ]);
     }
 
     /**
@@ -205,7 +213,9 @@ class AdminConfig extends Model
             // (prefix-based) — the memoized map holds plaintext, never ciphertext.
             self::$getAllGlobal = self::where('store_id', GP247_STORE_ID_GLOBAL)
                 ->pluck('value', 'key')
-                ->map(fn ($v) => function_exists('gp247_secret_decrypt') ? gp247_secret_decrypt($v) : $v)
+                ->map(fn ($v, $k) => function_exists('gp247_secret_decrypt')
+                    ? gp247_secret_decrypt($v, ['key' => $k, 'store_id' => GP247_STORE_ID_GLOBAL])
+                    : $v)
                 ->all();
         }
         return self::$getAllGlobal;
@@ -224,7 +234,9 @@ class AdminConfig extends Model
             // WHY map(): decrypt secrets after pluck() (accessor bypassed) — prefix-based.
             self::$getAllConfigOfStore[$storeId] = self::where('store_id', $storeId)
                 ->pluck('value', 'key')
-                ->map(fn ($v) => function_exists('gp247_secret_decrypt') ? gp247_secret_decrypt($v) : $v)
+                ->map(fn ($v, $k) => function_exists('gp247_secret_decrypt')
+                    ? gp247_secret_decrypt($v, ['key' => $k, 'store_id' => $storeId])
+                    : $v)
                 ->all();
         }
         return self::$getAllConfigOfStore[$storeId];

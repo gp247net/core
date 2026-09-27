@@ -15,6 +15,9 @@ return [
         'encrypted_columns'       => [
             'admin_config' => ['value'],
         ],
+        // Seconds between two reports for the same undecryptable secret (it is read on
+        // every request, so an unthrottled report floods Slack). 0 = once per request only.
+        'decrypt_report_ttl'      => (int) env('GP247_DECRYPT_REPORT_TTL', 3600),
     ],
 
     'admin' => [

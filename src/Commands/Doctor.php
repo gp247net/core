@@ -115,12 +115,18 @@ class Doctor extends GP247Command
      *
      * @param string $name   Check id.
      * @param string $status pass|warn|fail.
-     * @param string $detail Human detail.
-     * @return array{name: string, status: string, detail: string}
+     * @param string        $detail Human detail.
+     * @param array<int, string> $items  Optional itemised findings (added to the row only when non-empty, for --json).
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
      */
-    protected function check(string $name, string $status, string $detail): array
+    protected function check(string $name, string $status, string $detail, array $items = []): array
     {
-        return ['name' => $name, 'status' => $status, 'detail' => $detail];
+        $row = ['name' => $name, 'status' => $status, 'detail' => $detail];
+        if ($items !== []) {
+            $row['items'] = $items;
+        }
+
+        return $row;
     }
 
     /**
@@ -255,13 +261,15 @@ class Doctor extends GP247Command
     /**
      * Verify every at-rest secret (admin_config.security = 1) still decrypts under the
      * current + previous APP_KEYs. A row that fails is the tell-tale of a changed
-     * APP_KEY; report it so the owner can restore APP_PREVIOUS_KEYS or re-enter the value.
+     * APP_KEY; report it — naming each broken row (group/key/store or table.column#id)
+     * and its key id, never the value — so the owner knows which setting to recover.
      *
      * @param bool $installed Whether the site is installed (skip otherwise).
-     * @return array{name: string, status: string, detail: string}
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
      *
      * @aidlc-unit system-cli
      * @aidlc-story US-CMP-config-secret-at-rest
+     * @aidlc-story US-CMP-secret-decrypt-diagnosable
      * @aidlc-adr compat-foundation_config-secret-at-rest
      */
     protected function secretDecryptableCheck(bool $installed): array
@@ -275,19 +283,27 @@ class Doctor extends GP247Command
 
         $columns = (array) config('gp247-config.security.encrypted_columns', []);
         $total = 0;
-        $failed = 0;
+        $broken = [];
 
         try {
             $connection = DB::connection(GP247_DB_CONNECTION);
+            $schema = $connection->getSchemaBuilder();
             foreach ($columns as $table => $cols) {
+                $fullTable = GP247_DB_PREFIX . $table;
+                // Row identity for the report: config rows by group/key/store, any other
+                // registered table by its id (never the value).
+                $identity = $schema->hasColumns($fullTable, ['group', 'key', 'store_id'])
+                    ? ['group', 'key', 'store_id']
+                    : ($schema->hasColumn($fullTable, 'id') ? ['id'] : []);
                 foreach ((array) $cols as $column) {
-                    $values = $connection->table(GP247_DB_PREFIX . $table)
+                    $rows = $connection->table($fullTable)
                         ->where($column, 'like', 'enc:%')
-                        ->pluck($column);
-                    foreach ($values as $value) {
+                        ->get(array_merge($identity, [$column]));
+                    foreach ($rows as $row) {
+                        $value = (string) ($row->{$column} ?? '');
                         $total++;
-                        if (!$this->canDecrypt((string) $value)) {
-                            $failed++;
+                        if (!$this->canDecrypt($value)) {
+                            $broken[] = $this->secretRowLabel((string) $table, (string) $column, $identity, $row, $value);
                         }
                     }
                 }
@@ -296,15 +312,53 @@ class Doctor extends GP247Command
             return $this->check('secret_decryptable', 'pass', 'skipped (db unavailable)');
         }
 
-        if ($failed > 0) {
+        if ($broken !== []) {
+            $shown = array_slice($broken, 0, 10);
+            $more = count($broken) - count($shown);
+
             return $this->check(
                 'secret_decryptable',
                 'warn',
-                $failed . ' of ' . $total . ' secrets undecryptable — the encryption key may have changed; set GP247_ENCRYPTION_PREVIOUS_KEYS / APP_PREVIOUS_KEYS or re-enter them'
+                count($broken) . ' of ' . $total . ' secrets undecryptable: ' . implode(', ', $shown)
+                    . ($more > 0 ? ' …and ' . $more . ' more' : '')
+                    . ' — the encryption key may have changed; set GP247_ENCRYPTION_PREVIOUS_KEYS / APP_PREVIOUS_KEYS or re-enter them',
+                $broken
             );
         }
 
         return $this->check('secret_decryptable', 'pass', $total . ' secrets OK');
+    }
+
+    /**
+     * Human label of an undecryptable secret row plus the key id it was written with:
+     * "<group>/<key>@<store_id> kid=<kid>" for config rows, "<table>.<column>#<id> kid=<kid>"
+     * otherwise ("v1" = legacy APP_KEY envelope). Never includes the value.
+     *
+     * @param string             $table    Unprefixed table.
+     * @param string             $column   Secret column.
+     * @param array<int, string> $identity Identity columns selected for the row.
+     * @param object             $row      Query row.
+     * @param string             $value    Raw enveloped value (only its kid is read).
+     * @return string
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CMP-secret-decrypt-diagnosable
+     */
+    private function secretRowLabel(string $table, string $column, array $identity, object $row, string $value): string
+    {
+        if ($identity === ['group', 'key', 'store_id']) {
+            $label = $row->group . '/' . $row->key . '@' . $row->store_id;
+        } else {
+            $label = $table . '.' . $column . ($identity === ['id'] ? '#' . $row->id : '');
+        }
+
+        $kid = 'v1';
+        if (str_starts_with($value, 'enc:v2:')) {
+            $rest = substr($value, strlen('enc:v2:'));
+            $kid = substr($rest, 0, (int) strpos($rest, ':'));
+        }
+
+        return $label . ' kid=' . $kid;
     }
 
     /**

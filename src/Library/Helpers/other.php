@@ -156,6 +156,43 @@ if (!function_exists('gp247_token') && !in_array('gp247_token', config('gp247_fu
     }
 }
 
+if (!function_exists('gp247_report_context') && !in_array('gp247_report_context', config('gp247_functions_except', []))) {
+    /**
+     * One line identifying where a report comes from, so reports of many sites sharing
+     * one Slack webhook can be told apart: "[site] <APP_URL> · env=<APP_ENV> · <source>",
+     * source being "host=<Host> <METHOD> /<path>" for a web request or "cli=<command>"
+     * for the console / a queue worker. The query string and command arguments are left
+     * out on purpose — they may carry tokens or passwords. Never throws.
+     *
+     * @return string The context line, or '' when it cannot be built.
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-report-site-context
+     * @aidlc-adr compat-foundation_report-site-context
+     */
+    function gp247_report_context(): string
+    {
+        try {
+            $parts = ['[site] ' . (string) config('app.url'), 'env=' . (string) config('app.env')];
+
+            if (app()->runningInConsole()) {
+                $argv = $_SERVER['argv'] ?? [];
+                $command = isset($argv[1]) && !str_starts_with((string) $argv[1], '-') ? (string) $argv[1] : '';
+                $parts[] = $command !== '' ? 'cli=' . $command : 'cli';
+            } else {
+                $request = request();
+                $parts[] = 'host=' . $request->getHost() . ' ' . $request->getMethod() . ' /' . ltrim($request->path(), '/');
+            }
+
+            return implode(' · ', $parts);
+        } catch (\Throwable $e) {
+            // WHY: a report must never fail because its context could not be built
+            // (early bootstrap, no request bound, broken config).
+            return '';
+        }
+    }
+}
+
 if (!function_exists('gp247_report') && !in_array('gp247_report', config('gp247_functions_except', []))) {
     /*
     Handle report
@@ -169,8 +206,13 @@ if (!function_exists('gp247_report') && !in_array('gp247_report', config('gp247_
         } else {
             $msg = 'Type of msg is not supported';
         }
-        
-        $msg = gp247_time_now(config('app.timezone')).' ('.config('app.timezone').'):'.PHP_EOL.$msg.PHP_EOL;
+
+        // Site context right after the timestamp line (kept first for log readers), see
+        // ADR compat-foundation_report-site-context.
+        $context = function_exists('gp247_report_context') ? gp247_report_context() : '';
+        $msg = gp247_time_now(config('app.timezone')).' ('.config('app.timezone').'):'.PHP_EOL
+            .($context !== '' ? $context.PHP_EOL : '')
+            .$msg.PHP_EOL;
 
         if (is_string($channel)) {
             $channel = [$channel];

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Encryption\Encrypter;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 
 /**
@@ -196,6 +197,70 @@ if (!function_exists('gp247_secret_encrypt') && !in_array('gp247_secret_encrypt'
     }
 }
 
+if (!function_exists('gp247_secret_report_failure') && !in_array('gp247_secret_report_failure', config('gp247_functions_except', []))) {
+    /**
+     * Report a secret that failed to decrypt, naming the row and the key it was
+     * written with but NEVER the value. The same row (context + key id) is reported
+     * once per request and at most once per throttle window
+     * (gp247-config.security.decrypt_report_ttl, seconds; 0 = per-request only), because
+     * a broken secret is read on every request and would otherwise flood the channel.
+     * A failing cache lets the report through (fail-open: a duplicate beats a lost alert).
+     *
+     * @param string               $raw     The undecryptable stored value (only its envelope version/kid is used).
+     * @param array<string, mixed> $context Row identity: group/key/store_id or table/column/id.
+     * @param string               $reason  Underlying error message.
+     * @return void
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-secret-decrypt-diagnosable
+     * @aidlc-adr compat-foundation_config-secret-at-rest
+     */
+    function gp247_secret_report_failure(string $raw, array $context, string $reason): void
+    {
+        $ctx = [];
+        foreach (['group', 'key', 'store_id', 'table', 'column', 'id'] as $field) {
+            if (isset($context[$field]) && is_scalar($context[$field]) && (string) $context[$field] !== '') {
+                $ctx[$field] = (string) $context[$field];
+            }
+        }
+        if (str_starts_with($raw, GP247_SECRET_PREFIX_V2)) {
+            $rest = substr($raw, strlen(GP247_SECRET_PREFIX_V2));
+            $ctx['kid'] = substr($rest, 0, (int) strpos($rest, ':'));
+        } else {
+            $ctx['kid'] = 'v1';
+        }
+
+        $fingerprint = sha1((string) json_encode($ctx));
+        $ttl = (int) config('gp247-config.security.decrypt_report_ttl', 3600);
+
+        // Per-request memo. WHY a container instance (not a static): it is naturally
+        // per request under PHP-FPM; long-lived workers are bounded by the TTL check.
+        $memoKey = 'gp247.secret-report-seen';
+        if (!app()->bound($memoKey)) {
+            app()->instance($memoKey, new \ArrayObject());
+        }
+        $seen = app($memoKey);
+        $now = time();
+        if (isset($seen[$fingerprint]) && ($ttl <= 0 || $now - $seen[$fingerprint] < $ttl)) {
+            return;
+        }
+        $seen[$fingerprint] = $now;
+
+        if ($ttl > 0) {
+            try {
+                if (Cache::add('gp247:secret-decrypt-report:' . $fingerprint, 1, $ttl) === false) {
+                    return;
+                }
+            } catch (\Throwable $e) {
+                // Fail-open: report anyway when the cache store is unavailable.
+            }
+        }
+
+        $where = implode(' ', array_map(fn ($k, $v) => $k . '=' . $v, array_keys($ctx), $ctx));
+        gp247_report('[gp247 secret] Failed to decrypt a stored secret (' . $where . ') — the encryption key may have changed. Set GP247_ENCRYPTION_PREVIOUS_KEYS (or APP_PREVIOUS_KEYS for legacy rows), or re-enter the value. ' . $reason);
+    }
+}
+
 if (!function_exists('gp247_secret_decrypt') && !in_array('gp247_secret_decrypt', config('gp247_functions_except', []))) {
     /**
      * Decrypt an at-rest secret of either envelope version. A value without a valid
@@ -203,14 +268,17 @@ if (!function_exists('gp247_secret_decrypt') && !in_array('gp247_secret_decrypt'
      * — e.g. the key changed without keeping the old one — is FAIL-SAFE: returns '' and
      * reports, never throws, so the site keeps running (NFR-AVAIL-001).
      *
-     * @param mixed $raw Raw stored value.
+     * @param mixed                $raw     Raw stored value.
+     * @param array<string, mixed> $context Optional row identity for the failure report
+     *                                      (group/key/store_id or table/column/id); never the value.
      * @return string Plaintext, or '' when it cannot be decrypted.
      *
      * @aidlc-unit compat-foundation
      * @aidlc-story US-CMP-config-secret-at-rest
+     * @aidlc-story US-CMP-secret-decrypt-diagnosable
      * @aidlc-adr compat-foundation_config-secret-at-rest
      */
-    function gp247_secret_decrypt($raw): string
+    function gp247_secret_decrypt($raw, array $context = []): string
     {
         if (!gp247_secret_is_encrypted($raw)) {
             return (string) $raw;
@@ -232,7 +300,13 @@ if (!function_exists('gp247_secret_decrypt') && !in_array('gp247_secret_decrypt'
             // Legacy v1 — Laravel Crypt (APP_KEY + app previous keys).
             return Crypt::decryptString(substr($raw, strlen(GP247_SECRET_PREFIX_V1)));
         } catch (\Throwable $e) {
-            gp247_report('[gp247 secret] Failed to decrypt a stored secret — the encryption key may have changed. Set GP247_ENCRYPTION_PREVIOUS_KEYS (or APP_PREVIOUS_KEYS for legacy rows), or re-enter the value. ' . $e->getMessage());
+            try {
+                if (function_exists('gp247_secret_report_failure')) {
+                    gp247_secret_report_failure((string) $raw, $context, $e->getMessage());
+                }
+            } catch (\Throwable $reportError) {
+                // WHY: fail-safe — a broken log/cache must not turn a decrypt miss into a 500.
+            }
 
             return '';
         }
