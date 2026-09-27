@@ -28,6 +28,7 @@ use GP247\Core\Commands\ExtCheckUpdate;
 use GP247\Core\Commands\ExtSearch;
 use GP247\Core\Commands\ExtLicense;
 use GP247\Core\Commands\ExtRegisterLicense;
+use GP247\Core\Commands\ExtPublish;
 use GP247\Core\Commands\InstallAll;
 use GP247\Core\Commands\UpdateAll;
 use GP247\Core\Commands\CacheRebuild;
@@ -86,6 +87,7 @@ class CoreServiceProvider extends ServiceProvider
         ExtSearch::class,
         ExtLicense::class,
         ExtRegisterLicense::class,
+        ExtPublish::class,
         UpdateAll::class,
         CacheRebuild::class,
         EncryptionKeyRotate::class,

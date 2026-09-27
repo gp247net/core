@@ -117,12 +117,78 @@ class ExtensionInstaller
     }
 
     /**
-     * Run the AppConfig install() hook for an extension whose files are already
-     * in place (compatibility-checked first).
+     * Copy an extension's static files (app/GP247/<type>/<Key>/public) to
+     * public/GP247/<type>/<Key>, where the browser can reach them.
+     *
+     * The copy in public/ is derived: it is overwritten, exactly as the 1-click
+     * update does. An extension without a public/ folder has nothing to publish.
      *
      * @param string $groupType Plugins|Templates.
      * @param string $key       Extension key.
      * @return array{error: int, msg: string}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-PLG-local-install-publishes-assets
+     * @aidlc-story US-CLI-extension-asset-repair
+     * @aidlc-adr system-cli_service-extraction
+     */
+    public function publishAssets(string $groupType, string $key): array
+    {
+        $groupType = $this->normalizeType($groupType);
+        // WHY: the key becomes a path segment, and gp247:ext-publish takes it from the command line.
+        if (preg_match('/^[A-Za-z0-9_-]+$/', $key) !== 1) {
+            return ['error' => 1, 'msg' => 'Invalid extension key: '.$key];
+        }
+
+        $relative = 'GP247/'.$groupType.'/'.$key;
+        $source = app_path($relative.'/public');
+        if (!is_dir($source)) {
+            return ['error' => 0, 'msg' => ''];
+        }
+
+        // Write-permission preflight (shared-host safety, NFR-AVAIL-cli-shared-host).
+        $parent = public_path('GP247/'.$groupType);
+        if (!is_dir($parent)) {
+            @mkdir($parent, 0755, true);
+        }
+        if (!is_dir($parent) || !is_writable($parent)) {
+            $msg = 'Publish extension assets error: No write permission '.$parent;
+            gp247_report(msg: $msg, channel: null);
+            return ['error' => 1, 'msg' => $msg];
+        }
+
+        try {
+            $copied = File::copyDirectory($source, public_path($relative));
+        } catch (\Throwable $e) {
+            $copied = false;
+        }
+        if (!$copied) {
+            $msg = 'Publish extension assets error: could not copy '.$source.' to '.public_path($relative);
+            gp247_report(msg: $msg, channel: null);
+            return ['error' => 1, 'msg' => $msg];
+        }
+
+        return ['error' => 0, 'msg' => ''];
+    }
+
+    /**
+     * Run the AppConfig install() hook for an extension whose files are already
+     * in place (compatibility-checked first), after publishing its static files.
+     *
+     * WHY publish here and nowhere else: this is the one step every install path
+     * shares — the admin "Install" button and gp247:ext-install for a folder that is
+     * already on disk (FTP upload, git clone, rsync, Docker image) call it directly,
+     * the zip/marketplace path calls it after copying into app/. Publishing only in
+     * the zip path left folder installs "successful" with every CSS/JS/image 404.
+     * A failed publish returns before install(), so no half-installed extension.
+     *
+     * @param string $groupType Plugins|Templates.
+     * @param string $key       Extension key.
+     * @return array{error: int, msg: string}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-PLG-local-install-publishes-assets
+     * @aidlc-adr system-cli_service-extraction
      */
     public function activate(string $groupType, string $key): array
     {
@@ -144,6 +210,11 @@ class ExtensionInstaller
         }
         if (!method_exists($class, 'install')) {
             return ['error' => 1, 'msg' => 'Method install not found'];
+        }
+
+        $published = $this->publishAssets($groupType, $key);
+        if ($published['error']) {
+            return $published;
         }
 
         $response = (new $class)->install();
@@ -390,7 +461,7 @@ class ExtensionInstaller
 
         $appPath = 'GP247/'.$configGroup.'/'.$configKey;
         try {
-            File::copyDirectory($extractDir.'/'.$folderName.'/public', public_path($appPath));
+            // public/ is published by activate() from the copy in app/ — one place for every install path.
             File::copyDirectory($extractDir.'/'.$folderName, app_path($appPath));
         } catch (\Throwable $e) {
             $msg = 'Import extension error: '.$e->getMessage();

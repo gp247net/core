@@ -6,6 +6,7 @@ use GP247\Core\Console\GP247Command;
 use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use GP247\Core\Support\TemplateSourceAudit;
 
@@ -94,6 +95,10 @@ class Doctor extends GP247Command
 
         // PHP/Blade files that begin with a UTF-8 BOM. Read-only.
         $checks[] = $this->fileBomCheck();
+
+        // Installed extensions whose static files never reached public/ (installed from
+        // a folder before ExtensionInstaller::activate() published them). Read-only.
+        $checks[] = $this->extensionAssetsCheck($installed);
 
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
@@ -256,6 +261,68 @@ class Doctor extends GP247Command
                 .($more > 0 ? ' (+'.$more.' more)' : '')
                 .' — re-save each as UTF-8 WITHOUT BOM'
         );
+    }
+
+    /**
+     * Report installed extensions whose public/ folder has files missing from
+     * public/GP247/<type>/<Key> — the browser gets 404 for their CSS/JS/images.
+     *
+     * Happens on sites that installed an extension from a folder already on disk
+     * (FTP upload, git clone, Docker image) before ExtensionInstaller::activate()
+     * published static files. Reported as a warn: the site runs, the extension's
+     * screens are broken. Each finding is "<type>/<Key>" in the row's items.
+     *
+     * WHY inline DB access instead of the extension "installed" helper: Doctor is
+     * a bootstrap-tier command and must not call gp247_* helpers.
+     *
+     * @param bool $installed Whether the site is installed (skip otherwise).
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-extension-asset-repair
+     * @aidlc-adr system-cli_service-extraction
+     */
+    protected function extensionAssetsCheck(bool $installed): array
+    {
+        if (!$installed) {
+            return $this->check('extension_assets', 'pass', 'skipped (not installed)');
+        }
+
+        try {
+            $rows = DB::connection(GP247_DB_CONNECTION)
+                ->table(GP247_DB_PREFIX.'admin_config')
+                ->where('store_id', defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : '0')
+                ->whereIn('group', ['Plugins', 'Templates'])
+                ->get(['group', 'key']);
+        } catch (\Throwable $e) {
+            return $this->check('extension_assets', 'pass', 'skipped (database unavailable)');
+        }
+
+        $missing = [];
+        foreach ($rows as $row) {
+            $relative = 'GP247/'.$row->group.'/'.$row->key;
+            $source = app_path($relative.'/public');
+            if (preg_match('/^[A-Za-z0-9_-]+$/', (string) $row->key) !== 1 || !is_dir($source)) {
+                continue;
+            }
+            foreach (File::allFiles($source) as $file) {
+                if (!is_file(public_path($relative.'/'.$file->getRelativePathname()))) {
+                    $missing[] = $row->group.'/'.$row->key;
+                    break;
+                }
+            }
+        }
+
+        if ($missing === []) {
+            return $this->check('extension_assets', 'pass', 'every installed extension has its static files in public/');
+        }
+
+        $shown = array_slice($missing, 0, 3);
+        $detail = count($missing).' installed extension(s) miss static files in public/: '.implode(', ', $shown)
+            .(count($missing) > 3 ? ' (+'.(count($missing) - 3).' more)' : '')
+            .' — run "php artisan gp247:ext-publish --type=plugin|template --key=<Key>" (or --all)';
+
+        return $this->check('extension_assets', 'warn', $detail, $missing);
     }
 
     /**
