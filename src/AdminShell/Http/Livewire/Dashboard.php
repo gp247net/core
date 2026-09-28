@@ -2,6 +2,7 @@
 
 namespace GP247\Core\AdminShell\Http\Livewire;
 
+use GP247\Core\AdminShell\Domain\AdminUserContract;
 use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
 use GP247\Core\Models\AdminHome;
 use Illuminate\Contracts\View\View;
@@ -20,7 +21,7 @@ use Illuminate\Contracts\View\View;
  * carries data it doesn't need.
  *
  * @aidlc-unit admin-shell-rbac
- * @aidlc-story US-LW-001, US-UI-009
+ * @aidlc-story US-LW-001, US-UI-009, US-AUI-005
  * @aidlc-adr ADR-002, ADR-005, ADR-007
  */
 class Dashboard extends GP247AdminComponent
@@ -43,10 +44,34 @@ class Dashboard extends GP247AdminComponent
      */
     public function render(): View
     {
-        return view('gp247-admin::livewire.dashboard', ['blocks' => $this->blocks()])
+        return view('gp247-admin::livewire.dashboard', [
+            'blocks' => $this->blocks(),
+            'canEditLayout' => $this->canEditLayout(),
+        ])
             ->layout('gp247-admin::layouts.admin', [
                 'title' => gp247_language_render('admin.dashboard.title'),
             ]);
+    }
+
+    /**
+     * Whether the "Edit layout" shortcut leads somewhere the user may go: the
+     * dashboard is open to restricted roles (e.g. a store-admin) that are not
+     * granted the global admin_home_layout screen, so a route-exists check alone
+     * would show them a link to an access-denied page.
+     *
+     * @return bool
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-AUI-005
+     */
+    private function canEditLayout(): bool
+    {
+        $user = app(AdminUserContract::class);
+        $prefix = defined('GP247_ADMIN_PREFIX') ? GP247_ADMIN_PREFIX : 'gp247_admin';
+
+        return $user->isAdministrator()
+            || $user->isViewAll()
+            || $user->canAccessUrl($prefix . '/admin_home_layout', 'GET');
     }
 
     /**

@@ -29,9 +29,9 @@
 
 <div class="space-y-6">
     {{-- Edit layout shortcut --}}
-    @if (Route::has('admin_home_layout.index'))
+    @if (Route::has('admin_home_layout.index') && $canEditLayout)
         <div class="flex justify-end">
-            <x-gp247::button href="{{ gp247_route_admin('admin_home_layout.index') }}" wire:navigate size="sm" variant="secondary">
+            <x-gp247::button href="{{ gp247_route_admin('admin_home_layout.index') }}" wire:navigate size="sm" variant="secondary" data-testid="admin-shell-dashboard-edit-layout">
                 <i class="fas fa-edit"></i> {{ gp247_language_render('admin.menu_titles.admin_home_layout') }}
             </x-gp247::button>
         </div>
