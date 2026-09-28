@@ -387,6 +387,13 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.store.plugin_enable_here','text' => 'Enable this plugin for this store','position' => 'store.admin','location' => 'en'],
             ['code' => 'admin.store.value_inherited','text' => 'Kế thừa cấu hình chung','position' => 'store.admin','location' => 'vi'],
             ['code' => 'admin.store.value_inherited','text' => 'Inherited from shared','position' => 'store.admin','location' => 'en'],
+            // Write-only secrets on config screens (US-AUI-config-form-secret-write-only, mod 20260928T223936)
+            ['code' => 'admin.config.secret_saved','text' => 'Đã lưu — được ẩn, để trống để giữ nguyên','position' => 'admin','location' => 'vi'],
+            ['code' => 'admin.config.secret_saved','text' => 'Saved — hidden, leave blank to keep','position' => 'admin','location' => 'en'],
+            ['code' => 'admin.config.secret_not_set','text' => 'Chưa đặt','position' => 'admin','location' => 'vi'],
+            ['code' => 'admin.config.secret_not_set','text' => 'Not set','position' => 'admin','location' => 'en'],
+            ['code' => 'admin.config.secret_keep_placeholder','text' => 'Để trống để giữ giá trị đã lưu','position' => 'admin','location' => 'vi'],
+            ['code' => 'admin.config.secret_keep_placeholder','text' => 'Leave blank to keep the saved value','position' => 'admin','location' => 'en'],
             ['code' => 'admin.store.value_own','text' => 'Riêng','position' => 'store.admin','location' => 'vi'],
             ['code' => 'admin.store.value_own','text' => 'Custom','position' => 'store.admin','location' => 'en'],
             ['code' => 'admin.store.use_shared','text' => 'Dùng cấu hình mặc định','position' => 'store.admin','location' => 'vi'],

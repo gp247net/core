@@ -71,8 +71,25 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                @forelse ($configs as $i => $config)
-                    @php $type = $types[$config->key] ?? 'text'; @endphp
+                @forelse ($rows as $i => $row)
+                    @if (!empty($row['section']))
+                    {{-- Block heading from ConfigForm::sections() — groups parallel key sets
+                         (e.g. sandbox / live credentials) so no field is ambiguous. --}}
+                    <tr wire:key="cfg-section-{{ $row['id'] }}" data-testid="config-form-section-{{ $row['id'] }}" class="bg-gray-50 dark:bg-gray-800">
+                        {{-- font-semibold on the title only: font-normal is not in the prebuilt admin.css,
+                             so the hint and badge must not inherit a bold cell (gp247.md §3a). --}}
+                        <td colspan="2" class="px-5 py-3 text-left text-sm text-gray-700 dark:text-gray-200">
+                            <span class="font-semibold">{{ $row['title'] }}</span>
+                            @if ($row['badge'] !== '')
+                                <span data-testid="config-form-section-badge-{{ $row['id'] }}" class="ml-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-blue-400">{{ $row['badge'] }}</span>
+                            @endif
+                            @if ($row['hint'] !== '')
+                                <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">{{ $row['hint'] }}</p>
+                            @endif
+                        </td>
+                    </tr>
+                    @else
+                    @php $config = $row['config']; $type = $types[$config->key] ?? 'text'; @endphp
                     <tr wire:key="cfg-{{ $config->key }}-{{ $subStoreScope ? 'sub' : 'base' }}" class="{{ $i % 2 ? 'bg-gray-50/50 dark:bg-gray-800/40' : 'bg-white dark:bg-gray-800' }}">
                         <td class="px-5 py-3 align-middle text-sm text-gray-700 dark:text-gray-200">
                             {!! $config->detail ? gp247_language_render($config->detail) : e($config->key) !!}
@@ -110,7 +127,23 @@
                                     @endif
                                 </div>
                             @else
-                                @include('gp247-admin::partials.config-field', ['key' => $config->key, 'type' => $type, 'options' => $options[$config->key] ?? []])
+                                @php $secretState = $this->secretStateOf($config->key); @endphp
+                                @include('gp247-admin::partials.config-field', [
+                                    'key' => $config->key,
+                                    'type' => $type,
+                                    'options' => $options[$config->key] ?? [],
+                                    'placeholder' => $secretState ? gp247_language_quickly('admin.config.secret_keep_placeholder', 'Leave blank to keep the saved value') : '',
+                                ])
+                                {{-- Secrets are write-only: the stored value is never sent to the browser,
+                                     only whether one exists (US-AUI-config-form-secret-write-only). --}}
+                                @if ($secretState !== null && !($subStoreScope && $this->isInherited($config->key)))
+                                    <div class="mt-1 flex items-center gap-2">
+                                        <span data-testid="config-form-secret-state-{{ $config->key }}" class="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                                            <i class="fas fa-lock"></i>
+                                            {{ $secretState ? gp247_language_quickly('admin.config.secret_saved', 'Saved — hidden, leave blank to keep') : gp247_language_quickly('admin.config.secret_not_set', 'Not set') }}
+                                        </span>
+                                    </div>
+                                @endif
                             @endif
                             @if ($subStoreScope)
                                 <div class="mt-1 flex items-center gap-2">
@@ -128,6 +161,7 @@
                             @endif
                         </td>
                     </tr>
+                    @endif
                 @empty
                     <tr><td colspan="2" class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.no_settings') }}</td></tr>
                 @endforelse

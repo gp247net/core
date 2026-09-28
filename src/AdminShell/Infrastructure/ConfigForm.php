@@ -70,6 +70,17 @@ abstract class ConfigForm extends GP247AdminComponent
     public bool $storeEnabled = true;
 
     /**
+     * Secret key => whether a value is stored for it at the current scope (own row, or the
+     * inherited base row). The value itself is never loaded into this public, browser-
+     * serialized component: secrets are write-only on this screen
+     * (NFR-SEC-config-secret-write-only-ui).
+     *
+     * @var array<string, bool>
+     * @aidlc-story US-AUI-config-form-secret-write-only
+     */
+    public array $secretSet = [];
+
+    /**
      * The admin_config group this screen edits (e.g. "global"; "" for store group).
      *
      * @return string
@@ -244,6 +255,79 @@ abstract class ConfigForm extends GP247AdminComponent
     }
 
     /**
+     * Optional grouping of the keys into titled blocks, in display order.
+     *
+     * Each entry: `id` (slug, used in data-testid), `title`, optional `hint` (one line
+     * under the title — the place for instructions that apply to the whole block instead of
+     * repeating them on every field) and optional `badge` (short label such as "In use"),
+     * plus the `keys` it holds in the order to show them. The block order wins over the
+     * rows' `sort`. Keys no block claims are listed after the blocks; a block whose keys
+     * are all absent is skipped. Empty (default) = one flat table, exactly as before.
+     *
+     * WHY a seam here: a plugin with two parallel key sets (sandbox / live credentials) must
+     * not leave the admin guessing which field belongs to which environment, and every
+     * payment plugin has the same need (ui-tailadmin.md P3).
+     *
+     * @return array<int, array{id: string, title: string, hint?: string, badge?: string, keys: array<int, string>}>
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-AUI-config-form-sections
+     */
+    protected function sections(): array
+    {
+        return [];
+    }
+
+    /**
+     * Flatten the rows to render: section headings interleaved with config rows.
+     *
+     * @param Collection<int, AdminConfig> $configs Base rows, sorted.
+     * @return array<int, array<string, mixed>> Items of either
+     *         ['section' => true, 'id', 'title', 'hint', 'badge'] or ['config' => AdminConfig].
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-AUI-config-form-sections
+     */
+    private function layoutRows(Collection $configs): array
+    {
+        $sections = $this->sections();
+        if ($sections === []) {
+            return $configs->map(fn (AdminConfig $c) => ['config' => $c])->values()->all();
+        }
+
+        $byKey = $configs->keyBy('key');
+        $rows = [];
+        $claimed = [];
+        foreach ($sections as $section) {
+            $present = array_values(array_filter(
+                (array) ($section['keys'] ?? []),
+                fn ($key) => $byKey->has($key) && !isset($claimed[$key])
+            ));
+            if ($present === []) {
+                continue;
+            }
+            $rows[] = [
+                'section' => true,
+                'id' => (string) preg_replace('/[^a-z0-9-]+/', '-', strtolower((string) ($section['id'] ?? ''))),
+                'title' => (string) ($section['title'] ?? ''),
+                'hint' => (string) ($section['hint'] ?? ''),
+                'badge' => (string) ($section['badge'] ?? ''),
+            ];
+            foreach ($present as $key) {
+                $claimed[$key] = true;
+                $rows[] = ['config' => $byKey->get($key)];
+            }
+        }
+        foreach ($configs as $c) {
+            if (!isset($claimed[$c->key])) {
+                $rows[] = ['config' => $c];
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * Keys that are shown but cannot be edited on this screen, with the reason.
      *
      * A locked key still renders — so the admin learns the setting exists — but
@@ -328,6 +412,11 @@ abstract class ConfigForm extends GP247AdminComponent
             ->where('store_id', (string) $this->storeId())
             ->when($this->keys() !== [], fn ($q) => $q->whereIn('key', $this->keys()))
             ->orderBy('sort')
+            // WHY the tie-break: plugins often seed every row at sort 0, and without it
+            // MySQL/MariaDB return them in whatever order the chosen index yields — the same
+            // screen showed different field orders on two sites. id is auto-increment, so
+            // ties keep the order the rows were seeded in.
+            ->orderBy('id')
             ->get();
     }
 
@@ -381,12 +470,24 @@ abstract class ConfigForm extends GP247AdminComponent
 
         $this->values = [];
         $this->inherited = [];
+        $this->secretSet = [];
 
         foreach ($frame as $c) {
             $key = $c->key;
             $override = $sub ? $overrides->get($key) : null;
             $inherited = $sub && $override === null;
             $this->inherited[$key] = $inherited;
+
+            if ($this->isSecretKey($key, $frame) && !$this->isBooleanType($key)) {
+                // WHY: public properties are serialized into wire:snapshot, so a decrypted
+                // secret loaded here would reach the browser at ANY scope — not only when
+                // inherited. Load it blank and expose only whether one is stored; reading
+                // the raw column avoids decrypting at all (NFR-SEC-config-secret-write-only-ui).
+                $source = $override ?? $c;
+                $this->secretSet[$key] = (string) $source->getRawOriginal('value') !== '';
+                $this->values[$key] = '';
+                continue;
+            }
 
             if ($inherited && $this->isSecretKey($key, $frame)) {
                 // WHY: never surface the shared secret at a sub-store scope
@@ -548,7 +649,47 @@ abstract class ConfigForm extends GP247AdminComponent
             $this->persistValue($key, $this->values[$key] ?? null);
         }
 
+        $this->clearSecretBuffer();
+
         $this->notify('success', gp247_language_render('admin.setting_saved'));
+    }
+
+    /**
+     * After a save, forget every secret the admin typed so the Livewire response does not
+     * carry it back to the browser; a non-blank entry means one is now stored.
+     *
+     * @return void
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-AUI-config-form-secret-write-only
+     */
+    private function clearSecretBuffer(): void
+    {
+        $frame = $this->configs();
+        // Walk the loaded values, not keys(): an empty keys() means "the whole group".
+        foreach (array_keys($this->values) as $key) {
+            if (!$this->isSecretKey($key, $frame) || $this->isBooleanType($key)) {
+                continue;
+            }
+            if ($this->lockOf($key) === null && (string) ($this->values[$key] ?? '') !== '') {
+                $this->secretSet[$key] = true;
+            }
+            $this->values[$key] = '';
+        }
+    }
+
+    /**
+     * Whether a secret key currently has a stored value (for the "saved / not set" label).
+     *
+     * @param string $key Config key.
+     * @return bool|null Null when the key is not a secret on this screen.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-AUI-config-form-secret-write-only
+     */
+    public function secretStateOf(string $key): ?bool
+    {
+        return array_key_exists($key, $this->secretSet) ? (bool) $this->secretSet[$key] : null;
     }
 
     /**
@@ -684,13 +825,18 @@ abstract class ConfigForm extends GP247AdminComponent
         return view('gp247-admin::livewire.config-form', [
             'configs' => $configs,
             'heading' => $this->heading(),
-            'types' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->typeOf($c->key)])->all(),
+            // A row flagged security = 1 is drawn as a password input even when the screen
+            // declared it as text, so a newly typed secret is not shown while typing.
+            'types' => $configs->mapWithKeys(fn (AdminConfig $c) => [
+                $c->key => ($this->isSecretKey($c->key, $configs) && !$this->isBooleanType($c->key)) ? 'password' : $this->typeOf($c->key),
+            ])->all(),
             'options' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->optionsOf($c->key)])->all(),
             'hints' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->hintOf($c->key)])->all(),
             'locked' => $configs->mapWithKeys(fn (AdminConfig $c) => [$c->key => $this->lockOf($c->key)])->all(),
             // Chrome (picker + per-key badges) shows only for the ROOT admin; a bound
             // store-admin edits their store's config with no store-scope chrome
             // (US-admin-shell-store-scope-ui-root-only). Data scope is unchanged.
+            'rows' => $this->layoutRows($configs),
             'storeScope' => $this->storeScopeUiVisible(),
             'subStoreScope' => $this->isSubStoreScope() && $this->isRootScope(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->heading()]);
