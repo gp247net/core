@@ -161,6 +161,21 @@ class UpdateAll extends GP247Command
             $done[] = 'gp247:language-update';
         }
 
+        // WHY here: extensions updated by the same git pull / composer run need their
+        // data hook (US-PLG-local-update-data-converge). Runs after core/front/shop so a
+        // hook can rely on the new core schema; a failing hook is reported but must not
+        // block the cache rebuild below (the site would otherwise serve stale caches).
+        $extensionStep = [];
+        foreach (['plugin', 'template'] as $extType) {
+            $this->info('==> gp247:ext-update --local --all --type='.$extType);
+            $code = $this->runArtisan('gp247:ext-update', ['--local' => true, '--all' => true, '--type' => $extType]);
+            $extensionStep[$extType] = $code === Command::SUCCESS ? 'ok' : 'failed';
+            if ($code !== Command::SUCCESS) {
+                $this->addWarning('gp247:ext-update --local --type='.$extType.' reported failures; run it again after fixing the extension.');
+            }
+        }
+        $done[] = 'gp247:ext-update --local';
+
         // WHY: publish before the cache rebuild so the following gp247:cache-rebuild
         // clears the compiled Blade of the freshly published views (they recompile
         // lazily on the next request). Opt-in only — empty when no --publish.
@@ -172,7 +187,7 @@ class UpdateAll extends GP247Command
 
         $this->hintTemplatePrune();
 
-        return $this->respondSuccess(['completed' => $done, 'published' => $published]);
+        return $this->respondSuccess(['completed' => $done, 'published' => $published, 'extension_data' => $extensionStep]);
     }
 
     /**

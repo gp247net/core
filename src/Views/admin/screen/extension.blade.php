@@ -199,6 +199,16 @@
                             {{-- Version --}}
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
                                 {{ $pluginClass->version ?? '' }}
+                                @if (!empty($arrDataPending[$groupType.'|'.$keyExtension]))
+                                    {{-- Files newer than the recorded version: the data hook has not run yet
+                                         (updated by git pull / composer / FTP) — US-PLG-local-update-data-converge --}}
+                                    <span data-testid="plugin-manager-extension-data-pending-{{ $keyExtension }}"
+                                        title="{{ gp247_language_render('admin.extension.data_pending_hint') }}"
+                                        class="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                        <i class="fas fa-database"></i>
+                                        {{ gp247_language_render('admin.extension.data_pending', ['from' => $arrDataPending[$groupType.'|'.$keyExtension]['from'] ?? '?', 'to' => $arrDataPending[$groupType.'|'.$keyExtension]['to']]) }}
+                                    </span>
+                                @endif
                                 @if (!empty($arrUpdates[$groupType.'|'.$keyExtension]))
                                     @if ($configExtension)
                                         <a href="{{ $listUrlAction['urlOnline'] }}"
@@ -236,6 +246,16 @@
                             {{-- Actions --}}
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-end gap-1.5">
+                                    @if (!empty($arrDataPending[$groupType.'|'.$keyExtension]) && !empty($listUrlAction['applyData']))
+                                        {{-- Apply the pending data update (same RBAC as the lifecycle buttons) --}}
+                                        <button type="button"
+                                            data-testid="plugin-manager-extension-apply-data-{{ $keyExtension }}"
+                                            title="{{ gp247_language_render('admin.extension.apply_data') }}"
+                                            onclick="extensionAction('applyData', '{{ $keyExtension }}')"
+                                            class="action-btn bg-amber-500 hover:bg-amber-600 focus:ring-amber-400">
+                                            <i class="fas fa-database text-xs"></i>
+                                        </button>
+                                    @endif
                                     @if (!empty($perStoreEnable) && $selectedStoreId !== '' && $groupType === 'Plugins')
                                         {{-- Per-store mode: a single on/off switch writes only this store's
                                              override row (US-PLG-per-store-plugin-enable-list). Install/config/
@@ -523,6 +543,7 @@
         disable:   @js($listUrlAction['disable']),
         install:   @js($listUrlAction['install']),
         uninstall: @js($listUrlAction['uninstall']),
+        applyData: @js($listUrlAction['applyData'] ?? ''),
     };
     const _csrf  = @js(csrf_token());
     const _msgOk = @js(gp247_language_render('admin.msg_change_success'));
@@ -548,6 +569,7 @@
             disable: _urls.disable,
             delete:  _urls.uninstall,
             remove:  _urls.uninstall,
+            applyData: _urls.applyData,
         };
 
         loading(true);

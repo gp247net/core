@@ -48,6 +48,9 @@ File khai báo thông tin cơ bản của plugin:
 - version: Phiên bản
 - requireCore: Là phiên bản Gp247/Core phù hợp với extension (chuẩn hiện tại để ["2.1"]).
 - requireUpdateFrom: Phiên bản đang cài tối thiểu được phép cập nhật 1-click lên bản này. Mặc định bằng version của scaffold (thực tế không giới hạn gì); hãy nâng lên khi phát hành bản major mà hook update() không migrate được từ dòng cũ — ví dụ đặt "2.0" cho bản 2.9 để chặn cập nhật từ bản 1.x. Bỏ trống nếu không giới hạn.
+
+> **Giữ `update()` idempotent.** Core gọi nó từ cập nhật 1-click trên marketplace *và* từ `php artisan gp247:ext-update --local` / `gp247:update` / nút **Áp dụng cập nhật dữ liệu** sau khi file plugin được thay bằng cách khác (git pull, composer, FTP). Site cài trước khi core ghi nhớ phiên bản sẽ nhận thêm một lần gọi với `$fromVersion = null`. Chỉ seed phần còn thiếu; không chèn lại hay reset thứ chủ site đã lưu.
+
 - requireComposerPackages: Các gói Composer (từ packagist.org) được yêu cầu cài đặt (vd gp247/front). Đổi tên từ `requirePackages` ở gp247/core 2.1 (khóa cũ core vẫn đọc nhưng đã deprecated).
 - requireGp247Extensions: Tên các extension của GP247 (plugin, template) được yêu cầu đã cài. Ví dụ: Shop, Front, News,... Đổi tên từ `requireExtensions` ở gp247/core 2.1 (khóa cũ core vẫn đọc nhưng đã deprecated).
 

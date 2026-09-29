@@ -22,6 +22,9 @@ Route::group(['prefix' => 'plugin'], function () use ($pluginController) {
         ->name('admin_plugin.enable');
     Route::post('/disable', $pluginController.'@disable')
         ->name('admin_plugin.disable');
+    // Run the data hook of a plugin whose files were updated outside the marketplace.
+    Route::post('/apply-data', $pluginController.'@applyData')
+        ->name('admin_plugin.apply_data');
 
     if (config('gp247-config.admin.api_plugins')) {
         $pluginOnlineController = gp247_namespace(AdminPluginsOnlineController::class);

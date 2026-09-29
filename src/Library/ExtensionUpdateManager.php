@@ -238,6 +238,7 @@ class ExtensionUpdateManager
             if (!is_array($response) || ($response['error'] ?? 1) != 0) {
                 throw new \Exception($response['msg'] ?? 'Update hook failed');
             }
+            gp247_extension_set_installed_version($type, $key, (string) $newVersion);
         } catch (\Throwable $e) {
             $this->restore($backupPath, $type, $key);
             File::deleteDirectory($pathTmp);

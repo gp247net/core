@@ -723,3 +723,74 @@ if (!function_exists('gp247_plugin_config_group') && !in_array('gp247_plugin_con
         return ($code !== null && $code !== '' && array_key_exists($code, $known)) ? $code : 'Other';
     }
 }
+
+if (!function_exists('gp247_extension_installed_version') && !in_array('gp247_extension_installed_version', config('gp247_functions_except', []))) {
+    /**
+     * The version core recorded when the extension was installed or last updated.
+     *
+     * Stored in admin_config (group = type, key = <Key>_installed_version, code =
+     * "extension_version", store GLOBAL) so no schema change is needed and the row never
+     * lands in the plugin's own config slot (<Key>_config) rendered by ConfigForm.
+     *
+     * @param string $type Plugins|Templates.
+     * @param string $key  Extension key.
+     * @return string|null Null when never recorded (site installed before this record existed).
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-local-update-data-converge
+     * @aidlc-adr plugin-manager_local-update-data-converge
+     */
+    function gp247_extension_installed_version(string $type, string $key): ?string
+    {
+        $type = $type === 'Templates' ? 'Templates' : 'Plugins';
+        $row = \GP247\Core\Models\AdminConfig::where('group', $type)
+            ->where('key', $key.'_installed_version')
+            ->where('store_id', (string) GP247_STORE_ID_GLOBAL)
+            ->first();
+        $value = $row === null ? '' : trim((string) $row->getRawOriginal('value'));
+
+        return $value === '' ? null : $value;
+    }
+}
+
+if (!function_exists('gp247_extension_set_installed_version') && !in_array('gp247_extension_set_installed_version', config('gp247_functions_except', []))) {
+    /**
+     * Record the installed version of an extension (upsert, GLOBAL store).
+     *
+     * @param string $type    Plugins|Templates.
+     * @param string $key     Extension key.
+     * @param string $version Version from the extension's gp247.json.
+     * @return void
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-local-update-data-converge
+     */
+    function gp247_extension_set_installed_version(string $type, string $key, string $version): void
+    {
+        $type = $type === 'Templates' ? 'Templates' : 'Plugins';
+        \GP247\Core\Models\AdminConfig::updateOrCreate(
+            ['group' => $type, 'key' => $key.'_installed_version', 'store_id' => (string) GP247_STORE_ID_GLOBAL],
+            ['code' => 'extension_version', 'sort' => 0, 'value' => $version, 'security' => 0, 'detail' => 'Installed version (managed by core)']
+        );
+    }
+}
+
+if (!function_exists('gp247_extension_forget_installed_version') && !in_array('gp247_extension_forget_installed_version', config('gp247_functions_except', []))) {
+    /**
+     * Drop the installed-version record of an extension (on uninstall).
+     *
+     * @param string $type Plugins|Templates.
+     * @param string $key  Extension key.
+     * @return void
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-local-update-data-converge
+     */
+    function gp247_extension_forget_installed_version(string $type, string $key): void
+    {
+        $type = $type === 'Templates' ? 'Templates' : 'Plugins';
+        \GP247\Core\Models\AdminConfig::where('group', $type)
+            ->where('key', $key.'_installed_version')
+            ->delete();
+    }
+}

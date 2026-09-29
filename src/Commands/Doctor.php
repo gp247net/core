@@ -100,6 +100,10 @@ class Doctor extends GP247Command
         // a folder before ExtensionInstaller::activate() published them). Read-only.
         $checks[] = $this->extensionAssetsCheck($installed);
 
+        // Installed extensions whose files are newer than the version core recorded —
+        // their data hook has not run yet (updated by git pull / composer / FTP). Read-only.
+        $checks[] = $this->extensionDataPendingCheck($installed);
+
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
         if (!$this->isJson()) {
@@ -282,6 +286,35 @@ class Doctor extends GP247Command
      * @aidlc-story US-CLI-extension-asset-repair
      * @aidlc-adr system-cli_service-extraction
      */
+    /**
+     * Extensions waiting for their data hook (US-PLG-local-update-data-converge).
+     *
+     * @param bool $installed Whether the site is installed.
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
+     */
+    protected function extensionDataPendingCheck(bool $installed): array
+    {
+        if (!$installed) {
+            return $this->check('extension_data_pending', 'pass', 'skipped (not installed)');
+        }
+        try {
+            $pending = (new \GP247\Core\Library\ExtensionDataUpdater)->pending();
+        } catch (\Throwable $e) {
+            return $this->check('extension_data_pending', 'pass', 'skipped (database unavailable)');
+        }
+        if ($pending === []) {
+            return $this->check('extension_data_pending', 'pass', 'every installed extension is up to date');
+        }
+        $items = array_map(fn ($p) => $p['type'].'/'.$p['key'].' '.($p['from'] ?? 'unknown').' -> '.$p['to'], array_values($pending));
+
+        return $this->check(
+            'extension_data_pending',
+            'warn',
+            count($items).' extension(s) updated on disk but not in the database - run: php artisan gp247:ext-update --local --all (or gp247:update)',
+            $items
+        );
+    }
+
     protected function extensionAssetsCheck(bool $installed): array
     {
         if (!$installed) {

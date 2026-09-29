@@ -219,6 +219,13 @@ class ExtensionInstaller
 
         $response = (new $class)->install();
         if (is_array($response) && ($response['error'] ?? 1) == 0) {
+            // Remember which version was installed, so a later file replacement made
+            // outside the marketplace (git pull, composer) can still get its data hook
+            // (ExtensionDataUpdater, US-PLG-local-update-data-converge).
+            $version = trim((string) ($config['version'] ?? ''));
+            if ($version !== '') {
+                gp247_extension_set_installed_version($groupType, $key, $version);
+            }
             $this->afterUpdate();
         }
         return is_array($response) ? $response : ['error' => 1, 'msg' => 'Unexpected install response'];
@@ -337,6 +344,7 @@ class ExtensionInstaller
         $response = (new $class)->uninstall();
         $ok = is_array($response) && ($response['error'] ?? 1) == 0;
         if ($ok) {
+            gp247_extension_forget_installed_version($groupType, $key);
             $this->afterUpdate();
             // Delete source files only after a successful DB uninstall, unless the
             // caller asked to keep them (onlyRemoveData). A failed hook keeps files

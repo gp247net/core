@@ -37,6 +37,11 @@ trait  ExtensionController
         // WHY: cache only — the local screen must never block on the marketplace API
         $arrUpdates = (new \GP247\Core\Library\ExtensionUpdateManager)->getAvailableUpdates();
 
+        // Extensions whose files are newer than the version core recorded (updated by
+        // git pull / composer / FTP): read-only here, the hook runs only from the button
+        // (US-PLG-local-update-data-converge).
+        $arrDataPending = (new \GP247\Core\Library\ExtensionDataUpdater)->pending($this->groupType);
+
         // Per-store enable context (Plugins only). On a multi-store/marketplace site the
         // root admin can pick a store and toggle each storeScope=store plugin on/off for
         // just that store; single-store sites see no selector and behave exactly as before
@@ -70,6 +75,7 @@ trait  ExtensionController
                 "extensionProtected"  => $extensionProtected,
                 "listUrlAction"       => $listUrlAction,
                 "arrUpdates"          => $arrUpdates,
+                "arrDataPending"      => $arrDataPending,
                 "perStoreEnable"      => $perStoreEnable,
                 "storeList"           => $storeList,
                 "selectedStoreId"     => $selectedStoreId,
@@ -165,6 +171,39 @@ trait  ExtensionController
             gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_enable::name__'.$key);
         }
         return response()->json($response);
+    }
+
+    /**
+     * Run the data hook of one extension whose files were updated outside the marketplace
+     * (git pull, composer, FTP) - the admin counterpart of `gp247:ext-update --local`.
+     *
+     * @return \Illuminate\Http\JsonResponse ['error' => 0|1, 'msg' => string]
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-local-update-data-converge
+     * @aidlc-adr plugin-manager_local-update-data-converge
+     */
+    public function applyData()
+    {
+        $key = (string) request('key');
+        if ($key === '' || !array_key_exists($key, gp247_extension_get_all_local(type: $this->groupType))) {
+            return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.update_not_found', ['key' => $key])]);
+        }
+
+        $results = (new \GP247\Core\Library\ExtensionDataUpdater)->applyPending($this->groupType, $key);
+        $row = $results[0] ?? null;
+        if ($row === null) {
+            return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.update_not_found', ['key' => $key])]);
+        }
+        if ($row['status'] === 'failed') {
+            return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.apply_data_failed', ['key' => $key, 'msg' => $row['msg']])]);
+        }
+        if ($row['status'] === 'applied') {
+            gp247_notice_add(type: $this->groupType, typeId: $key, content: 'admin.notice.gp247_'.strtolower($this->groupType).'_update::name__'.$key);
+            return response()->json(['error' => 0, 'msg' => gp247_language_render('admin.extension.apply_data_success', ['key' => $key, 'version' => $row['to']])]);
+        }
+
+        return response()->json(['error' => 0, 'msg' => gp247_language_render('admin.extension.apply_data_nothing', ['key' => $key])]);
     }
 
     /**

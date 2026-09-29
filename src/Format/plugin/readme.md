@@ -48,6 +48,9 @@ File declaring basic plugin information:
 - version: Version
 - requireCore: Compatible Gp247/Core version (use ["2.1"] for the current standard)
 - requireUpdateFrom: Minimum currently-installed version allowed to 1-click update to this release. Defaults to the scaffold version (no restriction in practice); raise it when shipping a major release whose update() hook cannot migrate from older lines — e.g. set "2.0" on a 2.9 release to block updating from a 1.x install. Omit for no floor.
+
+> **Keep `update()` idempotent.** Core calls it from the marketplace 1-click update *and* from `php artisan gp247:ext-update --local` / `gp247:update` / the **Apply data update** button after the plugin files were replaced by other means (git pull, composer, FTP). A site installed before core recorded versions gets one extra call with `$fromVersion = null`. Only seed what is missing; never re-insert or reset what the site owner already saved.
+
 - requireComposerPackages: Required Composer packages from packagist.org (e.g. gp247/front). Renamed from `requirePackages` in gp247/core 2.1 (old key still read by core but deprecated).
 - requireGp247Extensions: Required GP247 extensions (installed plugins, templates). Example: Shop, Front, News,... Renamed from `requireExtensions` in gp247/core 2.1 (old key still read by core but deprecated).
 
