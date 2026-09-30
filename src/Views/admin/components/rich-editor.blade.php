@@ -11,10 +11,19 @@
     to v6 (self-hosted asset) because v7+ moved to GPL/commercial.
 
     Livewire sync: the editor DOM is wrapped in wire:ignore (so re-renders never
-    destroy TinyMCE); the value is seeded from the bound property on init and written
-    back on blur (mirroring the screens' wire:model.live.blur). TinyMCE is not a
-    native input, so the bound property is passed explicitly via the `model` prop
-    instead of wire:model.
+    destroy TinyMCE), which also means Livewire never updates it — so, like every
+    wire:ignore control in core (datepicker, searchable-select), it syncs both ways
+    itself:
+      - server → editor: seeded from the bound property on init, then $wire.$watch
+        reloads it whenever the property changes server-side (two-panel screens edit
+        records in place: editRow / cancel / save-and-reset change the form without
+        remounting this component);
+      - editor → server: written back on blur and on submit, but ONLY when the author
+        changed the content (isDirty). A value loaded from the server is clean, so an
+        editor that is somehow showing stale content can never save it over the
+        record (RISK-TECH-rich-editor-stale-seed).
+    TinyMCE is not a native input, so the bound property is passed explicitly via the
+    `model` prop instead of wire:model.
 
     The TinyMCE build is self-hosted (published from the package to public/, no CDN)
     per ADR-004 / shared-host constraint.
@@ -77,10 +86,14 @@
             // during the submit event's CAPTURE phase — before Livewire's own
             // wire:submit (bubble-phase) listener runs — so the fresh content
             // is always part of the save() request, first click, every time.
+            //
+            // Only editors the author actually changed are flushed: an untouched
+            // editor has nothing to add, and writing it back is how a stale editor
+            // used to wipe or swap a record's content on Save.
             const liveEditors = new Set();
             document.addEventListener('submit', () => {
                 liveEditors.forEach((entry) => {
-                    if (entry.editor && !entry.editor.removed) {
+                    if (entry.editor && !entry.editor.removed && entry.editor.isDirty()) {
                         entry.wire.set(entry.model, entry.editor.getContent());
                     }
                 });
@@ -150,14 +163,49 @@
                             self.editor = editor;
                             self._entry = { editor, wire: self.$wire, model };
                             liveEditors.add(self._entry);
-                            editor.on('init', () => editor.setContent(self.$wire.get(model) || ''));
+                            editor.on('init', () => self.load(self.$wire.get(model)));
                             // WHY: persist on blur to match the screens' wire:model.live.blur
                             // (covers non-submit flows, e.g. WebsiteInfo's live inline save).
                             // The submit-capture flush above is the authoritative sync for
                             // form submission — this is a secondary/best-effort path.
-                            editor.on('blur', () => self.$wire.set(model, editor.getContent()));
+                            // The dirty flag is NOT cleared here, so the submit flush still
+                            // sends the edit if this blur request is still in flight.
+                            editor.on('blur', () => {
+                                if (editor.isDirty()) {
+                                    self.$wire.set(model, editor.getContent());
+                                }
+                            });
                         },
                     });
+
+                    // WHY: wire:ignore keeps Livewire from ever touching the editor, so
+                    // follow server-side changes of the bound value ourselves (same
+                    // contract as the datepicker and searchable-select). Skipped while
+                    // the author is typing, and when the value is what the editor
+                    // already holds (e.g. the echo of our own blur write-back).
+                    self.$wire.$watch(model, (value) => {
+                        const editor = self.editor;
+                        if (!editor || editor.removed || !editor.initialized || editor.hasFocus()) {
+                            return;
+                        }
+                        if ((value || '') === editor.getContent()) {
+                            return;
+                        }
+                        self.load(value);
+                    });
+                },
+
+                // Show a server value as the editor's clean starting point: undo must
+                // not step back into the previous record, and the value only goes
+                // back to the server once the author changes it.
+                load(value) {
+                    const editor = this.editor;
+                    if (!editor || editor.removed) {
+                        return;
+                    }
+                    editor.setContent(value || '');
+                    editor.undoManager.clear();
+                    editor.setDirty(false);
                 },
 
                 destroy() {
@@ -182,7 +230,9 @@
     </script>
 @endassets
 
-<div class="space-y-1">
+{{-- WHY: pass caller attributes (e.g. data-testid) through to the wrapper, the same
+     way searchable-select does, so E2E can target one editor among several. --}}
+<div {{ $attributes->merge(['class' => 'space-y-1']) }}>
     @if ($label)
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
             {{ $label }}
