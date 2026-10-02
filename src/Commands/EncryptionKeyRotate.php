@@ -92,6 +92,13 @@ class EncryptionKeyRotate extends GP247Command
         $current = 0;
         $failed = 0;
 
+        // A registered column whose table/column does not exist yet (feature not
+        // upgraded on this site) holds nothing to rotate.
+        $schema = $connection->getSchemaBuilder();
+        if (!$schema->hasTable($fullTable) || !$schema->hasColumn($fullTable, $column)) {
+            return ['table' => $table, 'column' => $column, 'converted' => 0, 'current' => 0, 'failed' => 0];
+        }
+
         // Only enveloped rows; a table may legitimately mix plaintext + secret (admin_config).
         $rows = $connection->table($fullTable)
             ->where($column, 'like', 'enc:%')

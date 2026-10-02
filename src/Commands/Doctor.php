@@ -390,12 +390,20 @@ class Doctor extends GP247Command
             $schema = $connection->getSchemaBuilder();
             foreach ($columns as $table => $cols) {
                 $fullTable = GP247_DB_PREFIX . $table;
+                // A registered table that does not exist yet (feature not upgraded on this
+                // site) holds no secret — skip it instead of failing the whole check.
+                if (!$schema->hasTable($fullTable)) {
+                    continue;
+                }
                 // Row identity for the report: config rows by group/key/store, any other
                 // registered table by its id (never the value).
                 $identity = $schema->hasColumns($fullTable, ['group', 'key', 'store_id'])
                     ? ['group', 'key', 'store_id']
                     : ($schema->hasColumn($fullTable, 'id') ? ['id'] : []);
                 foreach ((array) $cols as $column) {
+                    if (!$schema->hasColumn($fullTable, (string) $column)) {
+                        continue;
+                    }
                     $rows = $connection->table($fullTable)
                         ->where($column, 'like', 'enc:%')
                         ->get(array_merge($identity, [$column]));
