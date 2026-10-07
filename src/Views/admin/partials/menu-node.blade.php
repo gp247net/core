@@ -5,10 +5,16 @@
     @aidlc-story US-RBAC-003
     @aidlc-adr ADR-005
 
-    Variables: $node (AdminMenu), $grouped (by parent_id), $depth (int).
+    Variables: $node (AdminMenu), $grouped (by parent_id), $depth (int), $editingId
+    (the node open in the form — highlighted, US-AUI-two-panel-state-preservation).
 --}}
+@php
+    $isEditing = (string) $node->id === (string) ($editingId ?? '');
+@endphp
 <li wire:key="menu-{{ $node->id }}" class="py-2" data-gp247-item data-id="{{ $node->id }}" draggable="true">
-    <div class="flex items-center justify-between" style="padding-left: {{ $depth * 1.5 }}rem">
+    <div data-testid="admin-menu-row" @if ($isEditing) aria-current="true" @endif
+        class="flex items-center justify-between rounded {{ $isEditing ? 'bg-blue-100 border-l-4 border-blue-500 dark:bg-blue-900 dark:border-blue-500' : '' }}"
+        style="padding-left: {{ $depth * 1.5 }}rem">
         <span class="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-100">
             <i class="fas fa-grip-vertical cursor-move text-gray-300 dark:text-gray-600" title="{{ gp247_language_render('admin.drag_to_reorder') }}"></i>
             @if ($node->icon)<i class="{{ $node->icon }} w-4 text-center text-gray-400"></i>@endif
@@ -16,7 +22,7 @@
             @if ($node->uri)<code class="text-xs text-gray-400">{{ $node->uri }}</code>@endif
         </span>
         <span class="flex items-center gap-1">
-            <x-gp247::button size="sm" variant="ghost" href="{{ gp247_route_admin('admin_menu.edit', ['id' => $node->id]) }}" wire:navigate>
+            <x-gp247::button size="sm" variant="ghost" wire:click="editRow('{{ $node->id }}')" data-testid="admin-menu-edit">
                 <i class="fas fa-edit"></i>
             </x-gp247::button>
             <x-gp247::button size="sm" variant="ghost" wire:click="delete('{{ $node->id }}')" wire:confirm="{{ gp247_language_render('admin.menu.confirm_delete') }}">
@@ -28,7 +34,7 @@
     @if (! empty($grouped[$node->id]))
         <ul class="mt-2 divide-y divide-gray-100 dark:divide-gray-700" data-gp247-sortable data-parent="{{ $node->id }}">
             @foreach ($grouped[$node->id] as $child)
-                @include('gp247-admin::partials.menu-node', ['node' => $child, 'grouped' => $grouped, 'depth' => $depth + 1])
+                @include('gp247-admin::partials.menu-node', ['node' => $child, 'grouped' => $grouped, 'depth' => $depth + 1, 'editingId' => $editingId ?? null])
             @endforeach
         </ul>
     @endif

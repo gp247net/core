@@ -157,7 +157,9 @@ class PermissionManager extends ResourcePanel
             return;
         }
 
-        AdminPermission::create($data);
+        $created = AdminPermission::create($data);
+        // ResourcePanel create contract: expose the new id so save() edits it in place.
+        $this->editingId = (string) $created->id;
     }
 
     /**

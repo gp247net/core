@@ -4,6 +4,7 @@ namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\FormComponent;
 use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
+use GP247\Core\AdminShell\Infrastructure\SyncsEditQuery;
 use GP247\Core\Models\AdminMenu;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -12,27 +13,33 @@ use Illuminate\Support\Collection;
  * Two-panel admin menu manager (ADR-001/002/005): the create/edit form on the
  * left and the hierarchical menu tree on the right, on a single page — matching
  * the legacy layout (e.g. Language). One Livewire component drives both: editing
- * a node is reached via the edit/{id} route (the form loads on mount, so the URL
- * reflects the node and survives a refresh), and save/cancel navigate back to the
- * base route. The tree supports drag-and-drop reordering and per-node delete.
+ * a node loads it in place (editRow, no navigation) and highlights it in the
+ * tree; save/cancel/delete stay on the screen. The open node is mirrored to
+ * ?edit=<id> so a refresh restores it; the edit/{id} route still deep-links.
+ * The tree supports drag-and-drop reordering and per-node delete.
  * Gated by `admin_menu`.
  *
  * @aidlc-unit admin-shell-rbac
- * @aidlc-story US-RBAC-003, US-UI-007
- * @aidlc-adr ADR-001, ADR-002, ADR-005
+ * @aidlc-story US-RBAC-003, US-UI-007, US-AUI-two-panel-state-preservation
+ * @aidlc-adr ADR-001, ADR-002, ADR-005, ADR-admin-shell-rbac-two-panel-state-preservation
  */
 class MenuManager extends FormComponent
 {
     use HasValidationLabels;
+    use SyncsEditQuery;
 
     protected ?string $permission = 'admin_menu';
 
     /** @var array<string, mixed> Editable form payload (bound via wire:model). */
-    public array $form = ['title' => '', 'parent_id' => 0, 'uri' => '', 'icon' => '', 'sort' => 0];
+    public array $form = self::EMPTY_FORM;
+
+    /** Empty create-mode form. */
+    private const EMPTY_FORM = ['title' => '', 'parent_id' => 0, 'uri' => '', 'icon' => '', 'sort' => 0];
 
     /**
      * Livewire full-page hook: authorize the view, then load the edit form from
-     * the edit/{id} route segment (deep link / refresh) or start empty.
+     * the edit/{id} route segment or the ?edit= query (deep link / refresh), or
+     * start empty.
      *
      * @param string|null $id Menu id from the edit route (edit/{id}); null to create.
      * @return void
@@ -41,20 +48,76 @@ class MenuManager extends FormComponent
     {
         parent::mount();
 
-        if ($id !== null && $id !== '') {
-            $menu = AdminMenu::find($id);
-            if ($menu !== null) {
-                $this->editingId = (string) $menu->id;
-                $this->form = [
-                    'title' => $menu->title,
-                    'parent_id' => (int) $menu->parent_id,
-                    'uri' => (string) $menu->uri,
-                    'icon' => (string) $menu->icon,
-                    'sort' => (int) $menu->sort,
-                ];
-            }
-            // Stale/invalid id in the path → fall back to create mode.
+        if ($id === null || $id === '') {
+            $queryEdit = request()->query('edit');
+            $id = is_string($queryEdit) && $queryEdit !== '' ? $queryEdit : null;
         }
+
+        if ($id !== null) {
+            // Stale/invalid id → stays in create mode.
+            $this->loadNode($id);
+        }
+    }
+
+    /**
+     * Load a node into the form for editing, in place (no navigation), and
+     * mirror it to ?edit=<id>.
+     *
+     * @param int|string $id
+     * @return void
+     */
+    public function editRow($id): void
+    {
+        if ($this->loadNode($id)) {
+            $this->syncEditUrl($this->editingId);
+        }
+    }
+
+    /**
+     * Clear the form back to create mode without navigating.
+     *
+     * @return void
+     */
+    public function cancelEdit(): void
+    {
+        $this->resetForm();
+        $this->syncEditUrl(null);
+    }
+
+    /**
+     * @return void
+     */
+    protected function resetForm(): void
+    {
+        $this->editingId = null;
+        $this->form = self::EMPTY_FORM;
+        $this->resetValidation();
+    }
+
+    /**
+     * Fill the form from a node; returns false (form untouched) when it is gone.
+     *
+     * @param int|string $id
+     * @return bool
+     */
+    protected function loadNode($id): bool
+    {
+        $menu = AdminMenu::find($id);
+        if ($menu === null) {
+            return false;
+        }
+
+        $this->editingId = (string) $menu->id;
+        $this->form = [
+            'title' => $menu->title,
+            'parent_id' => (int) $menu->parent_id,
+            'uri' => (string) $menu->uri,
+            'icon' => (string) $menu->icon,
+            'sort' => (int) $menu->sort,
+        ];
+        $this->resetValidation();
+
+        return true;
     }
 
     /**
@@ -107,12 +170,14 @@ class MenuManager extends FormComponent
             return;
         }
 
-        AdminMenu::create($attributes);
+        $created = AdminMenu::create($attributes);
+        // Expose the new id so save() keeps it open for editing.
+        $this->editingId = (string) $created->id;
     }
 
     /**
-     * Save, then return to the base route so the URL clears the edit/{id} segment;
-     * the success flash is shown on the next mount.
+     * Save and stay on the screen: the saved node remains open in the form and
+     * highlighted in the tree (no redirect); the success toast comes from the parent.
      *
      * @return void
      */
@@ -120,14 +185,15 @@ class MenuManager extends FormComponent
     {
         parent::save();
 
-        session()->flash('gp247_admin_success', gp247_language_render('admin.save_success'));
-        $this->redirectRoute('admin_menu.index', navigate: true);
+        // The parent already toasted success; keep the saved node open in place.
+        if ($this->editingId !== null && $this->loadNode($this->editingId)) {
+            $this->syncEditUrl($this->editingId);
+        }
     }
 
     /**
      * Delete a leaf menu node. A node with children is kept (remove children first).
-     * If the node was open in the edit form, return to the base route to clear the
-     * stale edit/{id} URL.
+     * If the node was open in the edit form, the form is cleared in place.
      *
      * @param int|string $id
      * @return void
@@ -146,10 +212,8 @@ class MenuManager extends FormComponent
         AdminMenu::destroy($id);
 
         if ((string) $id === (string) $this->editingId) {
-            session()->flash('gp247_admin_success', gp247_language_render('admin.menu.delete_success'));
-            $this->redirectRoute('admin_menu.index', navigate: true);
-
-            return;
+            $this->resetForm();
+            $this->syncEditUrl(null);
         }
 
         $this->notify('success', gp247_language_render('admin.menu.delete_success'));

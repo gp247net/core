@@ -233,6 +233,8 @@ class UserManager extends ResourcePanel
 
         if ($this->editingId === null) {
             $user = AdminUser::createUser($attributes);
+            // ResourcePanel create contract: expose the new id so save() edits it in place.
+            $this->editingId = (string) $user->id;
         } else {
             $user = AdminUser::findOrFail($this->editingId);
             $user->update($attributes);

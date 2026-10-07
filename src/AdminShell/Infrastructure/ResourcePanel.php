@@ -25,6 +25,7 @@ use Livewire\WithPagination;
 abstract class ResourcePanel extends GP247AdminComponent
 {
     use WithPagination;
+    use SyncsEditQuery;
 
     /** @var string Free-text search. */
     public string $keyword = '';
@@ -84,8 +85,10 @@ abstract class ResourcePanel extends GP247AdminComponent
      * refresh still restores both the open record and the page. Default false
      * preserves the legacy behavior for screens not yet migrated.
      *
-     * A screen opting in must set $this->editingId inside persist() (incl. after
-     * a create) so save() can re-fill the form from the persisted row.
+     * Every screen must set $this->editingId inside persist() after a create so
+     * save() switches the form to the new record and moves the list to its page;
+     * when it stays empty, save() falls back to an empty create form (never the
+     * stale input, which a second Save would duplicate).
      *
      * @var bool
      * @aidlc-story US-AUI-two-panel-state-preservation
@@ -409,6 +412,13 @@ abstract class ResourcePanel extends GP247AdminComponent
                 $this->form = $this->fillForm($model);
                 $this->resetValidation();
 
+                // Deep link (/edit/{id} or ?edit=) without an explicit ?page: open the
+                // list on the page holding the record so its row is visible and
+                // highlighted. An explicit ?page (a refresh) is respected (PA-A).
+                if (!request()->has('page')) {
+                    $this->showRecordPage($this->editingId);
+                }
+
                 return;
             }
             // Stale/invalid id in the path → fall back to create mode.
@@ -424,6 +434,17 @@ abstract class ResourcePanel extends GP247AdminComponent
      */
     protected function rows(): LengthAwarePaginator
     {
+        return $this->listQuery()->paginate($this->perPage);
+    }
+
+    /**
+     * The base query narrowed by the keyword filter, without ordering. Shared by
+     * the list and the record locator so both always see the same row set.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    protected function filteredQuery()
+    {
         $query = $this->baseQuery();
 
         if ($this->keyword !== '' && $this->searchable() !== []) {
@@ -436,14 +457,160 @@ abstract class ResourcePanel extends GP247AdminComponent
             });
         }
 
+        return $query;
+    }
+
+    /**
+     * The effective [column, direction] the list is ordered by: the whitelisted
+     * user sort, else the screen default. Direction is normalised to asc|desc.
+     *
+     * @return array{0: string, 1: string}
+     */
+    protected function effectiveSort(): array
+    {
         if (in_array($this->sortField, $this->sortableColumns(), true)) {
-            $query->orderBy($this->sortField, $this->sortDir);
-        } else {
-            [$field, $dir] = $this->defaultSort();
-            $query->orderBy($field, $dir);
+            return [$this->sortField, $this->sortDir === 'desc' ? 'desc' : 'asc'];
+        }
+        [$field, $dir] = $this->defaultSort();
+
+        return [$field, strtolower((string) $dir) === 'desc' ? 'desc' : 'asc'];
+    }
+
+    /**
+     * The filtered query in list order. The primary key is appended as a
+     * tie-break (same direction) so rows sharing a sort value keep a stable,
+     * deterministic order — a precondition for locating a record's page.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder
+     *
+     * @aidlc-story US-AUI-two-panel-state-preservation
+     * @aidlc-adr ADR-admin-shell-rbac-two-panel-state-preservation
+     */
+    protected function listQuery()
+    {
+        $query = $this->filteredQuery();
+        [$field, $dir] = $this->effectiveSort();
+        $query->orderBy($field, $dir);
+
+        if (!$this->isKeyColumn($query, $field)) {
+            $query->orderBy($query->getModel()->getQualifiedKeyName(), $dir);
         }
 
-        return $query->paginate($this->perPage);
+        return $query;
+    }
+
+    /**
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $column
+     * @return bool Whether $column is the model's primary key (bare or qualified).
+     */
+    private function isKeyColumn($query, string $column): bool
+    {
+        $model = $query->getModel();
+
+        return $column === $model->getKeyName() || $column === $model->getQualifiedKeyName();
+    }
+
+    /**
+     * The 1-based list page holding a record under the current keyword filter
+     * and sort, or null when the record is not in the filtered list (e.g. it no
+     * longer matches the keyword). Counts the rows ordered before it on
+     * (sort column, key) — NULLs first on asc, as MySQL/MariaDB/SQLite order
+     * them — then verifies the record really is on that page; on a mismatch
+     * (other NULL ordering, collation quirks) it falls back to walking the
+     * ordered keys.
+     *
+     * @param int|string $id
+     * @return int|null
+     *
+     * @aidlc-story US-AUI-two-panel-state-preservation
+     * @aidlc-adr ADR-admin-shell-rbac-two-panel-state-preservation
+     */
+    protected function recordPage($id): ?int
+    {
+        $perPage = max(1, (int) $this->perPage);
+        $filtered = $this->filteredQuery();
+        $key = $filtered->getModel()->getQualifiedKeyName();
+        [$field, $dir] = $this->effectiveSort();
+        $byKey = $this->isKeyColumn($filtered, $field);
+
+        $target = (clone $filtered)->whereKey($id)->toBase()
+            ->first($byKey ? [$key . ' as gp247_k'] : [$key . ' as gp247_k', $field . ' as gp247_v']);
+        if ($target === null) {
+            return null;
+        }
+
+        $sortValue = $byKey ? null : [$target->gp247_v];
+        $before = $this->rowsBefore(clone $filtered, $field, $dir, $key, $target->gp247_k, $sortValue);
+        $page = intdiv($before, $perPage) + 1;
+
+        $keys = $this->listQuery()->forPage($page, $perPage)->toBase()->pluck($key)->map(fn ($v) => (string) $v);
+        if ($keys->contains((string) $target->gp247_k)) {
+            return $page;
+        }
+
+        // WHY: the count above assumes MySQL-style NULL ordering and comparable
+        // values; when the verification fails, walk the ordered keys instead —
+        // slower (O(n)) but always consistent with what the list renders.
+        $position = $this->listQuery()->toBase()->pluck($key)->map(fn ($v) => (string) $v)
+            ->search((string) $target->gp247_k, true);
+
+        return $position === false ? null : intdiv((int) $position, $perPage) + 1;
+    }
+
+    /**
+     * Count the rows ordered before a record on (sort column, key).
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query Filtered, unordered query.
+     * @param string $field Sort column.
+     * @param string $dir asc|desc.
+     * @param string $key Qualified primary key.
+     * @param int|string $keyValue The record's key.
+     * @param array{0: mixed}|null $sortValue The record's sort value, or null when sorting by key.
+     * @return int
+     */
+    private function rowsBefore($query, string $field, string $dir, string $key, $keyValue, ?array $sortValue): int
+    {
+        $op = $dir === 'desc' ? '>' : '<';
+        if ($sortValue === null) {
+            return $query->where($key, $op, $keyValue)->count();
+        }
+
+        $value = $sortValue[0];
+        $query->where(function ($w) use ($field, $dir, $op, $key, $keyValue, $value): void {
+            if ($value === null) {
+                // NULL sort value: NULLs lead on asc (only lower keys before it),
+                // trail on desc (every non-NULL row, then higher keys, before it).
+                if ($dir === 'desc') {
+                    $w->whereNotNull($field)->orWhere(fn ($q) => $q->whereNull($field)->where($key, $op, $keyValue));
+                } else {
+                    $w->whereNull($field)->where($key, $op, $keyValue);
+                }
+
+                return;
+            }
+            if ($dir === 'asc') {
+                $w->whereNull($field);
+            }
+            $w->orWhere($field, $op, $value)
+                ->orWhere(fn ($q) => $q->where($field, '=', $value)->where($key, $op, $keyValue));
+        });
+
+        return $query->count();
+    }
+
+    /**
+     * Move the list to the page holding a record, when it is in the filtered list.
+     *
+     * @param int|string $id
+     * @return void
+     */
+    protected function showRecordPage($id): void
+    {
+        $page = $this->recordPage($id);
+        if ($page !== null && $page !== (int) $this->getPage()) {
+            $this->setPage($page);
+        }
     }
 
     /**
@@ -530,27 +697,6 @@ abstract class ResourcePanel extends GP247AdminComponent
     }
 
     /**
-     * Reflect the edit state in the URL query (?edit=<id>) without remounting,
-     * preserving any existing ?page= so a refresh restores both the open record
-     * and the list position (PA-A, ADR two-panel-state-preservation). Pass null
-     * to clear the edit param (back to create mode).
-     *
-     * @param string|null $id
-     * @return void
-     */
-    protected function syncEditUrl(?string $id): void
-    {
-        // WHY: a history-only update (not Livewire navigate) so the single
-        // component instance — and its list state — survives; a refresh then
-        // re-enters through mount(), which reads ?edit= for opted-in screens.
-        $mutate = $id !== null && $id !== ''
-            ? 'u.searchParams.set("edit", ' . json_encode($id) . ');'
-            : 'u.searchParams.delete("edit");';
-
-        $this->js('const u = new URL(window.location.href); ' . $mutate . ' window.history.replaceState({}, "", u);');
-    }
-
-    /**
      * Authorize, validate, sanitise and persist the form; refresh + reset.
      *
      * @return void
@@ -587,6 +733,14 @@ abstract class ResourcePanel extends GP247AdminComponent
                     $this->form = $this->fillForm($model);
                 }
                 $this->syncEditUrl($this->editingId);
+                // The save may have moved the record (changed sort value, new row):
+                // follow it so its highlighted row stays on screen.
+                $this->showRecordPage($this->editingId);
+            } elseif ($this->getErrorBag()->isEmpty()) {
+                // WHY: a screen that does not expose the created id (third-party
+                // persist() predating the contract) must not stay in add mode with
+                // the old input — a second Save would create a duplicate.
+                $this->resetForm();
             }
             $this->resetValidation();
             $this->notify('success', gp247_language_render('admin.save_success'));

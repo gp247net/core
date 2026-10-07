@@ -1,7 +1,7 @@
 {{--
     Two-panel menu manager (ADR-005): create/edit form (left) + hierarchical menu
     tree (right) on one page, matching the legacy two-column layout. Edit loads a
-    node into the form via the edit/{id} route; the tree supports drag-and-drop
+    node into the form in place (editRow) and highlights it; the tree supports drag-and-drop
     reordering (menu-node partial) and per-node delete. UI text via
     gp247_language_render.
 
@@ -36,7 +36,7 @@
                 :error="$errors->first('form.sort')" />
 
             <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
-                <x-gp247::button variant="secondary" href="{{ gp247_route_admin('admin_menu.index') }}" wire:navigate>{{ gp247_language_render($editingId ? 'admin.cancel' : 'admin.reset') }}</x-gp247::button>
+                <x-gp247::button variant="secondary" wire:click="cancelEdit" data-testid="admin-menu-form-cancel">{{ gp247_language_render($editingId ? 'admin.cancel' : 'admin.reset') }}</x-gp247::button>
                 <x-gp247::button type="submit" wire:loading.attr="disabled"><i class="fas fa-save"></i> {{ gp247_language_render($editingId ? 'admin.update' : 'admin.submit') }}</x-gp247::button>
             </div>
         </form>
@@ -50,7 +50,7 @@
 
         <ul class="divide-y divide-gray-100 dark:divide-gray-700" data-gp247-sortable data-parent="0">
             @forelse ($grouped[0] ?? [] as $node)
-                @include('gp247-admin::partials.menu-node', ['node' => $node, 'grouped' => $grouped, 'depth' => 0])
+                @include('gp247-admin::partials.menu-node', ['node' => $node, 'grouped' => $grouped, 'depth' => 0, 'editingId' => $editingId])
             @empty
                 <li class="py-2 text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.menu.no_menus') }}</li>
             @endforelse

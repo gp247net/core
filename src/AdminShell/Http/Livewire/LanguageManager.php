@@ -134,7 +134,9 @@ class LanguageManager extends ResourcePanel
             return;
         }
 
-        AdminLanguage::create($data);
+        $created = AdminLanguage::create($data);
+        // ResourcePanel create contract: expose the new id so save() edits it in place.
+        $this->editingId = (string) $created->id;
     }
 
     /**

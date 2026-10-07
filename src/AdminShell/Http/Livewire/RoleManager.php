@@ -160,6 +160,8 @@ class RoleManager extends ResourcePanel
             $role->update($attributes);
         } else {
             $role = AdminRole::create($attributes);
+            // ResourcePanel create contract: expose the new id so save() edits it in place.
+            $this->editingId = (string) $role->id;
         }
 
         $role->permissions()->sync($data['permissions'] ?? []);

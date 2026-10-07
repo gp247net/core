@@ -134,7 +134,9 @@ class HomeLayoutManager extends ResourcePanel
         if ($this->editingId !== null) {
             AdminHome::where('id', $this->editingId)->update($attributes);
         } else {
-            AdminHome::create($attributes);
+            $created = AdminHome::create($attributes);
+            // ResourcePanel create contract: expose the new id so save() edits it in place.
+            $this->editingId = (string) $created->id;
         }
     }
 
