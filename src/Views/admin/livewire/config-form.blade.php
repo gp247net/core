@@ -60,10 +60,60 @@
         </div>
     @endif
 
+    {{-- "Check before use" (US-admin-shell-config-form-readiness): what the plugin still needs
+         elsewhere in GP247, above the settings, so the owner never hunts for the cause. Only
+         classes already in the built admin.css (gp247.md §3a). --}}
+    @if (!empty($readiness))
+        @php
+            $pending = array_values(array_filter($readiness, fn ($c) => !$c->passed()));
+            $passed = array_values(array_filter($readiness, fn ($c) => $c->passed()));
+            $hasError = collect($pending)->contains(fn ($c) => $c->level === 'error');
+            $box = $pending === []
+                ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-900/20'
+                : ($hasError ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-900/20' : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-900/20');
+        @endphp
+        <div data-testid="config-form-readiness" class="mb-4 rounded-xl border p-4 {{ $box }}">
+            @if ($pending === [])
+                <p data-testid="config-form-readiness-all-ok" class="text-sm font-medium text-green-700 dark:text-green-300">
+                    <i class="fas fa-circle-check"></i> {{ gp247_language_quickly('admin.config_form.readiness_all_ok', 'Everything this plugin needs is in place.') }}
+                </p>
+            @else
+                <p class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    <i class="fas fa-list-check"></i> {{ gp247_language_quickly('admin.config_form.readiness_title', 'Check before use') }}
+                </p>
+                <ul class="space-y-1">
+                    @foreach ($pending as $check)
+                        <li data-testid="config-form-readiness-item-{{ $check->key }}"
+                            class="flex items-start gap-2 text-sm {{ $check->level === 'error' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300' }}">
+                            <i class="fas {{ $check->level === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation' }} mt-1 shrink-0"></i>
+                            <span>
+                                {{ $check->message }}
+                                @if ($check->fixUrl !== '')
+                                    <a href="{{ $check->fixUrl }}" data-testid="config-form-readiness-fix-{{ $check->key }}"
+                                        class="font-medium text-blue-600 underline hover:text-blue-700">→ {{ $check->fixLabel !== '' ? $check->fixLabel : gp247_language_quickly('admin.config_form.readiness_fix', 'Fix') }}</a>
+                                @endif
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+            @if ($passed !== [] && $pending !== [])
+                <details class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    <summary class="cursor-pointer">{{ gp247_language_quickly('admin.config_form.readiness_passed', 'Already in place') }} ({{ count($passed) }})</summary>
+                    <ul class="mt-2 space-y-1">
+                        @foreach ($passed as $check)
+                            <li class="flex items-start gap-2"><i class="fas fa-circle-check mt-1 shrink-0 text-green-600"></i><span>{{ $check->message }}</span></li>
+                        @endforeach
+                    </ul>
+                </details>
+            @endif
+        </div>
+    @endif
+
     {{-- Save feedback is shown by the global top-right notifications block
          (<x-gp247::toast>), so there is no inline notice pushing the layout. --}}
     <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <table data-testid="config-form-table" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-800">
                 <tr>
                     <th class="px-5 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $heading }}</th>

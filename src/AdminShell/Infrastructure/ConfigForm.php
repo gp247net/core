@@ -816,6 +816,68 @@ abstract class ConfigForm extends GP247AdminComponent
     }
 
     /**
+     * Conditions the plugin needs before it can work, shown above the settings in a
+     * "Check before use" box (US-admin-shell-config-form-readiness). Override to return
+     * ReadinessCheck items for the store readinessStoreId() names; default none, so a
+     * screen that does not override looks exactly as before. Local settings only — never
+     * call a remote API here (the page must stay fast and work offline); check remote
+     * credentials on save instead.
+     *
+     * @return array<int, ReadinessCheck>
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-config-form-readiness
+     * @aidlc-adr admin-shell_config-form-readiness-seam
+     */
+    protected function readiness(): array
+    {
+        return [];
+    }
+
+    /**
+     * The store whose conditions readiness() checks: the store being edited, and the
+     * root store for the shared scope — shop settings (customer address fields, pick-up
+     * warehouse…) take effect per store, not at GLOBAL.
+     *
+     * @return string
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-config-form-readiness
+     */
+    protected function readinessStoreId(): string
+    {
+        $store = (string) $this->scopeStoreId();
+        $global = (string) (defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : 0);
+
+        return $store === $global ? (string) (defined('GP247_STORE_ID_ROOT') ? GP247_STORE_ID_ROOT : 1) : $store;
+    }
+
+    /**
+     * readiness() made safe for the view: a check that crashes becomes one warning (and
+     * a report) instead of breaking the settings screen; items sorted errors → warnings → ok.
+     *
+     * @return array<int, ReadinessCheck>
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-config-form-readiness
+     */
+    public function readinessItems(): array
+    {
+        try {
+            $items = array_values(array_filter($this->readiness(), static fn ($item): bool => $item instanceof ReadinessCheck));
+        } catch (\Throwable $e) {
+            if (function_exists('gp247_report')) {
+                gp247_report('[ConfigForm] readiness() of ' . static::class . ' failed: ' . $e->getMessage());
+            }
+            $items = [ReadinessCheck::warning('readiness', gp247_language_quickly('admin.config_form.readiness_failed', 'Could not check the conditions this plugin needs. See the system log.'))];
+        }
+        // WHY plain usort: it is stable since PHP 8, so items of one level keep the plugin's order.
+        usort($items, static fn (ReadinessCheck $a, ReadinessCheck $b): int => $a->weight() <=> $b->weight());
+
+        return $items;
+    }
+
+    /**
      * @return View
      */
     public function render(): View
@@ -839,6 +901,7 @@ abstract class ConfigForm extends GP247AdminComponent
             'rows' => $this->layoutRows($configs),
             'storeScope' => $this->storeScopeUiVisible(),
             'subStoreScope' => $this->isSubStoreScope() && $this->isRootScope(),
+            'readiness' => $this->readinessItems(),
         ])->layout('gp247-admin::layouts.admin', ['title' => $this->heading()]);
     }
 }
