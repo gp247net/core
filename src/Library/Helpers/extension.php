@@ -188,22 +188,27 @@ if (!function_exists('gp247_extension_source_exists') && !in_array('gp247_extens
      * using the same disk signal as gp247_extension_get_all_local() (AppConfig.php).
      *
      * The result is memoized per request: at most one file_exists() per group|key.
+     * A caller that has just written or removed the source in this same request
+     * passes $refresh = true to re-read the disk (the read path never needs it).
      *
-     * @param string $group Plugins|Templates (anything else is treated as Plugins).
-     * @param string $key   Extension key (folder name).
+     * @param string $group   Plugins|Templates (anything else is treated as Plugins).
+     * @param string $key     Extension key (folder name).
+     * @param bool   $refresh Re-check the disk instead of the memoized result.
      * @return bool True when app/GP247/<type>/<key>/AppConfig.php exists.
      *
      * @aidlc-unit plugin-manager
      * @aidlc-story US-PLG-active-requires-source
+     * @aidlc-story US-PLG-orphan-source-missing-notice
      * @aidlc-adr plugin-manager_active-check-source-presence
+     * @aidlc-adr plugin-manager_orphan-source-missing-notice
      */
-    function gp247_extension_source_exists($group, $key)
+    function gp247_extension_source_exists($group, $key, $refresh = false)
     {
         static $memo = [];
 
         $type = $group === 'Templates' ? 'Templates' : 'Plugins';
         $cacheKey = $type . '|' . $key;
-        if (!array_key_exists($cacheKey, $memo)) {
+        if ($refresh || !array_key_exists($cacheKey, $memo)) {
             $memo[$cacheKey] = file_exists(app_path('GP247/' . $type . '/' . $key . '/AppConfig.php'));
         }
 
@@ -247,7 +252,7 @@ if (!function_exists('gp247_extension_check_active') && !in_array('gp247_extensi
             static $warned = [];
             if (!isset($warned[$group . '|' . $key])) {
                 $warned[$group . '|' . $key] = true;
-                gp247_report('[gp247 extension] "' . $group . '/' . $key . '" is active in DB but its source is missing on disk (app/GP247/' . $group . '/' . $key . '). Treated as inactive — reinstall the extension or clean up the orphaned config record.');
+                gp247_report('[gp247 extension] "' . $group . '/' . $key . '" is active in DB but its source is missing on disk (app/GP247/' . $group . '/' . $key . '). Treated as inactive — copy the matching source (app/GP247/' . $group . '/' . $key . ' and public/GP247/' . $group . '/' . $key . ') from the site this database came from, or clean up the orphaned config record.');
             }
             return false;
         }

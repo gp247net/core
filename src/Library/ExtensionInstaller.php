@@ -65,6 +65,39 @@ class ExtensionInstaller
     }
 
     /**
+     * Whether a value may be used as an extension key, i.e. as one folder name
+     * under app/GP247/<type>/ (letters, digits, "_" and "-" only).
+     *
+     * @param string $key Candidate key (from a manifest, a request or the CLI).
+     * @return bool
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-001
+     * @aidlc-adr plugin-manager_install-input-trust-boundary
+     */
+    public static function isValidKey(string $key): bool
+    {
+        return preg_match('/^[A-Za-z0-9_-]+$/', $key) === 1;
+    }
+
+    /**
+     * Refusal for a key that is not a plain folder name.
+     *
+     * @param string $key The rejected key (only echoed back JSON-safe by callers).
+     * @return array{error: int, msg: string, detail: string}
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-001
+     * @aidlc-adr plugin-manager_install-input-trust-boundary
+     */
+    protected function invalidKey(string $key): array
+    {
+        gp247_report(msg: 'Extension install refused: invalid extension key '.json_encode($key), channel: null);
+
+        return ['error' => 1, 'msg' => 'Invalid extension key: only letters, digits, "_" and "-" are allowed', 'detail' => 'invalid_key'];
+    }
+
+    /**
      * Resolve the AppConfig class for an extension, or null when absent.
      *
      * @param string $groupType Plugins|Templates.
@@ -136,7 +169,7 @@ class ExtensionInstaller
     {
         $groupType = $this->normalizeType($groupType);
         // WHY: the key becomes a path segment, and gp247:ext-publish takes it from the command line.
-        if (preg_match('/^[A-Za-z0-9_-]+$/', $key) !== 1) {
+        if (!self::isValidKey($key)) {
             return ['error' => 1, 'msg' => 'Invalid extension key: '.$key];
         }
 
@@ -193,6 +226,9 @@ class ExtensionInstaller
     public function activate(string $groupType, string $key): array
     {
         $groupType = $this->normalizeType($groupType);
+        if (!self::isValidKey($key)) {
+            return $this->invalidKey($key);
+        }
 
         $manifestPath = app_path('GP247/'.$groupType.'/'.$key.'/gp247.json');
         if (!file_exists($manifestPath)) {
@@ -369,6 +405,8 @@ class ExtensionInstaller
         $appPath = 'GP247/'.$groupType.'/'.$key;
         File::deleteDirectory(app_path($appPath));
         File::deleteDirectory(public_path($appPath));
+        // WHY: later code in this same request must not see the memoized "present".
+        gp247_extension_source_exists($groupType, $key, true);
     }
 
     /**
@@ -377,10 +415,15 @@ class ExtensionInstaller
      *
      * @param string $groupType      Expected group type (Plugins|Templates).
      * @param string $zipPath        Absolute path to the .zip on disk.
-     * @param bool   $allowOverwriteExisting Reserved; false rejects an existing key.
+     * @param bool        $allowOverwriteExisting Reserved; false rejects an existing key.
+     * @param string|null $expectedKey  Key the package must declare (library downloads), null = any.
      * @return array{error: int, msg: string, key?: string}
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-001
+     * @aidlc-story US-PLG-002
      */
-    public function installFromZip(string $groupType, string $zipPath, bool $allowOverwriteExisting = false): array
+    public function installFromZip(string $groupType, string $zipPath, bool $allowOverwriteExisting = false, ?string $expectedKey = null): array
     {
         $groupType = $this->normalizeType($groupType);
 
@@ -406,7 +449,7 @@ class ExtensionInstaller
         }
 
         try {
-            return $this->installExtractedFolder($groupType, $extractDir, $allowOverwriteExisting);
+            return $this->installExtractedFolder($groupType, $extractDir, $allowOverwriteExisting, $expectedKey);
         } finally {
             File::deleteDirectory($extractDir);
         }
@@ -416,12 +459,23 @@ class ExtensionInstaller
      * Install an extension from an already-extracted folder that contains a
      * "<name>/gp247.json" manifest.
      *
+     * An extension that is installed in the database but has no source on disk (an
+     * "orphan" — e.g. a database cloned from another site) is refused before anything
+     * is copied: see installedRefusal().
+     *
      * @param string $groupType      Expected group type (Plugins|Templates).
      * @param string $extractDir     Directory holding the extracted extension folder.
-     * @param bool   $allowOverwriteExisting Reserved; false rejects an existing key.
-     * @return array{error: int, msg: string, key?: string}
+     * @param bool        $allowOverwriteExisting Reserved; false rejects an existing key.
+     * @param string|null $expectedKey  Key the package must declare (library downloads), null = any.
+     * @return array{error: int, msg: string, key?: string, detail?: string}
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-001
+     * @aidlc-story US-PLG-002
+     * @aidlc-story US-PLG-orphan-source-missing-notice
+     * @aidlc-adr plugin-manager_orphan-source-missing-notice
      */
-    public function installExtractedFolder(string $groupType, string $extractDir, bool $allowOverwriteExisting = false): array
+    public function installExtractedFolder(string $groupType, string $extractDir, bool $allowOverwriteExisting = false, ?string $expectedKey = null): array
     {
         $groupType = $this->normalizeType($groupType);
 
@@ -433,15 +487,31 @@ class ExtensionInstaller
         }
 
         $config = json_decode(file_get_contents($checkConfig[0]), true);
-        $requireFaild = gp247_extension_check_compatibility($config ?? []);
-        if ($requireFaild) {
-            return ['error' => 1, 'msg' => gp247_language_render('admin.extension.not_compatible', ['msg' => json_encode($requireFaild)])];
-        }
 
         $configGroup = $config['configGroup'] ?? '';
         $configKey = $config['configKey'] ?? '';
         if (!$configGroup || !$configKey) {
             return ['error' => 1, 'msg' => gp247_language_render('admin.extension.error_config_format')];
+        }
+
+        // The manifest is untrusted input: its group and key become path segments below.
+        if (!is_string($configGroup) || !is_string($configKey)) {
+            return ['error' => 1, 'msg' => gp247_language_render('admin.extension.error_config_format'), 'detail' => 'invalid_manifest'];
+        }
+        if ($configGroup !== $groupType) {
+            $msg = 'Package "'.$configKey.'" declares configGroup "'.$configGroup.'", but it is being installed as '.$groupType
+                .(in_array($configGroup, ['Plugins', 'Templates'], true) ? ' — install it as '.$configGroup : '');
+            gp247_report(msg: 'Extension install refused: '.$msg, channel: null);
+            return ['error' => 1, 'msg' => $msg, 'detail' => 'type_mismatch', 'package_type' => in_array($configGroup, ['Plugins', 'Templates'], true) ? $configGroup : ''];
+        }
+        if (!self::isValidKey($configKey)) {
+            return $this->invalidKey($configKey);
+        }
+        // A package fetched from the library for one key must declare that key: the
+        // "installed / orphan" guards ran on the requested key (same rule as updates).
+        if ($expectedKey !== null && $configKey !== $expectedKey) {
+            gp247_report(msg: 'Extension install refused: package declares "'.$configKey.'" but "'.$expectedKey.'" was requested', channel: null);
+            return ['error' => 1, 'msg' => 'Package key mismatch: requested "'.$expectedKey.'", the package declares "'.$configKey.'"', 'detail' => 'key_mismatch'];
         }
 
         $folderName = basename(dirname($checkConfig[0]));
@@ -451,6 +521,20 @@ class ExtensionInstaller
             $msg = gp247_language_render('admin.extension.error_exist');
             gp247_report(msg: $msg, channel: null);
             return ['error' => 1, 'msg' => $msg];
+        }
+
+        // Flag row present but no source on disk (checked just above): refuse before
+        // copying — install() must not run over existing data.
+        $refusal = $this->installedRefusal($groupType, $configKey);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
+        // WHY after the refusal: an orphan must get the "bring your source" guidance
+        // even when this package would not be compatible anyway.
+        $requireFaild = gp247_extension_check_compatibility($config ?? []);
+        if ($requireFaild) {
+            return ['error' => 1, 'msg' => gp247_language_render('admin.extension.not_compatible', ['msg' => json_encode($requireFaild)])];
         }
 
         // Write-permission preflight (shared-host safety, NFR-AVAIL-cli-shared-host).
@@ -492,6 +576,11 @@ class ExtensionInstaller
      * @param string               $key       Extension key.
      * @param array<string, mixed> $options   {path?: string, paid?: bool, license?: string}
      * @return array{error: int, msg: string, key?: string}
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     * @aidlc-story US-PLG-orphan-source-missing-notice
+     * @aidlc-adr plugin-manager_orphan-source-missing-notice
      */
     public function installFromRemote(string $groupType, string $key, array $options = []): array
     {
@@ -499,18 +588,18 @@ class ExtensionInstaller
 
         $isPaid = !empty($options['paid']);
         $license = (string) ($options['license'] ?? '');
-        $path = (string) ($options['path'] ?? '');
+        $path = trim((string) ($options['path'] ?? ''));
+        if (!self::isValidKey($key)) {
+            return $this->invalidKey($key);
+        }
+        $library = new LibraryClient;
 
-        // Refuse re-installing an already-installed extension up front — before any
-        // download. "Installed" means it has an admin_config row (not merely that
-        // files exist on disk). Use gp247:ext-update to update, or gp247:ext-uninstall
-        // first to reinstall.
-        if (gp247_extension_check_installed($groupType, $key)) {
-            return [
-                'error'  => 1,
-                'msg'    => gp247_language_render('admin.extension.error_exist'),
-                'detail' => 'already_installed',
-            ];
+        // Refuse an extension that is already in the database up front — before any
+        // download: installed (use gp247:ext-update / ext-uninstall) or orphaned
+        // (the operator must bring the source matching the data).
+        $refusal = $this->installedRefusal($groupType, $key);
+        if ($refusal !== null) {
+            return $refusal;
         }
 
         if (!is_writable(storage_path('tmp'))) {
@@ -521,11 +610,19 @@ class ExtensionInstaller
 
         try {
             if ($isPaid) {
-                $data = (new LibraryClient)->download($groupType, $key, $license);
-            } elseif ($path !== '') {
-                $data = file_get_contents($path);
-            } else {
+                $data = $library->download($groupType, $key, $license);
+            } elseif ($path === '') {
                 return ['error' => 1, 'msg' => 'Missing download path for free extension'];
+            } elseif (!$library->isLibraryUrl($path)) {
+                // WHY: never fetch a client-supplied URL off the library host (SSRF / local files).
+                gp247_report(msg: 'Extension download refused for "'.$key.'": URL is not on the library host: '.$path, channel: null);
+                return ['error' => 1, 'msg' => 'Download refused: the package URL is not on the extension library host', 'detail' => 'download_not_allowed'];
+            } else {
+                $fetched = $library->fetchPackage($path);
+                if (!$fetched['ok']) {
+                    return ['error' => 1, 'msg' => 'Download failed: HTTP '.$fetched['status']];
+                }
+                $data = $fetched['body'];
             }
 
             // A JSON error body means the server refused (e.g. license problem).
@@ -534,16 +631,118 @@ class ExtensionInstaller
                 return ['error' => 1, 'msg' => $jsonData['msg'] ?? 'Download failed', 'detail' => $jsonData['detail'] ?? '', 'expire' => $jsonData['expire'] ?? null];
             }
 
-            $pathTmp = $key.'_'.time();
+            // WHY: uniqid — two installs of the same key in the same second must not share (and delete) one dir.
+            $pathTmp = $key.'_'.time().'_'.uniqid();
             $fileTmp = $pathTmp.'.zip';
             Storage::disk('tmp')->put($pathTmp.'/'.$fileTmp, $data);
+            $downloadDir = storage_path('tmp/'.$pathTmp);
 
             // overwrite=false: the up-front guard above already rejected an
             // existing extension, so treat any leftover as a conflict too.
-            return $this->installFromZip($groupType, storage_path('tmp/'.$pathTmp.'/'.$fileTmp), false);
+            return $this->installFromZip($groupType, $downloadDir.'/'.$fileTmp, false, $key);
         } catch (\Throwable $e) {
             gp247_report(msg: $e->getMessage(), channel: null);
             return ['error' => 1, 'msg' => $e->getMessage()];
+        } finally {
+            // WHY: installFromZip() removes only its extract dir; the downloaded zip
+            // used to stay in storage/tmp after every library install.
+            if (isset($downloadDir)) {
+                File::deleteDirectory($downloadDir);
+            }
         }
+    }
+
+    /**
+     * Installed extensions (flag row in the database) whose source is missing on
+     * disk, with the version their data is at.
+     *
+     * Read-only: used by the library screen to show a "source missing" note instead
+     * of an install button.
+     *
+     * @param string $groupType Plugins|Templates.
+     * @return array<string, string|null> key => recorded data version (null when unknown).
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-orphan-source-missing-notice
+     * @aidlc-adr plugin-manager_orphan-source-missing-notice
+     */
+    public function orphans(string $groupType): array
+    {
+        $groupType = $this->normalizeType($groupType);
+        $orphans = [];
+        foreach (gp247_extension_get_installed(type: $groupType, active: false) as $key => $row) {
+            $key = (string) $key;
+            // WHY: the installed-version record shares the group but is not an extension.
+            if (($row->code ?? '') === 'extension_version' || !self::isValidKey($key)) {
+                continue;
+            }
+            // WHY: admin-only listing — read the disk, not a memo another step of this request may have made stale.
+            if (!gp247_extension_source_exists($groupType, $key, true)) {
+                $orphans[$key] = gp247_extension_installed_version($groupType, $key);
+            }
+        }
+
+        return $orphans;
+    }
+
+    /**
+     * Why an extension may not be installed now, or null when it may.
+     *
+     * Installed AND source on disk => "already installed" (use update/uninstall).
+     * Installed but source missing (an orphan — e.g. a database cloned from another
+     * site) => refused with the data version and how to bring the matching source:
+     * gp247 never downloads, copies or reinstalls over existing data for it
+     * (ADR plugin-manager_orphan-source-missing-notice). Read-only, no network.
+     *
+     * @param string $groupType Plugins|Templates.
+     * @param string $key       Extension key (already validated by the caller).
+     * @return array{error: int, msg: string, detail: string, key?: string, version?: ?string}|null
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-orphan-source-missing-notice
+     * @aidlc-adr plugin-manager_orphan-source-missing-notice
+     */
+    public function installedRefusal(string $groupType, string $key): ?array
+    {
+        $groupType = $this->normalizeType($groupType);
+        if (!gp247_extension_check_installed($groupType, $key)) {
+            return null;
+        }
+        if (gp247_extension_source_exists($groupType, $key, true)) {
+            return ['error' => 1, 'msg' => gp247_language_render('admin.extension.error_exist'), 'detail' => 'already_installed'];
+        }
+
+        $version = gp247_extension_installed_version($groupType, $key);
+        $msg = $this->label(
+            'orphan_source_missing',
+            '":key" is installed in the database (data version :version) but this site has no source for it. GP247 does not install over existing data: '
+                .'copy app/GP247/:type/:key and public/GP247/:type/:key from the site this database came from (same version :version). '
+                .'If you can only copy app/, run "php artisan gp247:ext-publish --type=:cli_type --key=:key".',
+            ['key' => $key, 'version' => $version ?? '?', 'type' => $groupType, 'cli_type' => $groupType === 'Templates' ? 'template' : 'plugin']
+        );
+
+        return ['error' => 1, 'msg' => $msg, 'detail' => 'orphan_source_missing', 'key' => $key, 'version' => $version];
+    }
+
+    /**
+     * Render an admin.extension.* label with an English fallback for sites that
+     * have not run the upgrade migration yet, replacing :placeholders.
+     *
+     * @param string                $code    Code after "admin.extension.".
+     * @param string                $default English fallback.
+     * @param array<string, string> $params  Placeholder values.
+     * @return string
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-orphan-source-missing-notice
+     */
+    protected function label(string $code, string $default, array $params = []): string
+    {
+        $text = (string) (gp247_language_quickly('admin.extension.'.$code, $default) ?: $default);
+        foreach ($params as $name => $value) {
+            $text = str_replace(':'.$name, (string) $value, $text);
+        }
+
+        return $text;
     }
 }

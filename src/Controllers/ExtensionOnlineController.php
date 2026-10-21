@@ -145,6 +145,9 @@ trait ExtensionOnlineController
                     "title"              => $title,
                     "groupType"          => $this->groupType,
                     "arrExtensionsLocal" => gp247_extension_get_all_local(type: $this->groupType),
+                    // Installed in the database but source missing (e.g. database cloned from
+                    // another site): shown a "source missing" note instead of Install (US-PLG-orphan-source-missing-notice).
+                    "arrOrphans"         => (new ExtensionInstaller)->orphans($this->groupType),
                     "arrExtensions"      => $arrExtensions,
                     "arrUpdates"         => $arrUpdates,
                     "keyword"            => $keyword ?? '',
@@ -294,12 +297,24 @@ trait ExtensionOnlineController
 
     public function install()
     {
-        $key = request('key');
-        $path = request('path');
+        // Edge validation (US-PLG-002, ADR plugin-manager_install-input-trust-boundary):
+        // the key names a folder and a license record; arrays (key[]=…) are refused too.
+        $key = request()->input('key');
+        $path = request()->input('path', '');
+        if (!is_string($key) || !ExtensionInstaller::isValidKey($key) || !is_string($path)) {
+            return response()->json(['error' => 1, 'msg' => 'Invalid extension key', 'detail' => 'invalid_key']);
+        }
         // Paid items (first-time install) are fetched from the license-gated
         // extension/download endpoint instead of the public filev3 path.
         $isPaid = request('paid') == 1;
         $license = (string) request('license', '');
+
+        // Refuse an installed or orphaned extension before any write — including the
+        // license row an orphan brought along with a cloned database.
+        $refusal = (new ExtensionInstaller)->installedRefusal($this->groupType, $key);
+        if ($refusal !== null) {
+            return response()->json($refusal);
+        }
 
         if ($isPaid) {
             // Persist the entered license before the gated download attempt.

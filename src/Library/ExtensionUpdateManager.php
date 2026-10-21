@@ -397,22 +397,37 @@ class ExtensionUpdateManager
     }
 
     /**
-     * Download the update zip over HTTPS (SSL verification enabled by default)
-     * and verify its sha256 checksum when the API provided one.
+     * Download the update zip from the library host (SSL verification enabled by
+     * default) and verify its sha256 checksum when the API provided one. The site's
+     * credentials are sent only for gated downloads and never follow a redirect off
+     * the library host.
      *
      * @param array  $item    Update item from checkUpdates().
      * @param string $pathTmp Absolute temp directory for this update run.
      * @return string Absolute path of the downloaded zip file.
-     * @throws \Exception When the download fails or the checksum mismatches.
+     * @throws \Exception When the URL is not on the library host, the download fails
+     *                    (incl. a redirect off the library host) or the checksum mismatches.
      *
      * @aidlc-unit plugin-manager
      * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_install-input-trust-boundary
      */
     protected function download(array $item, string $pathTmp): string
     {
-        $url = $item['path'];
+        $url = trim((string) $item['path']);
+        $library = new LibraryClient;
+        // WHY: the URL comes from the check-update response; never fetch it off the
+        // library host (ADR plugin-manager_install-input-trust-boundary, amendment 094605).
+        if (!$library->isLibraryUrl($url)) {
+            gp247_report(msg: 'Extension update download refused for '.$item['type'].'/'.$item['key'].': URL is not on the library host: '.$url, channel: null);
+            throw new \Exception('Download refused: the package URL is not on the extension library host');
+        }
         // Paid extensions: append the per-plugin license so the extension/download
         // endpoint can check entitlement before proxying (NFR-SEC-plugin-license-entitlement).
+        // WHY the path test: a gated /extension/download URL still needs the site's
+        // credentials even if the server left require_license out (old code always sent them).
+        $paid = !empty($item['require_license'])
+            || str_contains((string) parse_url($url, PHP_URL_PATH), '/extension/download');
         if (!empty($item['require_license'])) {
             $license = gp247_extension_get_license($item['type'], $item['key']);
             if ($license) {
@@ -420,18 +435,12 @@ class ExtensionUpdateManager
             }
         }
 
-        $response = Http::withHeaders([
-                'GP247-API-License' => config('gp247-config.env.GP247_API_LICENSE'),
-                'GP247-API-Domain'  => url('/'),
-            ])
-            ->withOptions(['verify' => $this->verifySsl()])
-            ->timeout(self::DOWNLOAD_TIMEOUT)
-            ->get($url);
-
-        if (!$response->successful()) {
-            throw new \Exception('Download failed: HTTP '.$response->status());
+        // Credentials only for paid items, and they never follow a redirect off the library host.
+        $fetched = $library->fetchPackage($url, $paid);
+        if (!$fetched['ok']) {
+            throw new \Exception('Download failed: HTTP '.$fetched['status']);
         }
-        $data = $response->body();
+        $data = $fetched['body'];
 
         // The download endpoint answers HTTP 200 with a JSON body on failure
         $jsonData = json_decode($data, true);

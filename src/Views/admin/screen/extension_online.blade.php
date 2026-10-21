@@ -173,6 +173,12 @@
                                 // configCode filter bucket for this online item (defensive:
                                 // empty when the API omits 'code' -> Other). US-PLG-config-code-filter.
                                 $pcfRowBucket = gp247_plugin_config_group($extension['code'] ?? '');
+                                // Orphan: installed in the database, source missing (database cloned from
+                                // another site). gp247 does not install over existing data — the note tells
+                                // the operator how to bring the matching source (US-PLG-orphan-source-missing-notice).
+                                $isOrphan = !$isLocal && array_key_exists($extension['key'], $arrOrphans ?? []);
+                                $orphanVersion = $isOrphan ? ($arrOrphans[$extension['key']] ?? null) : null;
+                                $orphanParams = ['key' => $extension['key'], 'version' => $orphanVersion ?? '?', 'type' => $groupType, 'cli_type' => $groupType === 'Templates' ? 'template' : 'plugin'];
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                 @if ($groupType === 'Plugins')
@@ -290,6 +296,13 @@
                                             <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
                                                 <i class="fas fa-check"></i>
                                                 {{ gp247_language_render('admin.extension.located') }}
+                                            </span>
+                                        @elseif ($isOrphan)
+                                            <span data-testid="plugin-manager-extension-online-orphan-note-{{ $extension['key'] }}"
+                                                title="{{ gp247_language_render('admin.extension.orphan_source_missing', $orphanParams) }}"
+                                                class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                {{ gp247_language_render('admin.extension.orphan_badge') }} · {{ $orphanVersion ?? '?' }}
                                             </span>
                                         @elseif ($isFree)
                                             <button type="button"

@@ -136,32 +136,140 @@ class LibraryClient
     }
 
     /**
+     * Whether a package URL points at the configured library itself: same scheme,
+     * host and port as GP247_LIBRARY_API, http(s) only, no credentials.
+     *
+     * WHY an allowlist of one origin: the free download URL arrives from the client
+     * (library screen) or the listing, and fetching an arbitrary URL would let the
+     * server reach internal hosts or read local files (SSRF). The real free URL is
+     * /process/filev3 on the library host; a self-hosted marketplace sets
+     * GP247_LIBRARY_API to its own host anyway.
+     *
+     * @param string $url Candidate download URL.
+     * @return bool True when the URL may be fetched.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     * @aidlc-adr plugin-manager_install-input-trust-boundary
+     */
+    public function isLibraryUrl(string $url): bool
+    {
+        $target = parse_url(trim($url));
+        $library = parse_url($this->baseUrl());
+        if (!is_array($target) || !is_array($library) || empty($target['host']) || empty($library['host'])) {
+            return false;
+        }
+        $scheme = strtolower((string) ($target['scheme'] ?? ''));
+        if (!in_array($scheme, ['http', 'https'], true) || $scheme !== strtolower((string) ($library['scheme'] ?? ''))) {
+            return false;
+        }
+        if (isset($target['user']) || isset($target['pass'])) {
+            return false;
+        }
+        $port = fn (array $parts): int => (int) ($parts['port'] ?? (strtolower((string) $parts['scheme']) === 'https' ? 443 : 80));
+
+        return strtolower($target['host']) === strtolower($library['host']) && $port($target) === $port($library);
+    }
+
+    /**
+     * Download a package from the library host.
+     *
+     * Callers must check isLibraryUrl() first. Uses the same TLS-verify and timeout
+     * policy as every other marketplace call (no stream wrappers, unlike
+     * file_get_contents()).
+     *
+     * WHY two modes: a public file needs no credentials, so none are sent; a paid
+     * download needs the site's API license (headers) and the per-plugin license
+     * (query) — Guzzle keeps custom headers across a redirect to another host and
+     * would allow an https→http hop, so with credentials a redirect may only stay on
+     * the library host (redirectPolicy()).
+     *
+     * @param string $url         Package URL on the library host.
+     * @param bool   $credentials Send the API license/domain headers (paid downloads).
+     * @return array{ok: bool, body: string, status: int} Response body when ok.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_install-input-trust-boundary
+     */
+    public function fetchPackage(string $url, bool $credentials = false): array
+    {
+        $response = Http::withHeaders($credentials ? $this->headers() : ['Accept' => '*/*'])
+            ->withOptions([
+                'verify' => $this->verifySsl(),
+                'allow_redirects' => $this->redirectPolicy($url, $credentials),
+            ])
+            ->timeout($this->downloadTimeout)
+            ->get($url);
+
+        return ['ok' => $response->successful(), 'body' => $response->successful() ? $response->body() : '', 'status' => $response->status()];
+    }
+
+    /**
+     * Guzzle redirect options for a package download.
+     *
+     * At most 3 hops, https only when the URL is https. With credentials every hop
+     * must stay on the library host (isLibraryUrl()), otherwise the download is
+     * aborted before the credentials are sent there.
+     *
+     * @param string $url         The URL being fetched.
+     * @param bool   $credentials Whether the request carries the site's credentials.
+     * @return array<string, mixed> Value for the "allow_redirects" request option.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_install-input-trust-boundary
+     */
+    public function redirectPolicy(string $url, bool $credentials): array
+    {
+        $policy = [
+            'max' => 3,
+            'protocols' => str_starts_with(strtolower($url), 'https://') ? ['https'] : ['http', 'https'],
+        ];
+        if ($credentials) {
+            $policy['on_redirect'] = function ($request, $response, $uri): void {
+                if (!$this->isLibraryUrl((string) $uri)) {
+                    throw new \RuntimeException('Download aborted: redirect off the extension library host');
+                }
+            };
+        }
+
+        return $policy;
+    }
+
+    /**
      * Download a (paid) extension zip through the license-gated endpoint.
      *
      * Returns the raw body: either zip bytes or a JSON error string, which the
-     * caller (ExtensionInstaller) inspects.
+     * caller (ExtensionInstaller) inspects. Credentials are sent and never follow a
+     * redirect off the library host (fetchPackage()).
      *
      * @param string $groupType Plugins|Templates.
      * @param string $key       Extension key.
      * @param string $license   Per-plugin license.
      * @return string Response body (zip bytes or JSON error).
+     * @throws \RuntimeException|\Illuminate\Http\Client\ConnectionException When a redirect leaves the
+     *         library host, breaks the protocol rule, or the connection fails.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     * @aidlc-adr plugin-manager_install-input-trust-boundary
      */
     public function download(string $groupType, string $key, string $license): string
     {
-        $response = Http::withHeaders($this->headers())
-            ->withOptions(['verify' => $this->verifySsl()])
-            ->timeout($this->downloadTimeout)
-            ->get($this->baseUrl().'/extension/download', [
-                'type'          => $groupType,
-                'key'           => $key,
-                'gp247_version' => (string) config('gp247.core'),
-                'license'       => $license,
-            ]);
+        $url = $this->baseUrl().'/extension/download?'.http_build_query([
+            'type'          => $groupType,
+            'key'           => $key,
+            'gp247_version' => (string) config('gp247.core'),
+            'license'       => $license,
+        ]);
+        $fetched = $this->fetchPackage($url, true);
 
-        if (!$response->successful()) {
-            return json_encode(['error' => 1, 'msg' => 'Download failed: HTTP '.$response->status()]);
+        if (!$fetched['ok']) {
+            return json_encode(['error' => 1, 'msg' => 'Download failed: HTTP '.$fetched['status']]);
         }
-        return $response->body();
+        return $fetched['body'];
     }
 
     /**

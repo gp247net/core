@@ -11,7 +11,9 @@ use GP247\Core\Library\LibraryClient;
  *
  * @aidlc-unit system-cli
  * @aidlc-story US-CLI-002
+ * @aidlc-story US-PLG-orphan-source-missing-notice
  * @aidlc-adr system-cli_service-extraction
+ * @aidlc-adr plugin-manager_orphan-source-missing-notice
  */
 class ExtInstall extends ExtCommand
 {
@@ -101,6 +103,9 @@ class ExtInstall extends ExtCommand
             $this->info('Installed: '.$key);
         } else {
             $failed[$source] = is_array($response) ? ($response['msg'] ?? 'Install failed') : 'Install failed';
+            if (is_array($response) && ($response['detail'] ?? '') === 'type_mismatch' && !empty($response['package_type'])) {
+                $failed[$source] .= ' Re-run with --type='.($response['package_type'] === 'Templates' ? 'template' : 'plugin').'.';
+            }
             $this->addWarning('Failed '.$source.': '.$failed[$source]);
         }
     }
@@ -118,14 +123,16 @@ class ExtInstall extends ExtCommand
      */
     protected function installRemote(ExtensionInstaller $installer, string $type, string $key): array
     {
-        // 1) Already installed (has an admin_config row) → refuse. Use ext-update
-        //    to update or ext-uninstall to reinstall.
-        if (gp247_extension_check_installed($type, $key)) {
-            return [
-                'error'  => 1,
-                'msg'    => gp247_language_render('admin.extension.error_exist'),
-                'detail' => 'already_installed',
-            ];
+        // 1) Already in the database → refuse before any marketplace call: installed
+        //    (use ext-update / ext-uninstall) or orphaned — row without source, e.g. a
+        //    database copied from another site; the operator brings the matching source
+        //    (US-PLG-orphan-source-missing-notice).
+        if (!ExtensionInstaller::isValidKey($key)) {
+            return ['error' => 1, 'msg' => 'Invalid extension key: only letters, digits, "_" and "-" are allowed', 'detail' => 'invalid_key'];
+        }
+        $refusal = $installer->installedRefusal($type, $key);
+        if ($refusal !== null) {
+            return $refusal;
         }
 
         // 2) Files already on disk but NOT installed (e.g. a bundled plugin like
