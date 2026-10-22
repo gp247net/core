@@ -61,11 +61,15 @@ class DataLanguageSeeder extends Seeder
      */
     protected function writeLang(array $rows)
     {
-        $table = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX.'languages');
-        if ($this->useUpsert) {
-            $table->upsert($rows, ['code', 'location'], ['text', 'position']);
-        } else {
-            $table->insertOrIgnore($rows);
+        // WHY chunk: three locales put a single statement near driver placeholder
+        // limits (SQLite 999 on old builds); 500 rows stays well inside all of them.
+        foreach (array_chunk($rows, 500) as $chunk) {
+            $table = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX.'languages');
+            if ($this->useUpsert) {
+                $table->upsert($chunk, ['code', 'location'], ['text', 'position']);
+            } else {
+                $table->insertOrIgnore($chunk);
+            }
         }
     }
 
@@ -887,6 +891,7 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.email_template.text','text' => 'Nội dung','position' => 'admin.email_template','location' => 'vi'],
             ['code' => 'admin.email_template.name','text' => 'Name','position' => 'admin.email_template','location' => 'en'],
             ['code' => 'admin.email_template.lits','text' => 'Email template list','position' => 'admin.email_template','location' => 'en'],
+            ['code' => 'admin.email_template.lits','text' => 'Danh sách mẫu email','position' => 'admin.email_template','location' => 'vi'],
             ['code' => 'admin.email_template.group','text' => 'Group','position' => 'admin.email_template','location' => 'en'],
             ['code' => 'admin.email_template.text','text' => 'Content','position' => 'admin.email_template','location' => 'en'],
             ['code' => 'admin.email_template.html','text' => 'HTML','position' => 'admin.email_template','location' => 'en'],
@@ -963,6 +968,7 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.menu.sort','text' => 'Sort','position' => 'admin.emnu','location' => 'en'],
             ['code' => 'email.email_action_queue','text' => 'Use send mail queue <span class="text-red">(*)</span>','position' => 'email.admin','location' => 'en'],
             ['code' => 'admin.email.other','text' => 'Other','position' => 'email.admin','location' => 'en'],
+            ['code' => 'admin.email.forgot_password','text' => 'Send forgot password email','position' => 'email.admin','location' => 'en'],
             ['code' => 'admin.email.forgot_password','text' => 'Gửi mail quên mật khẩu','position' => 'email.admin','location' => 'vi'],
             ['code' => 'email.email_action_queue','text' => 'Gửi mail qua hàng đợi <span class="text-red">(*)</span>','position' => 'email.admin','location' => 'vi'],
             ['code' => 'admin.email.config_smtp','text' => 'Cấu hình SMTP','position' => 'email.admin','location' => 'vi'],
@@ -989,6 +995,7 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'email.email_action.mode','text' => 'Action mode','position' => 'email.admin','location' => 'en'],
             ['code' => 'email.email_action.sort','text' => 'Action sort','position' => 'email.admin','location' => 'en'],
             ['code' => 'email.email_action.welcome_customer','text' => 'Send email welcome','position' => 'email.admin','location' => 'en'],
+            ['code' => 'email.email_action.welcome_customer','text' => 'Gửi email chào mừng','position' => 'email.admin','location' => 'vi'],
             ['code' => 'email.email_action.email_action_mode','text' => 'ON/OFF send mail','position' => 'email.admin','location' => 'en'],
             ['code' => 'email.email_action.email_action_queue','text' => 'Use send mail queue <span class="text-red">(*)</span>','position' => 'email.admin','location' => 'en'],
             ['code' => 'email.email_action.email_action_smtp_mode','text' => 'SMTP mode','position' => 'email.admin','location' => 'en'],
@@ -1083,10 +1090,12 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.role.add_new_title','text' => 'Add new role','position' => 'admin.role','location' => 'en'],
             ['code' => 'admin.role.add_new_des','text' => 'Create a new role','position' => 'admin.role','location' => 'en'],
             ['code' => 'admin.role.select_http_method','text' => 'Select method','position' => 'admin.role','location' => 'en'],
+            ['code' => 'admin.role.select_http_method','text' => 'Chọn phương thức','position' => 'admin.role','location' => 'vi'],
             ['code' => 'admin.role.select_permission','text' => 'Select permission','position' => 'admin.role','location' => 'en'],
             ['code' => 'admin.role.select_user','text' => 'Select user','position' => 'admin.role','location' => 'en'],
             ['code' => 'admin.role.slug','text' => 'Slug','position' => 'admin.role','location' => 'vi'],
             ['code' => 'admin.role.name','text' => 'Tên','position' => 'admin.role','location' => 'vi'],
+            ['code' => 'admin.role.roles','text' => 'Roles','position' => 'admin.role','location' => 'en'],
             ['code' => 'admin.role.roles','text' => 'vai trò','position' => 'admin.role','location' => 'vi'],
             ['code' => 'admin.role.permission','text' => 'Quyền hạn','position' => 'admin.role','location' => 'vi'],
             ['code' => 'admin.role.http_path','text' => 'HTTP path','position' => 'admin.role','location' => 'vi'],
@@ -1864,6 +1873,8 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.language_manager.click_to_edit','text' => 'nhấn để sửa','position' => 'admin.language_manager','location' => 'vi'],
 
         ];
-        return $dataLang;
+        // WHY: further default locales live in Locales/<code>.php (one source shared
+        // with the upgrade path) instead of a third inline copy of every row.
+        return array_merge($dataLang, LocaleRows::fromFile(__DIR__.'/Locales/ja.php', 'ja', $dataLang));
     }
 }

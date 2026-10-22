@@ -7,7 +7,7 @@
  \_____|_|       |____|  |_| /_/    
 ```
 
-> 🌐 **Language:** 🇬🇧 English (current) · [🇻🇳 Tiếng Việt](README_vi.md)
+> 🌐 **Language:** [🇻🇳 Tiếng Việt](./README_vi.md) · 🇬🇧 English (current) · [🇯🇵 日本語](./README_ja.md)
 
 Install the core (Laravel already set up):
 

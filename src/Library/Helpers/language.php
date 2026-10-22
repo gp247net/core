@@ -52,8 +52,8 @@ if (!function_exists('gp247_language_render') && !in_array('gp247_language_rende
             return null;
         }
         $locale = $locale ? $locale : gp247_get_locale();
-        $languages = gp247_languages($locale);
-        return !empty($languages[$string]) ? gp247_language_replace($languages[$string], $replace): trans($string, $replace);
+        $text = gp247_language_text($string, $locale);
+        return $text !== null ? gp247_language_replace($text, $replace): trans($string, $replace);
     }
 }
 
@@ -64,9 +64,40 @@ if (!function_exists('gp247_language_quickly') && !in_array('gp247_language_quic
      */
     function gp247_language_quickly($string, $default = null)
     {
-        $locale = gp247_get_locale();
+        $text = gp247_language_text($string, gp247_get_locale());
+        return $text !== null ? $text : (\Lang::has($string) ? trans($string) : $default);
+    }
+}
+
+if (!function_exists('gp247_language_text') && !in_array('gp247_language_text', config('gp247_functions_except', []))) {
+    /**
+     * Look up a language string in the database for a locale, falling back to
+     * the fallback locale (en) when the locale has no non-empty text for it.
+     *
+     * @param string $string Language code, e.g. 'admin.order.title'.
+     * @param string $locale Locale being rendered.
+     * @return string|null The text, or null when neither locale has it.
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-language-fallback-en
+     * @aidlc-adr compat-foundation_locale-data-files
+     */
+    function gp247_language_text($string, $locale)
+    {
         $languages = gp247_languages($locale);
-        return !empty($languages[$string]) ? $languages[$string] : (\Lang::has($string) ? trans($string) : $default);
+        if (!empty($languages[$string])) {
+            return $languages[$string];
+        }
+        // WHY: a locale added later (ja) or a key shipped without every translation
+        // should read in English rather than expose the raw code to users.
+        $fallback = config('app.fallback_locale') ?: 'en';
+        if ($fallback !== $locale) {
+            $languages = gp247_languages($fallback);
+            if (!empty($languages[$string])) {
+                return $languages[$string];
+            }
+        }
+        return null;
     }
 }
 

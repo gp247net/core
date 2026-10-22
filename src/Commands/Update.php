@@ -3,6 +3,7 @@
 namespace GP247\Core\Commands;
 
 use GP247\Core\Console\GP247Command;
+use GP247\Core\Library\LanguageFlagSync;
 use Illuminate\Support\Facades\Artisan;
 use Throwable;
 
@@ -77,6 +78,8 @@ class Update extends GP247Command
             return $this->respondFailure('seed_failed', $e->getMessage());
         }
 
+        $flags = $this->syncLanguageFlags();
+
         $core = config('gp247.core');
         $sub = gp247_composer_get_package_installed()['gp247/core'] ?? '';
         $this->info('---------------------');
@@ -90,6 +93,35 @@ class Update extends GP247Command
             // owner reading --json) can tell that the upgrade path actually ran,
             // not just the seeders (MC-public-upgrade-path metric 4).
             'migrated'    => true,
+            'flags_copied' => $flags,
         ]);
+    }
+
+    /**
+     * Copy language flag icons the published site is missing (never overwrite),
+     * so a default language added by this update shows its flag without an
+     * opt-in `--publish core-public`. A write failure only warns.
+     *
+     * @return array<int, string> Copied file names.
+     *
+     * @aidlc-story US-CLI-upgrade-migration-delivery
+     * @aidlc-adr compat-foundation_locale-data-files
+     */
+    private function syncLanguageFlags(): array
+    {
+        $result = LanguageFlagSync::copyMissing(
+            dirname(__DIR__).'/public/GP247/Core/language',
+            public_path('GP247/Core/language')
+        );
+        if ($result['copied']) {
+            $this->info('- Language flags copied: '.implode(', ', $result['copied']));
+        }
+        if ($result['failed']) {
+            $message = 'Could not copy language flags to public/GP247/Core/language: '.implode(', ', $result['failed']);
+            gp247_report($message);
+            $this->addWarning($message);
+        }
+
+        return $result['copied'];
     }
 }

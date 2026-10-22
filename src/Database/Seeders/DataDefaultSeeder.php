@@ -12,6 +12,7 @@ class DataDefaultSeeder extends Seeder
     public $language_default = 'en';
     public $title_en = 'Demo GP247 CMS';
     public $title_vi = 'Demo GP247 CMS';
+    public $title_ja = 'Demo GP247 CMS';
 
     /**
      * Run the database seeds.
@@ -48,11 +49,10 @@ class DataDefaultSeeder extends Seeder
         $dataAdminStore = $this->dataAdminStore($this->adminEmail, $this->language_default, str_replace(['http://','https://'], '', url('/')));
         $db->table(GP247_DB_PREFIX.'admin_store')->insertOrIgnore($dataAdminStore);
 
-        $dataAdminStoreDescription = $this->dataAdminStoreDescription($this->title_en, $this->title_vi);
+        $dataAdminStoreDescription = $this->dataAdminStoreDescription($this->title_en, $this->title_vi, $this->title_ja);
         $db->table(GP247_DB_PREFIX.'admin_store_description')->insertOrIgnore($dataAdminStoreDescription);
 
-        $dataShopLang = $this->dataShopLang();
-        $db->table(GP247_DB_PREFIX.'admin_language')->insertOrIgnore($dataShopLang);
+        $this->seedLanguageList($db);
 
         $db->table(GP247_DB_PREFIX.'admin_home')->insertOrIgnore(
             [
@@ -200,7 +200,7 @@ class DataDefaultSeeder extends Seeder
         return $dataAdminStore;
     }
 
-    public function dataAdminStoreDescription($titleE, $titleV) {
+    public function dataAdminStoreDescription($titleE, $titleV, $titleJ = null) {
         $dataAdminStoreDescription = [
             ['store_id' => GP247_STORE_ID_ROOT,'lang' => 'en','name' => $titleE,'description' => '','keyword' => '','maintain_content' => '<center><img src="/GP247/Core/images/maintenance.jpg" />
             <h3><span style="color:#e74c3c;"><strong>Sorry! We are currently doing site maintenance!</strong></span></h3>
@@ -208,6 +208,9 @@ class DataDefaultSeeder extends Seeder
             ['store_id' => GP247_STORE_ID_ROOT,'lang' => 'vi','name' => $titleV,'description' => '','keyword' => '','maintain_content' => '<center><img src="/GP247/Core/images/maintenance.jpg" />
             <h3><span style="color:#e74c3c;"><strong>Xin lỗi! Hiện tại website đang bảo trì!</strong></span></h3>
             </center>','maintain_note' => 'Website đang trong chế độ bảo trì!'],
+            ['store_id' => GP247_STORE_ID_ROOT,'lang' => 'ja','name' => $titleJ ?? $titleE,'description' => '','keyword' => '','maintain_content' => '<center><img src="/GP247/Core/images/maintenance.jpg" />
+            <h3><span style="color:#e74c3c;"><strong>申し訳ございません。現在サイトのメンテナンスを行っております。</strong></span></h3>
+            </center>','maintain_note' => 'ただいまメンテナンス中です。'],
         ];
         return $dataAdminStoreDescription;
     }
@@ -216,8 +219,33 @@ class DataDefaultSeeder extends Seeder
         $dataShopLang = [
             ['id' => '1','name' => 'English','code' =>'en','icon' => '/GP247/Core/language/flag_uk.png','status' => '1','rtl' => '0', 'sort' => '1'],
             ['id' => '2','name' => 'Tiếng Việt','code' => 'vi','icon' => '/GP247/Core/language/flag_vn.png','status' => '1','rtl' => '0', 'sort' => '2'],
+            ['id' => '3','name' => '日本語','code' => 'ja','icon' => '/GP247/Core/language/flag_jp.png','status' => '1','rtl' => '0', 'sort' => '3'],
         ];
         return $dataShopLang;
+    }
+
+    /**
+     * Seed the default language list, but only on a fresh install.
+     *
+     * gp247:core-update re-runs this seeder on every update; writing the list on a
+     * populated table would bring back a language the site owner deleted (and
+     * switch it on). Installed sites receive new default languages through an
+     * upgrade migration instead, which decides their initial status.
+     *
+     * @param \Illuminate\Database\ConnectionInterface $db
+     * @return void
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-japanese-default-locale
+     * @aidlc-adr compat-foundation_locale-data-files
+     */
+    public function seedLanguageList($db)
+    {
+        $table = $db->table(GP247_DB_PREFIX.'admin_language');
+        if ($table->exists()) {
+            return;
+        }
+        $db->table(GP247_DB_PREFIX.'admin_language')->insertOrIgnore($this->dataShopLang());
     }
 
     public function updateDataVersion() {
