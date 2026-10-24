@@ -6,17 +6,19 @@ use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
 use GP247\Core\AdminShell\Infrastructure\HasStoreScopeUi;
 use GP247\Core\Models\AdminLanguage;
 use GP247\Core\Models\AdminStore;
+use GP247\Core\Models\AdminStoreDescription;
 use Illuminate\Contracts\View\View;
 
 /**
  * Website information (store_info) screen (ADR-005), the modern Livewire port of
  * the legacy AdminStoreInfoController screen. Single root store: an Active toggle,
- * a left panel of store fields (logo/icon/og_image + contact details, live inline
- * edit) and a right panel of multilingual descriptions (title/keyword/description
- * plus the maintenance copy — maintain_content / maintain_note — folded in from the
- * legacy store_maintain screen, per active language). Each change persists
- * immediately and is Layer-2 authorized
- * (ADR-001); values are gp247_clean'd. Gated by the `store.full` permission.
+ * a left panel of store fields (logo/icon/og_image + contact details) and a right
+ * panel of multilingual descriptions (title/keyword/description plus the
+ * maintenance copy — maintain_content / maintain_note — folded in from the legacy
+ * store_maintain screen, per active language). Field edits persist only on the
+ * explicit Save action (save()); the Active toggle alone persists immediately.
+ * Every write is Layer-2 authorized (ADR-001); values are gp247_clean'd. Gated by
+ * the `store.full` permission.
  *
  * @aidlc-unit admin-shell-rbac
  * @aidlc-story US-UI-009
@@ -56,8 +58,8 @@ class WebsiteInfo extends GP247AdminComponent
     public array $desc = [];
 
     /**
-     * Template key awaiting confirmation. Set when the admin picks a different
-     * template; the destructive switch (removeStore/setupStore) only runs after
+     * Template key awaiting confirmation. Set when Save finds a different template
+     * selected; the destructive switch (removeStore/setupStore) only runs after
      * confirmTemplateSwitch(). Null when no switch is pending.
      *
      * @var string|null
@@ -171,67 +173,118 @@ class WebsiteInfo extends GP247AdminComponent
     }
 
     /**
-     * Persist a scalar store field the moment it changes (Layer-2 gated). Domain
-     * is uniqueness-checked like the legacy controller.
+     * Store fields the Save action may write. Overridable so a narrower screen
+     * (e.g. the MultiVendor vendor store-info) can shrink the allow-list; the
+     * domain is offered only in ROOT context (platform-owner only).
      *
-     * @param mixed  $value
-     * @param string $key   The changed `store.<key>` segment.
+     * @return string[]
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-UI-009
+     */
+    protected function writableStoreFields(): array
+    {
+        $fields = array_merge(self::MEDIA, self::FIELDS, self::SELECTS);
+
+        // WHY domain is platform-owner only: it drives multi-domain routing and the
+        // store-admin domain guard. A bound store-admin (isRootScope() === false)
+        // must never change it — dropped server-side even if the field were forged
+        // (the blade also hides it for non-root). mod 20260905T230324,
+        // RISK-SEC-website-info-domain-hijack.
+        if ($this->isRootScope()) {
+            $fields[] = 'domain';
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Persist every edited store field and per-language description in one go
+     * (Layer-2 gated). Field edits are deferred until this explicit Save so IME
+     * users (Enter / input-mode switches mid-composition) never persist partial
+     * text. All-or-nothing on validation: a taken domain aborts before any write.
+     * A changed template is not written here — it opens the destructive-switch
+     * confirmation (confirmTemplateSwitch) after the other fields are saved.
+     *
      * @return void
      * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-UI-009
+     * @aidlc-adr ADR-001, ADR-005
      */
-    public function updatedStore($value, string $key): void
+    public function save(): void
     {
         $this->authorizeAction('update');
 
-        if (!in_array($key, array_merge(self::MEDIA, self::FIELDS, self::SELECTS, ['domain']), true)) {
-            return;
+        $storeId = $this->storeId();
+        $fields = $this->writableStoreFields();
+
+        $values = [];
+        foreach ($fields as $field) {
+            $values[$field] = gp247_clean((string) ($this->store[$field] ?? ''));
         }
 
-        $clean = gp247_clean((string) $value);
-
-        if ($key === 'domain') {
-            // WHY domain is platform-owner only: it drives multi-domain routing and the
-            // store-admin domain guard. A bound store-admin (isRootScope() === false)
-            // must never change it — reject server-side even if the field were forged
-            // (the blade also hides it for non-root). mod 20260905T230324,
-            // RISK-SEC-website-info-domain-hijack.
-            if (!$this->isRootScope()) {
-                $this->notify('error', gp247_language_render('admin.permission_denied'));
-
-                return;
-            }
-            $domain = function_exists('gp247_store_process_domain') ? gp247_store_process_domain($clean) : $clean;
-            $taken = AdminStore::where('domain', $domain)->where('id', '<>', $this->storeId())->exists();
-            if ($taken) {
+        if (array_key_exists('domain', $values)) {
+            $domain = function_exists('gp247_store_process_domain') ? gp247_store_process_domain($values['domain']) : $values['domain'];
+            // WHY only when changed: an unchanged (possibly legacy-duplicated or empty)
+            // domain must not block saving the other fields.
+            $changed = $domain !== (string) (AdminStore::where('id', $storeId)->value('domain') ?? '');
+            if ($changed && AdminStore::where('domain', $domain)->where('id', '<>', $storeId)->exists()) {
                 $this->notify('error', gp247_language_render('admin.store.domain_exist'));
 
                 return;
             }
+            $values['domain'] = $domain;
             $this->store['domain'] = $domain;
-            AdminStore::where('id', $this->storeId())->update(['domain' => $domain]);
-        } elseif ($key === 'template') {
-            // WHY: switching template runs removeStore()/setupStore(), which DELETE
-            // the current template's homepage layout blocks + banners and reseed
-            // sample data — destructive and irreversible (RISK-OPS-template-switch-
-            // data-loss). Defer behind an explicit confirmation modal instead of
-            // firing on select (ADR admin-shell-rbac_template-switch-confirmation).
-            $current = (string) (AdminStore::where('id', $this->storeId())->value('template') ?? '');
-            if ($clean === '' || $clean === $current) {
-                return; // no-op: cleared, or re-picked the already-active template
-            }
-            // WHY: opening the modal is driven off this property (a client-side
-            // Alpine bridge in the view watches $wire.pendingTemplate), NOT a
-            // server $this->dispatch('open-modal') — Livewire wraps dispatched
-            // params so the modal's `$event.detail === name` check would never
-            // match. pendingTemplate is the single source of truth for the gate.
-            $this->pendingTemplate = $clean;
+        }
 
-            return; // do NOT persist or notify — wait for confirmTemplateSwitch()
-        } else {
-            AdminStore::where('id', $this->storeId())->update([$key => $clean]);
+        // WHY: switching template runs removeStore()/setupStore(), which DELETE the
+        // current template's homepage layout blocks + banners and reseed sample data
+        // — destructive and irreversible (RISK-OPS-template-switch-data-loss). Never
+        // write it with the other fields; defer behind the confirmation modal
+        // (ADR admin-shell-rbac_template-switch-confirmation).
+        $template = $values['template'] ?? '';
+        unset($values['template']);
+
+        if ($values !== []) {
+            AdminStore::where('id', $storeId)->update($values);
+        }
+        $this->saveDescriptions($storeId);
+
+        $current = (string) (AdminStore::where('id', $storeId)->value('template') ?? '');
+        if (in_array('template', $fields, true) && $template !== '' && $template !== $current) {
+            // WHY: the modal is driven off this property (an Alpine bridge in the view
+            // watches $wire.pendingTemplate), NOT a server dispatch('open-modal') —
+            // Livewire wraps dispatched params so the modal's `$event.detail === name`
+            // check would never match.
+            $this->pendingTemplate = $template;
         }
 
         $this->notify('success', gp247_language_render('admin.setting_saved'));
+    }
+
+    /**
+     * Upsert the per-language descriptions held in state, for active languages
+     * only (a forged `desc.<lang>` for an inactive/unknown code is ignored).
+     *
+     * @param int|string $storeId
+     * @return void
+     */
+    private function saveDescriptions($storeId): void
+    {
+        foreach (array_keys($this->languages()) as $code) {
+            $row = [];
+            foreach (self::DESC_FIELDS as $field) {
+                $value = (string) ($this->desc[$code][$field] ?? '');
+                // WHY: rich HTML fields keep their markup (raw); plain-text fields are XSS-cleaned.
+                $row[$field] = in_array($field, self::RICH_FIELDS, true) ? $value : gp247_clean($value);
+            }
+
+            AdminStoreDescription::where('store_id', $storeId)->where('lang', $code)->exists()
+                ? AdminStoreDescription::where('store_id', $storeId)->where('lang', $code)->update($row)
+                : AdminStoreDescription::insert(['store_id' => $storeId, 'lang' => (string) $code] + $row);
+        }
     }
 
     /**
@@ -327,38 +380,6 @@ class WebsiteInfo extends GP247AdminComponent
         $this->authorizeAction('update');
 
         AdminStore::where('id', $this->storeId())->update(['active' => $this->active ? 1 : 0]);
-        $this->notify('success', gp247_language_render('admin.setting_saved'));
-    }
-
-    /**
-     * Persist a per-language description field (Layer-2 gated). The wire path is
-     * `desc.<lang>.<field>`, so $path arrives as "<lang>.<field>".
-     *
-     * @param mixed  $value
-     * @param string $path
-     * @return void
-     * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
-     */
-    public function updatedDesc($value, string $path): void
-    {
-        $this->authorizeAction('update');
-
-        [$lang, $field] = array_pad(explode('.', $path, 2), 2, '');
-        if ($lang === '' || !in_array($field, self::DESC_FIELDS, true)) {
-            return;
-        }
-
-        // WHY: rich HTML fields keep their markup (raw); plain-text fields are XSS-cleaned.
-        $value = (string) $value;
-        $value = in_array($field, self::RICH_FIELDS, true) ? $value : gp247_clean($value);
-
-        AdminStore::updateDescription([
-            'storeId' => $this->storeId(),
-            'lang' => $lang,
-            'name' => $field,
-            'value' => $value,
-        ]);
-
         $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 

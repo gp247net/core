@@ -1,8 +1,9 @@
 {{--
     Website information (store_info) screen (ADR-005): an Active toggle, a left
     definition-table of store fields (media, contact details, language/domain/
-    currency/template selects — live inline edit) and a right table of multilingual
-    descriptions (name/keyword/description per active language). Bordered, striped
+    currency/template selects) and a right table of multilingual descriptions
+    (name/keyword/description per active language). Edits persist only via the Save
+    button (form submit → save()); the Active toggle alone saves instantly. Bordered, striped
     two-column layout consistent with the config screens, mirroring the legacy
     store_info. The maintenance copy (maintain_content / maintain_note) from the
     legacy store_maintain screen is folded into each language panel. All labels via
@@ -65,6 +66,14 @@
         </label>
     </div>
 
+    {{-- WHY a form + Enter guard: IME users (Japanese) press Enter to commit a
+         composition and switch input modes constantly, so nothing may save on
+         change/blur/Enter — only the Save button submits. The form submit also
+         lets <x-gp247::rich-editor> flush TinyMCE content in its capture-phase
+         listener before save() runs. --}}
+    <form wire:submit="save" x-data
+          x-on:keydown.enter="if ($event.target.tagName === 'INPUT') $event.preventDefault()"
+          class="space-y-6">
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {{-- Left: store fields --}}
         <div class="overflow-hidden rounded-xl border border-gray-200 shadow-sm dark:border-gray-700">
@@ -80,10 +89,10 @@
                             <td class="{{ $valueCell }}">
                                 @switch($row['type'])
                                     @case('media')
-                                        <x-gp247::media-input :name="$field" :type="$meta[$field]['lfm'] ?? 'logo'" wire:model.live="store.{{ $field }}" :value="$store[$field] ?? null" />
+                                        <x-gp247::media-input :name="$field" :type="$meta[$field]['lfm'] ?? 'logo'" wire:model="store.{{ $field }}" :value="$store[$field] ?? null" />
                                         @break
                                     @case('textarea')
-                                        <textarea wire:model.live.blur="store.{{ $field }}" rows="2" class="{{ $input }}"></textarea>
+                                        <textarea wire:model="store.{{ $field }}" rows="2" class="{{ $input }}"></textarea>
                                         @break
                                     @case('select')
                                         {{-- WHY: store language/currency/template must always hold a
@@ -96,7 +105,7 @@
                                         />
                                         @break
                                     @default
-                                        <input type="text" wire:model.live.blur="store.{{ $field }}" class="{{ $input }}">
+                                        <input type="text" wire:model="store.{{ $field }}" class="{{ $input }}">
                                 @endswitch
                             </td>
                         </tr>
@@ -122,9 +131,9 @@
                                     {{ gp247_language_render($descLabels[$df]) }}
                                 </label>
                                 @if ($control === 'textarea')
-                                    <textarea wire:model.live.blur="desc.{{ $code }}.{{ $df }}" rows="4" class="{{ $input }}"></textarea>
+                                    <textarea wire:model="desc.{{ $code }}.{{ $df }}" rows="4" class="{{ $input }}"></textarea>
                                 @else
-                                    <input type="text" wire:model.live.blur="desc.{{ $code }}.{{ $df }}" class="{{ $input }}">
+                                    <input type="text" wire:model="desc.{{ $code }}.{{ $df }}" class="{{ $input }}">
                                 @endif
                             </div>
                         @endforeach
@@ -143,7 +152,7 @@
                                     @if ($lang->icon)<img src="{{ gp247_file($lang->icon) }}" alt="{{ $lang->name }}" class="h-4 w-auto rounded-sm">@endif
                                     {{ gp247_language_render('admin.maintain.description_note') }}
                                 </label>
-                                <input type="text" wire:model.live.blur="desc.{{ $code }}.maintain_note" class="{{ $input }}">
+                                <input type="text" wire:model="desc.{{ $code }}.maintain_note" class="{{ $input }}">
                             </div>
                         </div>
                     </div>
@@ -151,6 +160,13 @@
             </x-gp247::tabs>
         </div>
     </div>
+
+    <div class="flex items-center justify-end gap-2">
+        <x-gp247::button type="submit" wire:loading.attr="disabled" data-testid="website-info-save">
+            <i class="fas fa-save"></i> {{ gp247_language_render('admin.save') }}
+        </x-gp247::button>
+    </div>
+    </form>
 
     {{-- Confirm dialog before running the destructive template switch
          (removeStore/setupStore). Visibility is driven off the server property
@@ -160,7 +176,8 @@
          server $this->dispatch('open-modal'): Livewire wraps dispatched params so
          the modal's strict $event.detail === name check never matches — the same
          reason language-string-manager binds its modal to a wire property.
-         Cancel resets store.template so the searchable-select snaps back.
+         Opened by save() when a different template is selected; Cancel resets
+         store.template so the searchable-select snaps back.
          @aidlc-adr admin-shell-rbac_template-switch-confirmation --}}
     <div x-data x-effect="$wire.pendingTemplate
             ? $dispatch('open-modal', 'confirm-template')
