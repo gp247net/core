@@ -21,8 +21,8 @@ use Livewire\Livewire;
  * (strangler).
  *
  * @aidlc-unit admin-shell
- * @aidlc-story US-LW-001
- * @aidlc-adr ADR-003, ADR-006, ADR-007
+ * @aidlc-story US-LW-001, US-CMP-developer-route-override
+ * @aidlc-adr ADR-003, ADR-006, ADR-007, compat-foundation_developer-override-seam
  */
 class AdminShellResourceRegistrar
 {
@@ -57,8 +57,10 @@ class AdminShellResourceRegistrar
             ->middleware(GP247_ADMIN_MIDDLEWARE)
             ->group(static function () use ($routePrefix, $resources): void {
                 foreach ($resources as $base => $classes) {
-                    $listClass = $classes[0] ?? null;
-                    $formClass = $classes[1] ?? null;
+                    // WHY: every GP247 route target goes through the developer-override
+                    // seam (ADR compat-foundation_developer-override-seam), this registrar included.
+                    $listClass = isset($classes[0]) ? gp247_namespace($classes[0]) : null;
+                    $formClass = isset($classes[1]) ? gp247_namespace($classes[1]) : null;
                     $name = 'gp247.' . $routePrefix . '.' . $base;
 
                     if ($listClass !== null && class_exists($listClass)) {

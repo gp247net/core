@@ -89,10 +89,4 @@ class AdminAuthController extends RootAdminController
     {
         return Auth::guard('admin');
     }
-
-    public function getInfo()
-    {
-        $user = request()->user();
-        return response()->json($user);
-    }
 }

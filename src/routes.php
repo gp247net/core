@@ -27,20 +27,16 @@ Route::group(
         }
 
 
-        if (file_exists(app_path('GP247/Core/Controllers/HomeController.php'))) {
-            $nameSpaceHome = 'App\GP247\Core\Controllers';
-        } else {
-            $nameSpaceHome = 'GP247\Core\Controllers';
-        }
+        $adminHomeController = gp247_namespace(\GP247\Core\Controllers\HomeController::class);
         // Cutover (PA-1): the admin landing renders the modern TailAdmin dashboard
         // in-place at the legacy `/` URL (keeps route name + URI for RBAC). The
         // full-page Livewire Dashboard has no permission gate, mirroring the legacy
         // home. HomeController@default/deny/... stay on the controller below.
-        Route::get('/', \GP247\Core\AdminShell\Http\Livewire\Dashboard::class)->name('admin.home');
-        Route::get('/default', $nameSpaceHome.'\HomeController@default')->name('admin.default');
-        Route::get('/deny', $nameSpaceHome.'\HomeController@deny')->name('admin.deny');
-        Route::get('/data_not_found', $nameSpaceHome.'\HomeController@dataNotFound')->name('admin.data_not_found');
-        Route::get('/deny_single', $nameSpaceHome.'\HomeController@denySingle')->name('admin.deny_single');
+        Route::get('/', gp247_namespace(\GP247\Core\AdminShell\Http\Livewire\Dashboard::class))->name('admin.home');
+        Route::get('/default', $adminHomeController.'@default')->name('admin.default');
+        Route::get('/deny', $adminHomeController.'@deny')->name('admin.deny');
+        Route::get('/data_not_found', $adminHomeController.'@dataNotFound')->name('admin.data_not_found');
+        Route::get('/deny_single', $adminHomeController.'@denySingle')->name('admin.deny_single');
 
         //Language
         Route::get('locale/{code}', function ($code) {
@@ -83,18 +79,16 @@ if(defined('GP247_FRONT_MIDDLEWARE')){
         $langUrl = GP247_SEO_LANG ?'{lang?}/' : '';
         $suffix = GP247_SUFFIX_URL;
 
-        if (file_exists(app_path('GP247/Front/Controllers/HomeController.php'))) {
-            $nameSpaceHome = 'App\GP247\Front\Controllers';
-        } else {
-            $nameSpaceHome = 'GP247\Front\Controllers';
-        }
+        // WHY a string, not ::class: core must not reference gp247/front classes
+        // (NFR-MAINT-001); GP247_FRONT_MIDDLEWARE is only defined when front is installed.
+        $frontHomeController = gp247_namespace('GP247\Front\Controllers\HomeController');
 
         // Front routes
         Route::group(
             [
             'middleware' => GP247_FRONT_MIDDLEWARE,
         ],
-        function () use($langUrl, $suffix, $nameSpaceHome){
+        function () use($langUrl, $suffix, $frontHomeController){
 
             //Load front from front default
             if(file_exists(__DIR__ . '/../../front/src/Routes/front_default.php')){
@@ -106,13 +100,7 @@ if(defined('GP247_FRONT_MIDDLEWARE')){
                 $this->loadRoutesFrom($filename);
             }
 
-
-            //Load front from front
-            foreach (glob(__DIR__ . '/../../front/src/Routes/Front/*.php') as $filename) {
-                $this->loadRoutesFrom($filename);
-            }
-    
-            Route::get($langUrl.'{alias}'.$suffix, $nameSpaceHome.'\HomeController@pageDetailProcessFront')->name('front.page.detail');
+            Route::get($langUrl.'{alias}'.$suffix, $frontHomeController.'@pageDetailProcessFront')->name('front.page.detail');
 
         }
     );
