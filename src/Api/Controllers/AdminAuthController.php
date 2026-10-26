@@ -62,14 +62,14 @@ class AdminAuthController extends RootAdminController
             gp247_event_admin_login($user);
         }
         if ($user->isRole('administrator')) {
-            $scope = explode(',', config('gp247-config.api.auth.api_scope_admin_supper'));
+            $scope = explode(',', config('gp247-config.api.auth.api_scope_admin_super'));
         } else {
             $scope = explode(',', config('gp247-config.api.auth.api_scope_admin'));
         }
 
         ApiTokenLifetime::purgeExpired($user);
         $days = $request->remember_me
-            ? config('gp247-config.api.auth.api_remmember_admin')
+            ? config('gp247-config.api.auth.api_remember_admin')
             : config('gp247-config.api.auth.api_token_expire_admin_default');
         $tokenResult = $user->createToken('Admin:'.$user->email.'- '.now(), $scope, ApiTokenLifetime::expiresAt($days));
         $token = $tokenResult->plainTextToken;

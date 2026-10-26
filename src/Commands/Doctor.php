@@ -104,6 +104,8 @@ class Doctor extends GP247Command
         // their data hook has not run yet (updated by git pull / composer / FTP). Read-only.
         $checks[] = $this->extensionDataPendingCheck($installed);
 
+        $checks[] = $this->apiConfigLegacyNamesCheck();
+
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
         if (!$this->isJson()) {
@@ -286,6 +288,31 @@ class Doctor extends GP247Command
      * @aidlc-story US-CLI-extension-asset-repair
      * @aidlc-adr system-cli_service-extraction
      */
+    /**
+     * REST API environment names still using the old misspelled form (they keep working;
+     * rename them in .env to the name in brackets).
+     *
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-api-config-naming
+     */
+    protected function apiConfigLegacyNamesCheck(): array
+    {
+        if (app()->configurationIsCached()) {
+            // WHY: with config cached Laravel does not read .env, so env() cannot see old names.
+            return $this->check('api_config_legacy_names', 'pass', 'skipped (config cached - run config:clear to check)');
+        }
+        $legacy = \GP247\Core\Api\Support\ApiEnv::legacyInUse();
+        if (!$legacy) {
+            return $this->check('api_config_legacy_names', 'pass', 'none');
+        }
+        $renamed = array_flip(\GP247\Core\Api\Support\ApiEnv::RENAMED);
+        $items = array_map(fn ($old) => $old . ' (' . $renamed[$old] . ')', $legacy);
+
+        return $this->check('api_config_legacy_names', 'warn', count($legacy) . ' legacy name(s) in .env', $items);
+    }
+
     /**
      * Extensions waiting for their data hook (US-PLG-local-update-data-converge).
      *

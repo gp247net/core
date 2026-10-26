@@ -13,6 +13,9 @@ define('GP247_ADMIN_MIDDLEWARE', ['web', 'admin']);
 define('GP247_API_MIDDLEWARE', ['api', 'api.extend']);
 define('GP247_API_CORE_PREFIX', 'api/core');
 define('GP247_API_FRONT_PREFIX', 'api/front');
+// REST API v2 (declared resources, query parameters) — v1 above stays frozen (US-CMP-api-v2-contract)
+define('GP247_API_V2_CORE_PREFIX', 'api/v2/core');
+define('GP247_API_V2_FRONT_PREFIX', 'api/v2/front');
 define('GP247_DB_CONNECTION', config('gp247-config.env.GP247_DB_CONNECTION'));
 //Prefix url admin
 define('GP247_ADMIN_PREFIX', config('gp247-config.env.GP247_ADMIN_PREFIX'));

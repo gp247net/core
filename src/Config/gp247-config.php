@@ -101,17 +101,22 @@ return [
 
     //Config for api
     'api' => [
+        // Correctly spelled keys/env names; the old misspelled ones (api_remmember…, GP247_API_RECOMMEMBER…)
+        // stay readable with the same value — the new env name wins when both are set (US-CMP-api-config-naming).
         'auth' => [
-            'api_remmember' => env('GP247_API_RECOMMEMBER', 30), //days - expires_at
+            'api_remember' => \GP247\Core\Api\Support\ApiEnv::pick('GP247_API_REMEMBER', 'GP247_API_RECOMMEMBER', 30), //days - expires_at
+            'api_remmember' => \GP247\Core\Api\Support\ApiEnv::pick('GP247_API_REMEMBER', 'GP247_API_RECOMMEMBER', 30), //legacy key
             'api_token_expire_default' => env('GP247_API_TOKEN_EXPIRE_DEFAULT', 7), //days - expires_at default
             'api_scope_user' => env('GP247_API_SCOPE_USER', 'user'), //string, separated by commas
-            'api_scope_user_guest' => env('GP247_API_SCOPE_USER_GUEST', 'user-guest'), //string, separated by commas
+            'api_scope_user_guest' => env('GP247_API_SCOPE_USER_GUEST', 'user-guest'), //legacy, no longer issued
 
             'api_scope_admin' => env('GP247_API_SCOPE_ADMIN', 'admin'),//string, separated by commas
-            'api_scope_admin_supper' => env('GP247_API_SCOPE_ADMIN_SUPPER', 'admin-supper'),//string, separated by commas
-            'api_remmember_admin' => env('GP247_API_RECOMMEMBER_ADMIN', 30), //days - expires_at
+            // Value stays "admin-supper" so tokens already issued keep matching; routes also accept "admin-super".
+            'api_scope_admin_super' => \GP247\Core\Api\Support\ApiEnv::pick('GP247_API_SCOPE_ADMIN_SUPER', 'GP247_API_SCOPE_ADMIN_SUPPER', 'admin-supper'),
+            'api_scope_admin_supper' => \GP247\Core\Api\Support\ApiEnv::pick('GP247_API_SCOPE_ADMIN_SUPER', 'GP247_API_SCOPE_ADMIN_SUPPER', 'admin-supper'), //legacy key
+            'api_remember_admin' => \GP247\Core\Api\Support\ApiEnv::pick('GP247_API_REMEMBER_ADMIN', 'GP247_API_RECOMMEMBER_ADMIN', 30), //days - expires_at
+            'api_remmember_admin' => \GP247\Core\Api\Support\ApiEnv::pick('GP247_API_REMEMBER_ADMIN', 'GP247_API_RECOMMEMBER_ADMIN', 30), //legacy key
             'api_token_expire_admin_default' => env('GP247_API_TOKEN_EXPIRE_ADMIN_DEFAULT', 7), //days - expires_at default
-            
         ],
 
         // Middleware for api

@@ -47,31 +47,10 @@ Route::group(
 );
 
 
-// Route api
-if (config('gp247-config.env.GP247_API_MODE')) {
-    Route::group(
-        [
-            'middleware' => GP247_API_MIDDLEWARE,
-        ],
-        function () {
-
-            //Load api from core
-            foreach (glob(__DIR__ . '/Routes/Api/*.php') as $filename) {
-                $this->loadRoutesFrom($filename);
-            }
-
-            //Load api from shop
-            foreach (glob(__DIR__ . '/../../shop/src/Routes/Api/*.php') as $filename) {
-                $this->loadRoutesFrom($filename);
-            }
-
-            //Load api from front
-            foreach (glob(__DIR__ . '/../../front/src/Routes/Api/*.php') as $filename) {
-                $this->loadRoutesFrom($filename);
-            }
-
-        }
-    );
+// Route api — core registers only its own files; front, shop and plugins register theirs
+// through the same seam from their service providers (US-CMP-api-package-route-registration).
+foreach (array_merge(glob(__DIR__ . '/Routes/Api/*.php'), glob(__DIR__ . '/Routes/Api/v2/*.php')) as $filename) {
+    \GP247\Core\Api\Support\ApiRouteRegistrar::register($filename);
 }
 
 

@@ -8,11 +8,6 @@ Route::group([
     'prefix' => GP247_API_CORE_PREFIX,
 ], function (){
 
-    $listAbility = [
-        config('gp247-config.api.auth.api_scope_admin'),
-        config('gp247-config.api.auth.api_scope_admin_supper')
-    ];
-
     $authController = gp247_namespace(AdminAuthController::class);
     //Login
     Route::post('login', $authController.'@login');
@@ -20,7 +15,7 @@ Route::group([
     Route::group([
         'middleware' => [
             'auth:admin-api',
-            'ability:'.implode(',', $listAbility),
+            \GP247\Core\Api\Support\ApiAbilities::admin(),
             'api.admin.active',
         ]
     ], function () use($authController){
