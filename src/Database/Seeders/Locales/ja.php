@@ -329,6 +329,8 @@ return [
     'admin.api_connection.list' => 'API接続一覧',
     'admin.api_connection.description' => '説明',
     'admin.api_connection.apikey' => 'APIキー',
+    'admin.api_connection.apikey_keep_hint' => '現在のキーを保持する場合は空のままにしてください。保存したキーは再表示できません。',
+    'admin.api_connection.apikey_once' => 'このAPIキーを今すぐコピーしてください。表示されるのはこの一回だけです:',
     'admin.api_connection.connection' => 'API接続',
     'admin.api_connection.expire' => '有効期限',
     'admin.api_connection.last_active' => '最終アクセス',

@@ -51,7 +51,18 @@
                     @if ($errors->first('apikey'))
                         <p class="text-sm text-red-600 dark:text-red-400">{{ $errors->first('apikey') }}</p>
                     @endif
+                    @if ($editingId)
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.api_connection.apikey_keep_hint') }}</p>
+                    @endif
                 </div>
+
+                @if ($revealedKey)
+                    <div class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-200"
+                        data-testid="api-connection-key-once">
+                        <p class="font-medium">{{ gp247_language_render('admin.api_connection.apikey_once') }}</p>
+                        <code class="mt-1 block break-all font-mono">{{ $revealedKey }}</code>
+                    </div>
+                @endif
 
                 <x-gp247::input type="date" wire:model="expire" :label="gp247_language_render('admin.api_connection.expire')"
                     :error="$errors->first('expire')" />

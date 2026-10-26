@@ -309,6 +309,10 @@ class CoreServiceProvider extends ServiceProvider
                 Livewire::componentHook(\GP247\Core\AdminShell\Support\LivewireOperationLog::class);
                 $this->registerAdminRoutes();
                 $this->registerAuthorizationExceptionRendering();
+                // One error body for every REST API failure (US-CMP-api-error-contract).
+                $this->app->make(ExceptionHandler::class)->renderable(
+                    static fn (\Throwable $e, Request $request) => \GP247\Core\Api\Support\ApiErrorResponder::fromException($e, $request)
+                );
             } catch (\Throwable $e) {
                 $msg = '#GP247::admin_shell_load:: '.$e->getMessage().' - Line: '.$e->getLine().' - File: '.$e->getFile();
                 gp247_report($msg);
@@ -558,6 +562,8 @@ class CoreServiceProvider extends ServiceProvider
         'localization'     => Localization::class,
         'api.connection'   => ApiConnection::class,
         'json.response'    => ForceJsonResponse::class,
+        'api.admin'        => \GP247\Core\Api\Middleware\ApiAdminAuthorize::class,
+        'api.admin.active' => \GP247\Core\Api\Middleware\ApiAdminActive::class,
         //Admin
         'admin.auth'       => Authenticate::class,
         'admin.log'        => LogOperation::class,
@@ -598,6 +604,25 @@ class CoreServiceProvider extends ServiceProvider
         foreach ($this->middlewareGroups() as $key => $middleware) {
             app('router')->middlewareGroup($key, array_values($middleware));
         }
+
+        $this->registerApiRateLimiters();
+    }
+
+    /**
+     * Named rate limiter used by the API middleware group (`throttle:gp247-api`).
+     *
+     * @return void
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-api-login-throttle
+     * @aidlc-adr compat-foundation_rest-api-hardening
+     */
+    protected function registerApiRateLimiters(): void
+    {
+        \Illuminate\Support\Facades\RateLimiter::for('gp247-api', function (Request $request) {
+            $perMinute = max(1, (int) config('gp247-config.api.throttle.default', 1000));
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute($perMinute)->by($request->ip());
+        });
     }
 
     /**
@@ -639,6 +664,10 @@ class CoreServiceProvider extends ServiceProvider
     {
         $this->app->make(ExceptionHandler::class)->renderable(
             static function (AuthorizationException $e, Request $request) {
+                // The REST API answers with its JSON error body (US-CMP-api-error-contract).
+                if (\GP247\Core\Api\Support\ApiErrorResponder::isGp247Api($request)) {
+                    return null;
+                }
                 if ($request->hasHeader('X-Livewire')) {
                     return response()->json([
                         'gp247_admin_denied' => true,

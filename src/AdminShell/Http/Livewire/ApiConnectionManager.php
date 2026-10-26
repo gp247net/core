@@ -43,8 +43,17 @@ class ApiConnectionManager extends GP247AdminComponent
     /** @var string Connection identifier (slug-like, unique). */
     public string $apiconnection = '';
 
-    /** @var string API key/token. */
+    /** @var string New API key typed or generated in the form; never loaded back from the database. */
     public string $apikey = '';
+
+    /**
+     * Plain key of the connection just saved, rendered once in the save response
+     * (US-CMP-api-connection-key-hashing). WHY protected: Livewire neither serialises
+     * it into wire:snapshot nor sends it back, and the action log never sees it.
+     *
+     * @var string|null
+     */
+    protected ?string $revealedKey = null;
 
     /** @var string|null Expiry date (Y-m-d) or null for no expiry. */
     public ?string $expire = null;
@@ -68,7 +77,8 @@ class ApiConnectionManager extends GP247AdminComponent
         return [
             'description' => 'required|string|max:500',
             'apiconnection' => 'required|string|max:50|regex:/^[0-9a-z\-_]+$/|unique:' . AdminApiConnection::class . ',apiconnection' . $ignore,
-            'apikey' => 'nullable|string|max:128|regex:/^[0-9a-z\-_]+$/',
+            // WHY min:32: the key is stored as an unsalted SHA-256, so it must carry enough entropy.
+            'apikey' => 'nullable|string|min:32|max:128|regex:/^[0-9a-z\-_]+$/',
             'expire' => 'nullable|date',
         ];
     }
@@ -128,7 +138,8 @@ class ApiConnectionManager extends GP247AdminComponent
         $this->editingId = (int) $row->id;
         $this->description = (string) $row->description;
         $this->apiconnection = (string) $row->apiconnection;
-        $this->apikey = (string) $row->apikey;
+        // WHY: keys are stored hashed and never shown again; empty = keep the current key.
+        $this->apikey = '';
         $this->expire = $row->expire ? (string) $row->expire : null;
         $this->status = (bool) (int) $row->status;
         $this->resetErrorBag();
@@ -157,7 +168,7 @@ class ApiConnectionManager extends GP247AdminComponent
      */
     public function generateKey(): void
     {
-        $this->apikey = md5(Str::random(40));
+        $this->apikey = AdminApiConnection::newKey();
     }
 
     /**
@@ -175,18 +186,28 @@ class ApiConnectionManager extends GP247AdminComponent
         $payload = gp247_clean([
             'description' => $validated['description'],
             'apiconnection' => $validated['apiconnection'],
-            'apikey' => $validated['apikey'] ?? '',
             'expire' => $validated['expire'] ?? null,
             'status' => $this->status ? 1 : 0,
         ], [], true);
 
+        // A new connection always gets a key; an edited one keeps its key unless a new one was entered.
+        $newKey = (string) ($validated['apikey'] ?? '');
+        if ($newKey === '' && !$this->editingId) {
+            $newKey = AdminApiConnection::newKey();
+        }
+        if ($newKey !== '') {
+            $payload['apikey'] = $newKey;
+        }
+
         if ($this->editingId) {
-            AdminApiConnection::where('id', $this->editingId)->update($payload);
+            // WHY model update (not query builder): the apikey mutator stores the hash only.
+            AdminApiConnection::findOrFail($this->editingId)->update($payload);
         } else {
             AdminApiConnection::create($payload);
         }
 
         $this->resetForm();
+        $this->revealedKey = $newKey !== '' ? $newKey : null;
         $this->resetPage();
         $this->notify('success', gp247_language_render('action.update_success'));
     }
@@ -263,6 +284,7 @@ class ApiConnectionManager extends GP247AdminComponent
             'rows' => AdminApiConnection::orderBy('id', 'desc')->paginate(10),
             'listCore' => $routes['core'],
             'listFront' => $routes['front'],
+            'revealedKey' => $this->revealedKey,
         ])->layout('gp247-admin::layouts.admin', ['title' => gp247_language_render('admin.api_connection.list')]);
     }
 }

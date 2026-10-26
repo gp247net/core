@@ -62,6 +62,8 @@ class LogOperation
             'password', 'password_confirmation',
             'smtp_password', 'client_secret', 'client_id', 'secret', 'secrect_key',
             'api_secret', 'api_key', 'token', 'license',
+            // API Connection screen: the plain key exists only in the form (US-CMP-api-connection-key-hashing)
+            'apikey',
         ];
 
         return array_values(array_filter(array_merge(

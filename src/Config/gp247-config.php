@@ -119,8 +119,22 @@ return [
         'middleware' => [
             1        => 'json.response',
             2        => 'api.connection',
-            3        => 'throttle: 1000',
+            3        => 'throttle:gp247-api',
         ],
+
+        // Rate limits (named limiters registered by CoreServiceProvider).
+        // default: requests per minute per caller on every API route.
+        // login: login attempts allowed per (account + IP), "attempts,minutes".
+        // login_ip: login attempts allowed per client IP across all accounts, "attempts,minutes".
+        'throttle' => [
+            'default'  => env('GP247_API_THROTTLE', 1000),
+            'login'    => env('GP247_API_LOGIN_THROTTLE', '5,1'),
+            'login_ip' => env('GP247_API_LOGIN_IP_THROTTLE', '20,1'),
+        ],
+
+        // Tenant fence for the admin API: callable(AdminUser $user, Request $request, Route $adminRoute): bool.
+        // Registered by a multi-tenant plugin; false or an exception denies the call (403).
+        'admin_fence' => null,
     ],
 
     //Config for env

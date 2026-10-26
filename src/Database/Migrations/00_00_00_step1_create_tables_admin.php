@@ -244,6 +244,8 @@ return new class extends Migration
                 $table->string('description', 500);
                 $table->string('apiconnection', 50)->unique();
                 $table->string('apikey', 128);
+                // SHA-256 of the key; the plain key is not stored (US-CMP-api-connection-key-hashing)
+                $table->char('apikey_hash', 64)->nullable()->index();
                 $table->date('expire')->nullable();
                 $table->timestamp('last_active', $precision = 0)->nullable();
                 $table->timestamps();

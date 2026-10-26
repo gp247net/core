@@ -20,10 +20,12 @@ Route::group([
     Route::group([
         'middleware' => [
             'auth:admin-api',
-            'ability:'.implode(',', $listAbility)
+            'ability:'.implode(',', $listAbility),
+            'api.admin.active',
         ]
     ], function () use($authController){
-        //Logout
+        //Logout — POST is the supported method; GET is kept for v1 clients (deprecated)
+        Route::post('logout', $authController.'@logout');
         Route::get('logout', $authController.'@logout');
 
         //Admin info
