@@ -562,6 +562,7 @@ class CoreServiceProvider extends ServiceProvider
         'localization'     => Localization::class,
         'api.connection'   => ApiConnection::class,
         'json.response'    => ForceJsonResponse::class,
+        'api.enabled'      => \GP247\Core\Api\Middleware\ApiEnabled::class,
         'api.admin'        => \GP247\Core\Api\Middleware\ApiAdminAuthorize::class,
         'api.admin.active' => \GP247\Core\Api\Middleware\ApiAdminActive::class,
         //Admin

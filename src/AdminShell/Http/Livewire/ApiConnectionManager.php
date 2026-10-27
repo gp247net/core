@@ -3,11 +3,13 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
+use GP247\Core\Api\Support\ApiSwitch;
 use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
 use GP247\Core\Models\AdminApiConnection;
 use GP247\Core\Models\AdminConfig;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 use Livewire\WithPagination;
 
 /**
@@ -18,10 +20,11 @@ use Livewire\WithPagination;
  * a curl usage hint and the table of existing connections.
  *
  * CRUD and the global toggle are Layer-2 authorized (ADR-001) and gp247_clean'd.
- * Gated by `admin_api_connection`.
+ * Gated by `admin_api_connection`. It also holds the REST API switches (master + v1/v2 ×
+ * core/front, locked when GP247_API_MODE is off) and links the public API guide.
  *
  * @aidlc-unit admin-shell-rbac
- * @aidlc-story US-UI-005
+ * @aidlc-story US-UI-005, US-CMP-api-admin-switch, US-CMP-api-docs-link-from-admin
  * @aidlc-adr ADR-001, ADR-005
  */
 class ApiConnectionManager extends GP247AdminComponent
@@ -63,6 +66,19 @@ class ApiConnectionManager extends GP247AdminComponent
 
     /** @var bool The api_connection_required global flag (right-column switch). */
     public bool $apiConnectionRequired = false;
+
+    /**
+     * REST API switches (ApiSwitch::KEYS => on). Locked: only setApiSwitch() changes them,
+     * so the client cannot inject keys or non-boolean values through a property update.
+     *
+     * @var array<string, bool>
+     */
+    #[Locked]
+    public array $apiSwitches = [];
+
+    /** @var bool Whether GP247_API_MODE lets the API exist (false locks the switches). */
+    #[Locked]
+    public bool $apiServerEnabled = true;
 
     /**
      * Validation rules mirroring the legacy controller (connection slug unique,
@@ -120,6 +136,8 @@ class ApiConnectionManager extends GP247AdminComponent
         $this->apiConnectionRequired = (bool) (int) AdminConfig::where('key', self::REQUIRED_KEY)
             ->where('store_id', $this->globalStoreId())
             ->value('value');
+        $this->apiSwitches = ApiSwitch::states();
+        $this->apiServerEnabled = ApiSwitch::serverEnabled();
     }
 
     /**
@@ -250,27 +268,105 @@ class ApiConnectionManager extends GP247AdminComponent
     }
 
     /**
-     * The registered API routes, split into core and front by their url prefix.
+     * Persist a REST API switch the moment its checkbox changes (Layer-2 gated, and a
+     * `call` so the admin operation log records it). An unknown key is ignored; while the
+     * server configuration (GP247_API_MODE) keeps the API off the change is refused.
      *
-     * @return array{core: array<int, string>, front: array<int, string>}
+     * @param string $key One of ApiSwitch::KEYS.
+     * @param bool   $on  New state of the switch.
+     * @return void
+     * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
+     *
+     * @aidlc-story US-CMP-api-admin-switch
+     */
+    public function setApiSwitch(string $key, bool $on): void
+    {
+        $this->authorizeAction('update');
+
+        if (!in_array($key, ApiSwitch::KEYS, true)) {
+            return;
+        }
+        if (!ApiSwitch::serverEnabled()) {
+            $this->notify('error', gp247_language_render('admin.api_connection.switch_locked'));
+            return;
+        }
+
+        AdminConfig::updateOrCreate(
+            ['key' => $key, 'store_id' => $this->globalStoreId()],
+            ['group' => 'global', 'code' => 'api_config', 'value' => $on ? '1' : '0']
+        );
+        $this->apiSwitches[$key] = $on;
+
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
+    }
+
+    /**
+     * The API routes the switches control (those carrying the `api.enabled` gate),
+     * grouped by the switch of their prefix; routes of a plugin with its own prefix go
+     * to "other" (master switch only). A route with its own middleware chain (e.g. the
+     * MCP server) is left out: these switches do not control it.
+     *
+     * @return array<string, array<int, string>> Switch key (or "other") => uris.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-UI-005, US-CMP-api-v2-contract, US-CMP-api-admin-switch
      */
     private function apiRoutes(): array
     {
-        $core = [];
-        $front = [];
-        $corePrefix = defined('GP247_API_CORE_PREFIX') ? GP247_API_CORE_PREFIX : 'api/v1';
-        $frontPrefix = defined('GP247_API_FRONT_PREFIX') ? GP247_API_FRONT_PREFIX : 'api';
+        $groups = array_fill_keys(array_merge(array_keys(ApiSwitch::prefixes()), ['other']), []);
 
         foreach (app('router')->getRoutes() as $route) {
-            $uri = $route->uri();
-            if (Str::startsWith($uri, $corePrefix)) {
-                $core[] = $uri;
-            } elseif (Str::startsWith($uri, $frontPrefix)) {
-                $front[] = $uri;
+            if (!in_array('api.enabled', $route->middleware(), true)) {
+                continue;
             }
+            $groups[ApiSwitch::groupOf($route->uri()) ?? 'other'][] = $route->uri();
         }
 
-        return ['core' => array_values(array_unique($core)), 'front' => array_values(array_unique($front))];
+        return array_map(fn ($uris) => array_values(array_unique($uris)), $groups);
+    }
+
+    /**
+     * Route boxes for the view: one per group switch (each box carries its own switch)
+     * plus "other" (plugins with their own prefix, master switch only).
+     *
+     * @return array<int, array{key: string, switch: string|null, title: string, items: array<int, string>, on: bool}>
+     */
+    private function routeGroups(): array
+    {
+        $titles = [
+            'api_v1_core'  => 'v1 · ' . gp247_language_render('admin.api_connection.switch_core'),
+            'api_v1_front' => 'v1 · ' . gp247_language_render('admin.api_connection.switch_front'),
+            'api_v2_core'  => 'v2 · ' . gp247_language_render('admin.api_connection.switch_core'),
+            'api_v2_front' => 'v2 · ' . gp247_language_render('admin.api_connection.switch_front'),
+            'other'        => gp247_language_render('admin.api_connection.group_other'),
+        ];
+        $master = $this->apiSwitches[ApiSwitch::MASTER] ?? true;
+        $boxes = [];
+        foreach ($this->apiRoutes() as $group => $uris) {
+            $boxes[] = [
+                // WHY str_replace: keeps the data-testid values of the v1/v2 boxes (api-connection-routes-v1-core…).
+                'key'    => $group === 'other' ? 'other' : str_replace('_', '-', substr($group, 4)),
+                'switch' => $group === 'other' ? null : $group,
+                'title'  => $titles[$group],
+                'items' => $uris,
+                'on'    => $master && ($group === 'other' || ($this->apiSwitches[$group] ?? true)),
+            ];
+        }
+        return $boxes;
+    }
+
+    /**
+     * Public API guide in the admin's language (English when missing).
+     *
+     * @return string|null
+     *
+     * @aidlc-story US-CMP-api-docs-link-from-admin
+     */
+    private function docsGuide(): ?string
+    {
+        $guides = (array) config('gp247-config.api.docs.guide', []);
+
+        return $guides[app()->getLocale()] ?? ($guides['en'] ?? null);
     }
 
     /**
@@ -278,12 +374,10 @@ class ApiConnectionManager extends GP247AdminComponent
      */
     public function render(): View
     {
-        $routes = $this->apiRoutes();
-
         return view('gp247-admin::livewire.api-connection-manager', [
             'rows' => AdminApiConnection::orderBy('id', 'desc')->paginate(10),
-            'listCore' => $routes['core'],
-            'listFront' => $routes['front'],
+            'routeGroups' => $this->routeGroups(),
+            'docsGuide' => $this->docsGuide(),
             'revealedKey' => $this->revealedKey,
         ])->layout('gp247-admin::layouts.admin', ['title' => gp247_language_render('admin.api_connection.list')]);
     }

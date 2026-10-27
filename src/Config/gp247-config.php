@@ -140,6 +140,16 @@ return [
         // Tenant fence for the admin API: callable(AdminUser $user, Request $request, Route $adminRoute): bool.
         // Registered by a multi-tenant plugin; false or an exception denies the call (403).
         'admin_fence' => null,
+
+        // REST API guide linked from the API management screen: gp247.net (built from the gp247-docs repository)
+        // per admin locale, falling back to en.
+        'docs' => [
+            'guide' => [
+                'en' => 'https://gp247.net/en/docs/api/about-api-gp247.html',
+                'vi' => 'https://gp247.net/vi/docs/api/about-api-gp247.html',
+                'ja' => 'https://gp247.net/ja/docs/api/about-api-gp247.html',
+            ],
+        ],
     ],
 
     //Config for env

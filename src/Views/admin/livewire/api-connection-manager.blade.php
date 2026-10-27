@@ -1,19 +1,36 @@
 {{--
-    API connection screen (ADR-005) — two-column layout mirroring the legacy
-    AdminApiConnectionController screen: create/edit form (left) and the global
-    api_connection_required toggle + route list + usage hint + connections table
-    (right). CRUD + toggle persist through the component's Layer-2 gated methods.
+    API connection screen (ADR-005). Left column: the api_connection_required toggle,
+    the create/edit form and the connections table. Right column: the REST API master
+    switch, the route boxes (v1/v2 × core/front, each with its own group switch; all
+    locked when GP247_API_MODE is off) and the link to the API guide.
+    CRUD and toggles persist through the component's Layer-2 gated methods.
 
     @aidlc-unit admin-shell-rbac
-    @aidlc-story US-UI-005
-    @aidlc-adr ADR-001, ADR-005
+    @aidlc-story US-UI-005, US-CMP-api-admin-switch, US-CMP-api-docs-link-from-admin
+    @aidlc-adr ADR-001, ADR-005, compat-foundation_rest-api-hardening
 
-    Variables: $rows (paginator), $listCore (string[]), $listFront (string[]).
+    Variables: $rows (paginator), $routeGroups (list of {key, switch, title, items, on}), $docsGuide (string|null),
+    plus the component's $apiSwitches / $apiServerEnabled.
 --}}
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
-    {{-- Left: create / edit form --}}
-    <div class="lg:col-span-5">
+    {{-- Left: API Connection toggle + create / edit form + connections table --}}
+    <div class="space-y-6 lg:col-span-5">
+        <x-gp247::card>
+            <div class="mb-4 flex items-center gap-3">
+                <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ gp247_language_render('admin.api_connection.service') }}</span>
+                <label class="relative inline-flex h-6 w-11 cursor-pointer items-center">
+                    <input type="checkbox" wire:model.live="apiConnectionRequired" class="peer sr-only">
+                    <span class="absolute inset-0 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500 dark:bg-gray-600"></span>
+                    <span class="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                </label>
+            </div>
+
+            <div class="rounded-lg border-l-4 border-blue-500 bg-blue-50 px-3 py-2 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                {!! gp247_language_render('admin.api_connection.api_connection_required_help') !!}
+            </div>
+        </x-gp247::card>
+
         <x-gp247::card>
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100">
@@ -86,46 +103,9 @@
                 </div>
             </form>
         </x-gp247::card>
-    </div>
 
-    {{-- Right: global toggle + route list + usage + connections table --}}
-    <div class="lg:col-span-7">
         <x-gp247::card>
-            <div class="mb-4 flex items-center gap-3">
-                <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ gp247_language_render('admin.api_connection.service') }}</span>
-                <label class="relative inline-flex h-6 w-11 cursor-pointer items-center">
-                    <input type="checkbox" wire:model.live="apiConnectionRequired" class="peer sr-only">
-                    <span class="absolute inset-0 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500 dark:bg-gray-600"></span>
-                    <span class="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
-                </label>
-            </div>
-
-            <div class="mb-3 rounded-lg border-l-4 border-blue-500 bg-blue-50 px-3 py-2 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                {!! gp247_language_render('admin.api_connection.api_connection_required_help') !!}
-            </div>
-
-            @if (count($listCore) || count($listFront))
-                <div class="mb-2 grid grid-cols-2 gap-2">
-                    @if (count($listCore))
-                        <div class="rounded-lg border border-dashed border-gray-300 px-3 py-2 dark:border-gray-600">
-                            <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">List API core:</p>
-                            @foreach ($listCore as $item)
-                                <code class="block text-xs text-gray-500 dark:text-gray-400">{{ $item }}</code>
-                            @endforeach
-                        </div>
-                    @endif
-                    @if (count($listFront))
-                        <div class="rounded-lg border border-dashed border-gray-300 px-3 py-2 dark:border-gray-600">
-                            <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">List API front:</p>
-                            @foreach ($listFront as $item)
-                                <code class="block text-xs text-gray-500 dark:text-gray-400">{{ $item }}</code>
-                            @endforeach
-                        </div>
-                    @endif
-                </div>
-            @endif
-
-            <div class="mt-4 overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+            <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
                 <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-800">
                         <tr>
@@ -174,6 +154,74 @@
             <div class="mt-3">
                 {{ $rows->links() }}
             </div>
+        </x-gp247::card>
+    </div>
+
+    {{-- Right: REST API master switch + route boxes (each with its group switch) + docs --}}
+    <div class="lg:col-span-7">
+        <x-gp247::card>
+            <div class="mb-4 border-b border-gray-100 pb-4 dark:border-gray-700">
+                @unless ($apiServerEnabled)
+                    <div class="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-200"
+                        data-testid="api-connection-switch-locked">
+                        {{ gp247_language_render('admin.api_connection.switch_locked') }}
+                    </div>
+                @endunless
+
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ gp247_language_render('admin.api_connection.switch_all') }}</span>
+                    <label class="relative inline-flex h-6 w-11 cursor-pointer items-center">
+                        <input type="checkbox" class="peer sr-only" data-testid="api-connection-switch-all"
+                            @checked($apiSwitches['api_enabled'] ?? true) @disabled(!$apiServerEnabled)
+                            wire:change="setApiSwitch('api_enabled', $event.target.checked)">
+                        <span class="absolute inset-0 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 dark:bg-gray-600"></span>
+                        <span class="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                    </label>
+                </div>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.api_connection.switch_help') }}</p>
+            </div>
+
+
+            <div class="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                @foreach ($routeGroups as $group)
+                    {{-- A group box shows even without routes so its switch stays reachable; "other" only when a plugin adds routes. --}}
+                    @if ($group['switch'] || count($group['items']))
+                        <div class="rounded-lg border border-dashed border-gray-300 px-3 py-2 dark:border-gray-600"
+                            data-testid="api-connection-routes-{{ $group['key'] }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                    {{ $group['title'] }}
+                                    @unless ($group['on'])
+                                        <span class="font-medium text-red-600">({{ gp247_language_render('admin.api_connection.group_off') }})</span>
+                                    @endunless
+                                </p>
+                                @if ($group['switch'])
+                                    <label class="relative inline-flex h-6 w-11 cursor-pointer items-center">
+                                        <input type="checkbox" class="peer sr-only" data-testid="api-connection-switch-{{ $group['key'] }}"
+                                            @checked($apiSwitches[$group['switch']] ?? true) @disabled(!$apiServerEnabled)
+                                            wire:change="setApiSwitch('{{ $group['switch'] }}', $event.target.checked)">
+                                        <span class="absolute inset-0 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 dark:bg-gray-600"></span>
+                                        <span class="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                                    </label>
+                                @endif
+                            </div>
+                            <div class="mt-1 {{ $group['on'] ? '' : 'opacity-70' }}">
+                                @foreach ($group['items'] as $item)
+                                    <code class="block break-all text-xs text-gray-500 dark:text-gray-400 {{ $group['on'] ? '' : 'line-through' }}">{{ $item }}</code>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+            <p class="text-xs italic text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.api_connection.route_list_note') }}</p>
+
+            @if ($docsGuide)
+                <div class="mt-4 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700">
+                    <a href="{{ $docsGuide }}" target="_blank" rel="noopener noreferrer" data-testid="api-connection-docs-link"
+                        class="text-blue-600 hover:underline dark:text-blue-400"><i class="fas fa-book"></i> {{ gp247_language_render('admin.api_connection.docs_guide') }}</a>
+                </div>
+            @endif
         </x-gp247::card>
     </div>
 </div>

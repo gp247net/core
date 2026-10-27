@@ -164,6 +164,12 @@ class DataDefaultSeeder extends Seeder
             ['group' => 'global','code' => 'webhook_config','key' => 'GOOGLE_CHAT_WEBHOOK_URL','value' => '','sort' => '0','detail' => 'admin.config.GOOGLE_CHAT_WEBHOOK_URL','store_id' => 0],
             ['group' => 'global','code' => 'webhook_config','key' => 'CHATWORK_CHAT_WEBHOOK_URL','value' => '','sort' => '0','detail' => 'admin.config.CHATWORK_CHAT_WEBHOOK_URL','store_id' => 0],
             ['group' => 'global','code' => 'api_config','key' => 'api_connection_required','value' => '0','sort' => '1','detail' => 'api_connection.api_connection_required','store_id' => 0],
+            // REST API switches (US-CMP-api-admin-switch): a fresh install serves v2 only; upgraded sites keep v1 on (upgrade migration).
+            ['group' => 'global','code' => 'api_config','key' => 'api_enabled','value' => '1','sort' => '2','detail' => 'admin.api_connection.switch_all','store_id' => 0],
+            ['group' => 'global','code' => 'api_config','key' => 'api_v1_core','value' => '0','sort' => '3','detail' => 'admin.api_connection.switch_core','store_id' => 0],
+            ['group' => 'global','code' => 'api_config','key' => 'api_v1_front','value' => '0','sort' => '4','detail' => 'admin.api_connection.switch_front','store_id' => 0],
+            ['group' => 'global','code' => 'api_config','key' => 'api_v2_core','value' => '1','sort' => '5','detail' => 'admin.api_connection.switch_core','store_id' => 0],
+            ['group' => 'global','code' => 'api_config','key' => 'api_v2_front','value' => '1','sort' => '6','detail' => 'admin.api_connection.switch_front','store_id' => 0],
             ['group' => 'global','code' => 'cache','key' => 'cache_status','value' => '0','sort' => '0','detail' => 'admin.cache.cache_status','store_id' => 0],
             ['group' => 'global','code' => 'cache','key' => 'cache_time','value' => '600','sort' => '0','detail' => 'admin.cache.cache_time','store_id' => 0],
             ['group' => 'global','code' => 'cache','key' => 'cache_category','value' => '0','sort' => '3','detail' => 'admin.cache.cache_category','store_id' => 0],
