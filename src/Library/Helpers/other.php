@@ -184,6 +184,12 @@ if (!function_exists('gp247_report_context') && !in_array('gp247_report_context'
                 $parts[] = 'host=' . $request->getHost() . ' ' . $request->getMethod() . ' /' . ltrim($request->path(), '/');
             }
 
+            // WHY: the id a REST API client received (X-Request-Id) finds the report it caused.
+            $requestId = app()->bound('request') ? request()->attributes->get('gp247_request_id') : null;
+            if (is_string($requestId) && $requestId !== '') {
+                $parts[] = 'request_id=' . $requestId;
+            }
+
             return implode(' · ', $parts);
         } catch (\Throwable $e) {
             // WHY: a report must never fail because its context could not be built

@@ -563,6 +563,7 @@ class CoreServiceProvider extends ServiceProvider
         'api.connection'   => ApiConnection::class,
         'json.response'    => ForceJsonResponse::class,
         'api.enabled'      => \GP247\Core\Api\Middleware\ApiEnabled::class,
+        'api.request_id'   => \GP247\Core\Api\Middleware\ApiRequestId::class,
         'api.admin'        => \GP247\Core\Api\Middleware\ApiAdminAuthorize::class,
         'api.admin.active' => \GP247\Core\Api\Middleware\ApiAdminActive::class,
         //Admin
@@ -604,6 +605,16 @@ class CoreServiceProvider extends ServiceProvider
         // register middleware group.
         foreach ($this->middlewareGroups() as $key => $middleware) {
             app('router')->middlewareGroup($key, array_values($middleware));
+        }
+
+        // WHY: Laravel sorts the middleware listed in its priority (auth, throttle…) ahead of
+        // the others, so a 401 from auth:* would skip the request id and a disabled API group
+        // would answer 401 instead of api_disabled. Put both at the very front (request id
+        // first) on the HTTP kernel: its priority list is the source the router is synced from.
+        $kernel = $this->app->make(\Illuminate\Contracts\Http\Kernel::class);
+        if (method_exists($kernel, 'prependToMiddlewarePriority')) {
+            $kernel->prependToMiddlewarePriority(\GP247\Core\Api\Middleware\ApiEnabled::class);
+            $kernel->prependToMiddlewarePriority(\GP247\Core\Api\Middleware\ApiRequestId::class);
         }
 
         $this->registerApiRateLimiters();

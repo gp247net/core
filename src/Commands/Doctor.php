@@ -106,6 +106,10 @@ class Doctor extends GP247Command
 
         $checks[] = $this->apiConfigLegacyNamesCheck();
 
+        // Cached API routes built before the API switch gate existed (site ran composer
+        // update but not gp247:update, which rebuilds the cache). Read-only.
+        $checks[] = $this->apiRouteGateCheck();
+
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
         if (!$this->isJson()) {
@@ -311,6 +315,42 @@ class Doctor extends GP247Command
         $items = array_map(fn ($old) => $old . ' (' . $renamed[$old] . ')', $legacy);
 
         return $this->check('api_config_legacy_names', 'warn', count($legacy) . ' legacy name(s) in .env', $items);
+    }
+
+    /**
+     * With routes cached, every REST API route registered through the core seam must
+     * carry the whole shared API chain (GP247_API_MIDDLEWARE: request id + switch gate);
+     * a cache built by older code lacks them, so the switches on the API screen would do
+     * nothing until the cache is rebuilt.
+     *
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CMP-api-admin-switch
+     */
+    protected function apiRouteGateCheck(): array
+    {
+        if (!app()->routesAreCached()) {
+            return $this->check('api_route_gate', 'pass', 'routes not cached');
+        }
+        $chain = defined('GP247_API_MIDDLEWARE') ? GP247_API_MIDDLEWARE : [];
+        $missing = [];
+        foreach (app('router')->getRoutes() as $route) {
+            $middleware = $route->middleware();
+            if (in_array('api.extend', $middleware, true) && array_diff($chain, $middleware) !== []) {
+                $missing[] = $route->uri();
+            }
+        }
+        if (!$missing) {
+            return $this->check('api_route_gate', 'pass', 'cached API routes carry the shared API middleware');
+        }
+
+        return $this->check(
+            'api_route_gate',
+            'warn',
+            count($missing) . ' cached API route(s) without the switch gate - run php artisan gp247:cache-rebuild',
+            array_slice(array_values(array_unique($missing)), 0, 20)
+        );
     }
 
     /**

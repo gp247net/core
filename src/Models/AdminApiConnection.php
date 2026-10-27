@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * An application allowed to call the REST API (header pair apiconnection + apikey).
  *
- * The key is stored only as a SHA-256 hash: assigning `apikey` writes `apikey_hash`
- * and blanks the plain column, so a database copy never yields a usable key.
+ * The key is stored only as a SHA-256 hash: assigning `apikey` writes `apikey_hash`, so
+ * a database copy never yields a usable key. The plain `apikey` column is dropped by the
+ * contract migration (2026_10_27_154124); until a site has run `gp247:update` the model
+ * also works with only the plain column (before 3.2.3) or with both columns.
  *
  * @aidlc-unit compat-foundation
  * @aidlc-story US-CMP-api-connection-key-hashing
@@ -27,6 +29,9 @@ class AdminApiConnection extends Model
     /** @var bool|null Memo: does the table already have apikey_hash (site upgraded)? */
     private static ?bool $hasHashColumn = null;
 
+    /** @var bool|null Memo: does the table still have the plain apikey column? */
+    private static ?bool $hasPlainColumn = null;
+
     /**
      * Whether the upgrade migration added apikey_hash yet.
      *
@@ -42,6 +47,32 @@ class AdminApiConnection extends Model
                 ->hasColumn(GP247_DB_PREFIX . 'api_connection', 'apikey_hash');
         }
         return self::$hasHashColumn;
+    }
+
+    /**
+     * Whether the plain apikey column is still there (the contract migration drops it).
+     *
+     * @return bool
+     */
+    public static function plainColumnExists(): bool
+    {
+        if (self::$hasPlainColumn === null) {
+            self::$hasPlainColumn = \Illuminate\Support\Facades\Schema::connection(GP247_DB_CONNECTION)
+                ->hasColumn(GP247_DB_PREFIX . 'api_connection', 'apikey');
+        }
+        return self::$hasPlainColumn;
+    }
+
+    /**
+     * Forget the remembered table layout; called after a migration changes it so the
+     * same process (gp247:update, a long-running worker, a test) sees the new columns.
+     *
+     * @return void
+     */
+    public static function forgetSchemaMemo(): void
+    {
+        self::$hasHashColumn = null;
+        self::$hasPlainColumn = null;
     }
 
     /**
@@ -66,19 +97,24 @@ class AdminApiConnection extends Model
     }
 
     /**
-     * Setting `apikey` stores its hash only.
+     * Setting `apikey` stores its hash only (the plain column, while it still exists,
+     * is blanked; before the hash column exists it is the only place to store the key).
      *
      * @return Attribute
      */
     protected function apikey(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) => self::hashColumnReady()
-                ? [
-                    'apikey'      => '',
-                    'apikey_hash' => ($value === null || $value === '') ? null : self::hashKey((string) $value),
-                ]
-                : ['apikey' => (string) $value],
+            set: function ($value) {
+                if (!self::hashColumnReady()) {
+                    return ['apikey' => (string) $value];
+                }
+                $columns = ['apikey_hash' => ($value === null || $value === '') ? null : self::hashKey((string) $value)];
+                if (self::plainColumnExists()) {
+                    $columns['apikey'] = '';
+                }
+                return $columns;
+            },
         );
     }
 

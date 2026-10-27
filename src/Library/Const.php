@@ -10,9 +10,10 @@ define('GP247_GUARD_ROLES', ['1', '2']); // admin, only view
  * Admin define
  */
 define('GP247_ADMIN_MIDDLEWARE', ['web', 'admin']);
-// api.enabled: the API switches of the API management screen (US-CMP-api-admin-switch); kept here, not in the
-// publishable gp247-config.api.middleware, so a site with a published config cannot lose the gate.
-define('GP247_API_MIDDLEWARE', ['api', 'api.enabled', 'api.extend']);
+// api.request_id: X-Request-Id on every API response, first so even api_disabled answers carry it (US-CMP-api-error-contract).
+// api.enabled: the API switches of the API management screen (US-CMP-api-admin-switch); both kept here, not in the
+// publishable gp247-config.api.middleware, so a site with a published config cannot lose them.
+define('GP247_API_MIDDLEWARE', ['api', 'api.request_id', 'api.enabled', 'api.extend']);
 define('GP247_API_CORE_PREFIX', 'api/core');
 define('GP247_API_FRONT_PREFIX', 'api/front');
 // REST API v2 (declared resources, query parameters) — v1 above stays frozen (US-CMP-api-v2-contract)
