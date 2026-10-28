@@ -90,6 +90,15 @@ class AdminUser extends Authenticatable
             }
             // ...
         });
+
+        // WHY at the model: every way an admin password changes (Users screen, account
+        // settings, forgot password, future screens or plugins) goes through save(), so one
+        // hook signs the admin out of every REST API client (US-CMP-api-admin-password-revokes-sessions).
+        static::updated(function ($user) {
+            if ($user->wasChanged('password')) {
+                \GP247\Core\Api\Support\ApiSessions::revokeAll($user);
+            }
+        });
     }
 
     /**
