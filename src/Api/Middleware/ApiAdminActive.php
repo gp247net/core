@@ -3,6 +3,7 @@
 namespace GP247\Core\Api\Middleware;
 
 use Closure;
+use GP247\Core\Api\Support\ApiAdminLog;
 use GP247\Core\Api\Support\ApiErrorResponder;
 use GP247\Core\Models\AdminUser;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Auth;
  * Alias `api.admin.active`, after auth:admin-api.
  *
  * @aidlc-unit compat-foundation
- * @aidlc-story US-RBAC-api-route-permission
+ * @aidlc-story US-RBAC-api-route-permission, US-CMP-api-admin-access-log
  * @aidlc-adr compat-foundation_rest-api-hardening
  */
 class ApiAdminActive
@@ -33,6 +34,7 @@ class ApiAdminActive
         if (!$user instanceof AdminUser || (int) $user->status !== 1) {
             return ApiErrorResponder::unauthenticated();
         }
+        ApiAdminLog::record($request, $user);
 
         return $next($request);
     }

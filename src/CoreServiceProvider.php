@@ -626,7 +626,7 @@ class CoreServiceProvider extends ServiceProvider
      * @return void
      *
      * @aidlc-unit compat-foundation
-     * @aidlc-story US-CMP-api-login-throttle
+     * @aidlc-story US-CMP-api-login-throttle, US-CMP-api-customer-register
      * @aidlc-adr compat-foundation_rest-api-hardening
      */
     protected function registerApiRateLimiters(): void
@@ -634,6 +634,13 @@ class CoreServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\RateLimiter::for('gp247-api', function (Request $request) {
             $perMinute = max(1, (int) config('gp247-config.api.throttle.default', 1000));
             return \Illuminate\Cache\RateLimiting\Limit::perMinute($perMinute)->by($request->ip());
+        });
+        // WHY per IP: register / password reset run before any account is known.
+        \Illuminate\Support\Facades\RateLimiter::for('gp247-api-account', function (Request $request) {
+            $parts = explode(',', (string) config('gp247-config.api.throttle.account', '5,1'));
+            $max = max(1, (int) ($parts[0] ?? 5));
+            $minutes = max(1, (int) ($parts[1] ?? 1));
+            return \Illuminate\Cache\RateLimiting\Limit::perMinutes($minutes, $max)->by('account|' . $request->ip());
         });
     }
 

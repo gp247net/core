@@ -127,6 +127,13 @@ return [
             'api_remember_admin' => \GP247\Core\Api\Support\ApiEnv::pick('GP247_API_REMEMBER_ADMIN', 'GP247_API_RECOMMEMBER_ADMIN', 30), //days - expires_at
             'api_remmember_admin' => \GP247\Core\Api\Support\ApiEnv::pick('GP247_API_REMEMBER_ADMIN', 'GP247_API_RECOMMEMBER_ADMIN', 30), //legacy key
             'api_token_expire_admin_default' => env('GP247_API_TOKEN_EXPIRE_ADMIN_DEFAULT', 7), //days - expires_at default
+
+            // API v2 sessions (US-CMP-api-refresh-token-rotation): a client that signs in with
+            // with_refresh=true gets an access token living this many minutes plus a rotating
+            // refresh token valid this many days from sign-in (customer / admin).
+            'api_access_minutes' => env('GP247_API_ACCESS_MINUTES', 60),
+            'api_refresh_days' => env('GP247_API_REFRESH_DAYS', 30),
+            'api_refresh_admin_days' => env('GP247_API_REFRESH_ADMIN_DAYS', 7),
         ],
 
         // Middleware for api
@@ -142,6 +149,15 @@ return [
         // Login attempt limits live in `login_throttle` below (they also cover the admin web form).
         'throttle' => [
             'default'  => env('GP247_API_THROTTLE', 1000),
+            // account: "attempts,minutes" per IP on register / password forgot-reset / e-mail verify (v2).
+            'account'  => env('GP247_API_ACCOUNT_THROTTLE', '5,1'),
+        ],
+
+        // Second sign-in step (MFA) registered by plugins: class names implementing
+        // GP247\Core\Api\Contracts\LoginChallenge, per audience (US-CMP-api-login-challenge-seam).
+        'login_challenge' => [
+            'customer' => [],
+            'admin'    => [],
         ],
 
         // Tenant fence for the admin API: callable(AdminUser $user, Request $request, Route $adminRoute): bool.

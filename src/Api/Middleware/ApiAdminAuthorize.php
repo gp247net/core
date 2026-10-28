@@ -4,6 +4,7 @@ namespace GP247\Core\Api\Middleware;
 
 use Closure;
 use GP247\Core\AdminShell\Application\AdminRouteAccess;
+use GP247\Core\Api\Support\ApiAdminLog;
 use GP247\Core\Api\Support\ApiErrorResponder;
 use GP247\Core\Api\Support\ApiStoreScope;
 use GP247\Core\Models\AdminUser;
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\Route as RouteFacade;
  * resolver error.
  *
  * @aidlc-unit compat-foundation
- * @aidlc-story US-RBAC-api-route-permission, US-CMP-api-admin-store-scope
+ * @aidlc-story US-RBAC-api-route-permission, US-CMP-api-admin-store-scope, US-CMP-api-admin-access-log
  * @aidlc-adr compat-foundation_rest-api-hardening
  */
 class ApiAdminAuthorize
@@ -41,6 +42,8 @@ class ApiAdminAuthorize
         if (!$user instanceof AdminUser || (int) $user->status !== 1) {
             return ApiErrorResponder::unauthenticated();
         }
+        // WHY before the RBAC decision: refused attempts are part of the audit trail.
+        ApiAdminLog::record($request, $user);
 
         // WHY: the RBAC, store-resolver and plugin helpers read admin()->user(); setUser()
         // only sets it in memory for this request, it does not start or write a session.
