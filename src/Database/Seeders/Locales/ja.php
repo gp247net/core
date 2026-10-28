@@ -313,6 +313,7 @@ return [
     'admin.server_info' => 'サーバー情報',
     'admin.setting_account' => 'アカウント設定',
     'admin.failed' => '認証に失敗しました',
+    'admin.login_too_many_attempts' => 'ログインの試行回数が多すぎます。:seconds 秒後にもう一度お試しください。',
     'admin.maintain_enable' => '公開中',
     'admin.maintain_disable' => 'メンテナンス中',
     'admin.position_all' => 'すべてのページ',

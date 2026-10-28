@@ -99,6 +99,16 @@ return [
         'schedule_queue_worker' => env('GP247_SCHEDULE_QUEUE_WORK', true),
     ],
 
+    // Login attempt limits, "attempts,minutes", shared by the admin web login form, the admin API
+    // login and the customer API login (GP247\Core\Support\LoginThrottle).
+    // account: attempts per (account + client IP); ip: attempts per client IP across all accounts.
+    // Renamed from api.throttle.login / login_ip (GP247_API_LOGIN_THROTTLE / GP247_API_LOGIN_IP_THROTTLE),
+    // which are no longer read.
+    'login_throttle' => [
+        'account' => env('GP247_LOGIN_THROTTLE', '5,1'),
+        'ip'      => env('GP247_LOGIN_IP_THROTTLE', '20,1'),
+    ],
+
     //Config for api
     'api' => [
         // Correctly spelled keys/env names; the old misspelled ones (api_remmember…, GP247_API_RECOMMEMBER…)
@@ -129,12 +139,9 @@ return [
 
         // Rate limits (named limiters registered by CoreServiceProvider).
         // default: requests per minute per caller on every API route.
-        // login: login attempts allowed per (account + IP), "attempts,minutes".
-        // login_ip: login attempts allowed per client IP across all accounts, "attempts,minutes".
+        // Login attempt limits live in `login_throttle` below (they also cover the admin web form).
         'throttle' => [
             'default'  => env('GP247_API_THROTTLE', 1000),
-            'login'    => env('GP247_API_LOGIN_THROTTLE', '5,1'),
-            'login_ip' => env('GP247_API_LOGIN_IP_THROTTLE', '20,1'),
         ],
 
         // Tenant fence for the admin API: callable(AdminUser $user, Request $request, Route $adminRoute): bool.

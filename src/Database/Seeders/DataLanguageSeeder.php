@@ -704,6 +704,8 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.setting_account','text' => 'Thiết lập tài khoản','position' => 'admin','location' => 'vi'],
             ['code' => 'admin.failed','text' => 'Auth failed','position' => 'admin','location' => 'en'],
             ['code' => 'admin.failed','text' => 'Chứng thực thất bại','position' => 'admin','location' => 'vi'],
+            ['code' => 'admin.login_too_many_attempts','text' => 'Too many login attempts. Please try again in :seconds seconds.','position' => 'admin','location' => 'en'],
+            ['code' => 'admin.login_too_many_attempts','text' => 'Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau :seconds giây.','position' => 'admin','location' => 'vi'],
             ['code' => 'admin.maintain_enable','text' => 'Active ','position' => 'admin','location' => 'en'],
             ['code' => 'admin.maintain_enable','text' => 'Hoạt động','position' => 'admin','location' => 'vi'],
             ['code' => 'admin.maintain_disable','text' => 'Maintenance ','position' => 'admin','location' => 'en'],

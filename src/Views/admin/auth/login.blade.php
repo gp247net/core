@@ -1,7 +1,7 @@
 {{--
     Modern TailAdmin admin login (US-AUI-007). Presentation only: the form posts
-    to the legacy `admin.post_login` endpoint, so validation/guard/throttle/CSRF
-    are unchanged. Fields mirror the legacy screen (username/password/remember).
+    to the legacy `admin.post_login` endpoint, which owns validation, CSRF, the
+    attempt limit and the guard. Fields mirror the legacy screen (username/password/remember).
 
     @aidlc-unit admin-shell
     @aidlc-story US-AUI-007

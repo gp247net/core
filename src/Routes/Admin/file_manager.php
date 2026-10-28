@@ -2,11 +2,16 @@
 // LfmWorkingStore captures ?working_store=<store> (sent by media-input on popup open) into
 // the session so LFM's later upload/list AJAX — which drop the query param — resolve the
 // same per-store folder (ADR admin-shell_lfm-working-dir).
+//
+// LfmWriteRequestGuard: actions that change files run only for a same-origin AJAX request — the library
+// sends them as GET, which CSRF does not cover (ADR admin-shell_lfm-write-request-guard).
+$lfmWrite = [\GP247\Core\Middleware\LfmWriteRequestGuard::class];
+
 Route::group([
     'prefix' => 'uploads',
     'namespace' => '\\UniSharp\\LaravelFilemanager\\Controllers\\',
     'middleware' => [\GP247\Core\Middleware\LfmWorkingStore::class],
-], function () {
+], function () use ($lfmWrite) {
 
     // display main layout
     Route::get('/', [
@@ -40,12 +45,14 @@ Route::group([
     Route::get('/domove', [
         'uses' => 'ItemsController@domove',
         'as' => 'unisharp.lfm.domove',
+        'middleware' => $lfmWrite,
     ]);
 
     // folders
     Route::get('/newfolder', [
         'uses' => 'FolderController@getAddfolder',
         'as' => 'unisharp.lfm.getAddfolder',
+        'middleware' => $lfmWrite,
     ]);
 
     // list folders
@@ -62,16 +69,19 @@ Route::group([
     Route::get('/cropimage', [
         'uses' => 'CropController@getCropimage',
         'as' => 'unisharp.lfm.getCropimage',
+        'middleware' => $lfmWrite,
     ]);
     Route::get('/cropnewimage', [
         'uses' => 'CropController@getNewCropimage',
         'as' => 'unisharp.lfm.getCropnewimage',
+        'middleware' => $lfmWrite,
     ]);
 
     // rename
     Route::get('/rename', [
         'uses' => 'RenameController@getRename',
         'as' => 'unisharp.lfm.getRename',
+        'middleware' => $lfmWrite,
     ]);
 
     // scale/resize
@@ -82,6 +92,7 @@ Route::group([
     Route::get('/doresize', [
         'uses' => 'ResizeController@performResize',
         'as' => 'unisharp.lfm.performResize',
+        'middleware' => $lfmWrite,
     ]);
 
     // download
@@ -94,5 +105,6 @@ Route::group([
     Route::get('/delete', [
         'uses' => 'DeleteController@getDelete',
         'as' => 'unisharp.lfm.getDelete',
+        'middleware' => $lfmWrite,
     ]);
 });

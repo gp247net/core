@@ -2,20 +2,13 @@
 
 namespace GP247\Core\Api\Support;
 
+use GP247\Core\Support\LoginThrottle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 
 /**
- * Login attempt limits for the REST API, two counters per attempt:
- *  - per account: keyed by the resolved account id (falls back to the normalized
- *    identity when no account matches), so spelling variants the database collation
- *    treats as equal still share one counter;
- *  - per client IP: caps password spraying across many accounts.
- * The attempt is counted BEFORE the password check (no burst past the limit with
- * concurrent requests); a successful login gives the attempt back. Uses the default
- * cache store, so it works on shared hosting without Redis or cron.
+ * REST API face of the shared login limiter (GP247\Core\Support\LoginThrottle):
+ * same counters, answered as the API error contract (429 + Retry-After).
  *
  * @aidlc-unit compat-foundation
  * @aidlc-story US-CMP-api-login-throttle
@@ -33,27 +26,17 @@ final class ApiLoginThrottle
      */
     public static function attempt(Request $request, string $audience, string $subject): ?JsonResponse
     {
-        [$perAccount, $decayMinutes] = self::limits('login', '5,1');
-        [$perIp, $ipDecayMinutes] = self::limits('login_ip', '20,1');
-        $accountKey = self::accountKey($audience, $subject, $request);
-        $ipKey = self::ipKey($audience, $request);
-
-        foreach ([[$accountKey, $perAccount], [$ipKey, $perIp]] as [$key, $max]) {
-            if (RateLimiter::tooManyAttempts($key, $max)) {
-                $retryAfter = RateLimiter::availableIn($key);
-                return ApiErrorResponder::respond(
-                    429,
-                    'too_many_attempts',
-                    'Too many login attempts. Please try again in ' . $retryAfter . ' seconds.',
-                    ['Retry-After' => $retryAfter]
-                );
-            }
+        $retryAfter = LoginThrottle::hit($request, $audience, $subject);
+        if ($retryAfter === null) {
+            return null;
         }
 
-        RateLimiter::hit($accountKey, $decayMinutes * 60);
-        RateLimiter::hit($ipKey, $ipDecayMinutes * 60);
-
-        return null;
+        return ApiErrorResponder::respond(
+            429,
+            'too_many_attempts',
+            'Too many login attempts. Please try again in ' . $retryAfter . ' seconds.',
+            ['Retry-After' => $retryAfter]
+        );
     }
 
     /**
@@ -66,12 +49,7 @@ final class ApiLoginThrottle
      */
     public static function succeeded(Request $request, string $audience, string $subject): void
     {
-        RateLimiter::clear(self::accountKey($audience, $subject, $request));
-        [, $ipDecayMinutes] = self::limits('login_ip', '20,1');
-        $ipKey = self::ipKey($audience, $request);
-        if (RateLimiter::attempts($ipKey) > 0) {
-            RateLimiter::decrement($ipKey, $ipDecayMinutes * 60);
-        }
+        LoginThrottle::succeeded($request, $audience, $subject);
     }
 
     /**
@@ -84,43 +62,6 @@ final class ApiLoginThrottle
      */
     public static function subject($accountId, string $identity): string
     {
-        return $accountId !== null && $accountId !== ''
-            ? 'id:' . $accountId
-            : 'name:' . Str::lower(trim($identity));
-    }
-
-    /**
-     * [max attempts, decay minutes] from gp247-config.api.throttle.<key> ("5,1").
-     *
-     * @param string $key
-     * @param string $default
-     * @return int[]
-     */
-    private static function limits(string $key, string $default): array
-    {
-        $parts = explode(',', (string) config('gp247-config.api.throttle.' . $key, $default));
-
-        return [max(1, (int) ($parts[0] ?? 5)), max(1, (int) ($parts[1] ?? 1))];
-    }
-
-    /**
-     * @param string  $audience
-     * @param string  $subject
-     * @param Request $request
-     * @return string
-     */
-    private static function accountKey(string $audience, string $subject, Request $request): string
-    {
-        return 'gp247-api-login|' . $audience . '|' . sha1($subject . '|' . $request->ip());
-    }
-
-    /**
-     * @param string  $audience
-     * @param Request $request
-     * @return string
-     */
-    private static function ipKey(string $audience, Request $request): string
-    {
-        return 'gp247-api-login-ip|' . $audience . '|' . sha1((string) $request->ip());
+        return LoginThrottle::subject($accountId, $identity);
     }
 }

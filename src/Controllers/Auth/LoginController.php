@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Validator;
 use GP247\Core\Controllers\PasswordValidationTrait;
+use GP247\Core\Support\LoginThrottle;
 
 class LoginController extends RootAdminController
 {
@@ -33,32 +34,51 @@ class LoginController extends RootAdminController
 
         // Cutover (PA-1): the legacy login URL now renders the modern TailAdmin
         // login screen in-place. Presentation only — the form still posts to
-        // admin.post_login, so the guard/throttle/CSRF backend is unchanged.
+        // admin.post_login, which owns validation, CSRF, the attempt limit and the guard.
         return view('gp247-admin::auth.login', ['title'=> gp247_language_render('admin.login')]);
     }
 
     /**
      * Handle a login request.
      *
+     * Every attempt is counted before the password is checked, on the same counter
+     * as the admin API login (GP247\Core\Support\LoginThrottle); past the limit the
+     * password is not checked at all.
+     *
      * @param Request $request
      *
      * @return mixed
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-AUI-007, US-AUI-admin-login-throttle
+     * @aidlc-adr compat-foundation_rest-api-hardening
      */
     public function postLogin(Request $request)
     {
         $this->loginValidator($request->all())->validate();
+
+        $username = (string) $request->input($this->username());
+        $subject = LoginThrottle::subject(AdminUser::where($this->username(), $username)->value('id'), $username);
+        $retryAfter = LoginThrottle::hit($request, 'admin', $subject);
+        if ($retryAfter !== null) {
+            return back()->withInput($request->except('password'))->withErrors([
+                $this->username() => gp247_language_render('admin.login_too_many_attempts', ['seconds' => (string) $retryAfter]),
+            ]);
+        }
 
         $credentials = $request->only([$this->username(), 'password']);
         $credentials['status'] = 1;
         $remember = $request->get('remember', false);
 
         if ($this->guard()->attempt($credentials, $remember)) {
+            LoginThrottle::succeeded($request, 'admin', $subject);
             if (function_exists('gp247_event_admin_login')) {
                 gp247_event_admin_login(admin()->user());
             }
             return $this->sendLoginResponse($request);
         }
-        return back()->withInput()->withErrors([
+        // WHY except('password'): withInput() would flash the typed password into the session store.
+        return back()->withInput($request->except('password'))->withErrors([
             $this->username() => $this->getFailedLoginMessage(),
         ]);
     }
