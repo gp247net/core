@@ -30,6 +30,12 @@ use Livewire\Component;
  */
 class InstallerWizard extends Component
 {
+    /**
+     * Lowest PHP the platform boots on, as a PHP_VERSION_ID. Mirrors `php` in
+     * this package's composer.json — keep both in step.
+     */
+    public const MIN_PHP_VERSION_ID = 80300;
+
     // -----------------------------------------------------------------------
     // Wizard state
     // -----------------------------------------------------------------------
@@ -94,9 +100,8 @@ class InstallerWizard extends Component
     {
         $errors = [];
 
-        // PHP version >= 8.2
-        if (PHP_VERSION_ID < 80200) {
-            $errors[] = 'PHP >= 8.2 is required. Current version: ' . PHP_VERSION;
+        if (PHP_VERSION_ID < self::MIN_PHP_VERSION_ID) {
+            $errors[] = 'PHP >= 8.3 is required. Current version: ' . PHP_VERSION;
         }
 
         // Required extensions
