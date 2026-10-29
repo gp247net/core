@@ -27,6 +27,9 @@ class Doctor extends GP247Command
     /** @var string */
     protected $description = 'Check the environment for running/installing GP247';
 
+    /** Lowest PHP the platform boots on — mirrors `php` in this package's composer.json. */
+    private const MIN_PHP_VERSION = '8.3.0';
+
     /**
      * @return int
      */
@@ -37,8 +40,8 @@ class Doctor extends GP247Command
         // PHP version.
         $checks[] = $this->check(
             'php_version',
-            version_compare(PHP_VERSION, '8.2.0', '>=') ? 'pass' : 'fail',
-            PHP_VERSION
+            version_compare(PHP_VERSION, self::MIN_PHP_VERSION, '>=') ? 'pass' : 'fail',
+            PHP_VERSION . ' (requires >= ' . self::MIN_PHP_VERSION . ')'
         );
 
         // Required PHP extensions (fail) and recommended ones (warn).
