@@ -12,6 +12,11 @@ use Illuminate\Support\Str;
  * server ceiling (no route is registered when it is off). A missing key counts as on,
  * so a site that has not run gp247:update keeps its API.
  *
+ * A package or plugin may register a switch of its own for part of a group
+ * (`gp247-config.api.switches`): it shows with the others on the API screen, has its own
+ * default when the site never chose, only matters while its parent group is open, and
+ * refuses with its own status and code (ADR api-commerce_switch-registry).
+ *
  * @aidlc-unit compat-foundation
  * @aidlc-story US-CMP-api-admin-switch
  * @aidlc-adr compat-foundation_rest-api-hardening
@@ -48,7 +53,49 @@ final class ApiSwitch
         foreach (self::KEYS as $key) {
             $states[$key] = !array_key_exists($key, $config) || !in_array(trim((string) $config[$key]), ['0', ''], true);
         }
+        foreach (self::registered() as $key => $switch) {
+            $states[$key] = array_key_exists($key, $config)
+                ? !in_array(trim((string) $config[$key]), ['0', ''], true)
+                : $switch['default'];
+        }
         return $states;
+    }
+
+    /**
+     * Switches registered by packages and plugins, normalised.
+     *
+     * @return array<string, array{label: string, parent: string, prefix: string, default: bool, status: int, code: string, message: string}>
+     */
+    public static function registered(): array
+    {
+        $switches = [];
+        foreach ((array) config('gp247-config.api.switches', []) as $key => $switch) {
+            $prefix = trim((string) ($switch['prefix'] ?? ''), '/');
+            if (in_array($key, self::KEYS, true) || $prefix === '') {
+                continue;
+            }
+            $switches[(string) $key] = [
+                'label'   => (string) ($switch['label'] ?? $key),
+                'parent'  => (string) ($switch['parent'] ?? ''),
+                'prefix'  => $prefix,
+                'default' => (bool) ($switch['default'] ?? true),
+                'status'  => (int) ($switch['status'] ?? 404),
+                'code'    => (string) ($switch['code'] ?? 'api_disabled'),
+                'message' => (string) ($switch['message'] ?? 'This API is disabled on this site'),
+            ];
+        }
+
+        return $switches;
+    }
+
+    /**
+     * Every switch key: the built-in ones, then the registered ones.
+     *
+     * @return string[]
+     */
+    public static function keys(): array
+    {
+        return array_merge(self::KEYS, array_keys(self::registered()));
     }
 
     /**
@@ -77,12 +124,35 @@ final class ApiSwitch
      */
     public static function allows(string $uri): bool
     {
+        return self::refusal($uri) === null;
+    }
+
+    /**
+     * Why a request to this uri is refused, or null when it may reach the API: the master
+     * switch, then the group switch, then a registered switch whose prefix covers the uri.
+     *
+     * @param string $uri Request path.
+     * @return array{status: int, code: string, msg: string}|null
+     */
+    public static function refusal(string $uri): ?array
+    {
+        $closed = ['status' => 404, 'code' => 'api_disabled', 'msg' => 'This API is disabled on this site'];
         $states = self::states();
         if (!$states[self::MASTER]) {
-            return false;
+            return $closed;
         }
         $group = self::groupOf($uri);
-        return $group === null || $states[$group];
+        if ($group !== null && !$states[$group]) {
+            return $closed;
+        }
+        $uri = trim($uri, '/');
+        foreach (self::registered() as $key => $switch) {
+            if (($uri === $switch['prefix'] || Str::startsWith($uri, $switch['prefix'] . '/')) && !$states[$key]) {
+                return ['status' => $switch['status'], 'code' => $switch['code'], 'msg' => $switch['message']];
+            }
+        }
+
+        return null;
     }
 
     /**

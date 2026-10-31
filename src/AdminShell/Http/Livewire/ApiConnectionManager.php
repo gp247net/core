@@ -283,7 +283,7 @@ class ApiConnectionManager extends GP247AdminComponent
     {
         $this->authorizeAction('update');
 
-        if (!in_array($key, ApiSwitch::KEYS, true)) {
+        if (!in_array($key, ApiSwitch::keys(), true)) {
             return;
         }
         if (!ApiSwitch::serverEnabled()) {
@@ -350,6 +350,19 @@ class ApiConnectionManager extends GP247AdminComponent
                 'title'  => $titles[$group],
                 'items' => $uris,
                 'on'    => $master && ($group === 'other' || ($this->apiSwitches[$group] ?? true)),
+            ];
+        }
+        // Switches registered by packages (e.g. ordering through the API): own box, own toggle,
+        // open only while the master and the parent group are open.
+        foreach (ApiSwitch::registered() as $key => $switch) {
+            $uris = array_values(array_filter(array_merge(...array_values($this->apiRoutes())),
+                fn ($uri) => $uri === $switch['prefix'] || str_starts_with($uri, $switch['prefix'] . '/')));
+            $boxes[] = [
+                'key'    => str_replace('_', '-', substr($key, 4)),
+                'switch' => $key,
+                'title'  => gp247_language_render($switch['label']),
+                'items'  => $uris,
+                'on'     => $master && ($this->apiSwitches[$switch['parent']] ?? true) && ($this->apiSwitches[$key] ?? $switch['default']),
             ];
         }
         return $boxes;

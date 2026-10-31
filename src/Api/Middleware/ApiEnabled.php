@@ -30,8 +30,8 @@ class ApiEnabled
     {
         // WHY the matched route's uri: grouping must follow what the router matched, not the raw path.
         $uri = $request->route()?->uri() ?? $request->path();
-        if (!ApiSwitch::allows($uri)) {
-            return ApiErrorResponder::respond(404, 'api_disabled', 'This API is disabled on this site');
+        if ($refusal = ApiSwitch::refusal($uri)) {
+            return ApiErrorResponder::respond($refusal['status'], $refusal['code'], $refusal['msg']);
         }
 
         return $next($request);
