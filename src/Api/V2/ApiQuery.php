@@ -35,10 +35,14 @@ final class ApiQuery
      * @param array<string, callable> $filters name => fn(Builder $q, string $value): void.
      * @param array<string, string>   $sorts   name => qualified column.
      * @param callable|null           $search  fn(Builder $q, string $term): void for `q`.
+     * @param bool                    $changedSince Admin lists: accept `updated_since` (sync mode, keyset paging).
      * @return JsonResponse
      * @throws ValidationException When a filter/sort name is not declared.
+     *
+     * @aidlc-story US-api-sync-changed-since-filter
+     * @aidlc-adr api-sync_keyset-changed-since
      */
-    public static function page(Builder $query, Request $request, callable $toArray, array $filters = [], array $sorts = [], ?callable $search = null): JsonResponse
+    public static function page(Builder $query, Request $request, callable $toArray, array $filters = [], array $sorts = [], ?callable $search = null, bool $changedSince = false): JsonResponse
     {
         $requested = (array) $request->query('filter', []);
         $unknown = array_diff(array_keys($requested), array_keys($filters));
@@ -63,6 +67,9 @@ final class ApiQuery
         }
 
         $query->reorder();
+        if ($changedSince && $request->query('updated_since') !== null) {
+            return self::changedSincePage($query, $request, $toArray);
+        }
         $sort = $request->query('sort', '');
         if ($sort !== '') {
             $field = ltrim($sort, '-');
@@ -96,6 +103,75 @@ final class ApiQuery
                 'prev'  => $link($paginator->currentPage() > 1 ? $paginator->currentPage() - 1 : null),
                 'next'  => $link($paginator->hasMorePages() ? $paginator->currentPage() + 1 : null),
             ],
+        ]);
+    }
+
+    /**
+     * Sync mode of an admin list: rows with `updated_at >= updated_since`, oldest change
+     * first, keyset-paged by `page[after]` (a cursor on `updated_at` + key) so a row changed
+     * between two pages never pushes another row out of sight. No COUNT, no page numbers.
+     *
+     * @param Builder  $query   Filters, search and scope already applied; order cleared.
+     * @param Request  $request
+     * @param callable $toArray
+     * @return JsonResponse
+     * @throws ValidationException On a bad mark, a forged cursor, `sort` or `page[number]`.
+     *
+     * @aidlc-unit api-sync
+     * @aidlc-story US-api-sync-changed-since-filter
+     * @aidlc-adr api-sync_keyset-changed-since
+     */
+    private static function changedSincePage(Builder $query, Request $request, callable $toArray): JsonResponse
+    {
+        $since = $request->query('updated_since');
+        if (!is_string($since) || !preg_match('/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/', $since)) {
+            throw ValidationException::withMessages(['updated_since' => ['updated_since must be an ISO-8601 date-time, e.g. 2026-10-31T08:00:00+07:00.']]);
+        }
+        $page = (array) $request->query('page', []);
+        if ((string) $request->query('sort', '') !== '' || isset($page['number'])) {
+            throw ValidationException::withMessages(['updated_since' => ['updated_since sorts by update time and pages with page[after]; drop sort and page[number].']]);
+        }
+        $after = null;
+        if (isset($page['after'])) {
+            $after = is_string($page['after']) ? \GP247\Core\Api\Sync\ChangeCursor::decode($page['after']) : null;
+            if ($after === null) {
+                throw ValidationException::withMessages(['page' => ['page[after] is not a cursor from this list.']]);
+            }
+        }
+
+        $timezone = config('app.timezone');
+        $from = \Illuminate\Support\Carbon::parse($since, $timezone)->setTimezone($timezone)->format('Y-m-d H:i:s');
+        $table = $query->getModel()->getTable();
+        $keyColumn = $table . '.' . $query->getModel()->getKeyName();
+        $updated = $table . '.updated_at';
+        $query->where($updated, '>=', $from);
+        if ($after !== null) {
+            [$at, $key] = $after;
+            $query->where(fn (Builder $q) => $q->where($updated, '>', $at)
+                ->orWhere(fn (Builder $same) => $same->where($updated, $at)->where($keyColumn, '>', $key)));
+        }
+        $size = min(self::MAX_PAGE_SIZE, max(1, (int) ($page['size'] ?? self::DEFAULT_PAGE_SIZE)));
+        $rows = $query->orderBy($updated)->orderBy($keyColumn)->limit($size + 1)->get();
+        $hasMore = $rows->count() > $size;
+        $rows = $rows->take($size)->values();
+
+        $last = $rows->last();
+        $lastAt = $last ? (string) $last->getRawOriginal('updated_at') : null;
+        $nextAfter = $last ? \GP247\Core\Api\Sync\ChangeCursor::encode($lastAt, (string) $last->getKey()) : null;
+        $syncUntil = $lastAt ? \Illuminate\Support\Carbon::parse($lastAt, $timezone)->toIso8601String() : null;
+        $next = $hasMore
+            ? $request->url() . '?' . http_build_query(array_merge($request->query(), ['page' => ['size' => $size, 'after' => $nextAfter]]))
+            : null;
+
+        return response()->json([
+            'data'  => $rows->map(fn ($row) => $toArray($row))->values(),
+            'meta'  => [
+                'per_page'   => $size,
+                'next_after' => $nextAfter,
+                'has_more'   => $hasMore,
+                'sync_until' => $syncUntil,
+            ],
+            'links' => ['next' => $next],
         ]);
     }
 

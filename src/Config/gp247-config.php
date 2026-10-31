@@ -151,6 +151,8 @@ return [
             'default'  => env('GP247_API_THROTTLE', 1000),
             // account: "attempts,minutes" per IP on register / password forgot-reset / e-mail verify (v2).
             'account'  => env('GP247_API_ACCOUNT_THROTTLE', '5,1'),
+            // write: "requests,minutes" per admin account on admin API writes (route middleware throttle:gp247-api-write).
+            'write'    => env('GP247_API_WRITE_THROTTLE', '300,1'),
         ],
 
         // Second sign-in step (MFA) registered by plugins: class names implementing

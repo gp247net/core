@@ -566,6 +566,7 @@ class CoreServiceProvider extends ServiceProvider
         'api.request_id'   => \GP247\Core\Api\Middleware\ApiRequestId::class,
         'api.admin'        => \GP247\Core\Api\Middleware\ApiAdminAuthorize::class,
         'api.admin.active' => \GP247\Core\Api\Middleware\ApiAdminActive::class,
+        'api.idempotent'   => \GP247\Core\Api\Middleware\ApiIdempotent::class,
         //Admin
         'admin.auth'       => Authenticate::class,
         'admin.log'        => LogOperation::class,
@@ -629,7 +630,7 @@ class CoreServiceProvider extends ServiceProvider
      * @return void
      *
      * @aidlc-unit compat-foundation
-     * @aidlc-story US-CMP-api-login-throttle, US-CMP-api-customer-register
+     * @aidlc-story US-CMP-api-login-throttle, US-CMP-api-customer-register, US-api-sync-write-throttle
      * @aidlc-adr compat-foundation_rest-api-hardening
      */
     protected function registerApiRateLimiters(): void
@@ -644,6 +645,16 @@ class CoreServiceProvider extends ServiceProvider
             $max = max(1, (int) ($parts[0] ?? 5));
             $minutes = max(1, (int) ($parts[1] ?? 1));
             return \Illuminate\Cache\RateLimiting\Limit::perMinutes($minutes, $max)->by('account|' . $request->ip());
+        });
+        // WHY per account, not IP: a sync tool behind one IP (or several tools sharing a NAT)
+        // must not starve other accounts; reads stay on the shared limiter (US-api-sync-write-throttle).
+        \Illuminate\Support\Facades\RateLimiter::for('gp247-api-write', function (Request $request) {
+            $parts = explode(',', (string) config('gp247-config.api.throttle.write', '300,1'));
+            $max = max(1, (int) ($parts[0] ?? 300));
+            $minutes = max(1, (int) ($parts[1] ?? 1));
+            $user = $request->user();
+            $by = $user ? 'write|' . strtolower(class_basename($user)) . ':' . $user->getKey() : 'write|ip:' . $request->ip();
+            return \Illuminate\Cache\RateLimiting\Limit::perMinutes($minutes, $max)->by($by);
         });
     }
 

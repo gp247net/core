@@ -281,6 +281,9 @@ return new class extends Migration
 
         // REST API v2 sessions + refresh tokens (US-CMP-api-session-management)
         \GP247\Core\Api\Support\ApiSessionSchema::create($schema);
+
+        // Stored results of admin API writes by Idempotency-Key (US-api-sync-write-idempotency)
+        \GP247\Core\Api\Sync\ApiSyncSchema::create($schema);
     }
 
     /**
@@ -314,6 +317,7 @@ return new class extends Migration
         $schema->dropIfExists(GP247_DB_PREFIX . 'admin_home');
         $schema->dropIfExists('personal_access_tokens');
         \GP247\Core\Api\Support\ApiSessionSchema::drop($schema);
+        \GP247\Core\Api\Sync\ApiSyncSchema::drop($schema);
         
     }
 };
