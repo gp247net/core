@@ -33,10 +33,11 @@ class ApiAdminAuthorize
      *
      * @param Request $request
      * @param Closure $next
-     * @param string  $adminRouteName Admin route whose permission opens this endpoint.
+     * @param string  $adminRouteName Admin route whose permission opens this endpoint (`*events`: any event type's screen).
+     * @param string  $mode           `read` (default) or `write` (checked like a write action on the screen).
      * @return mixed
      */
-    public function handle(Request $request, Closure $next, string $adminRouteName = '')
+    public function handle(Request $request, Closure $next, string $adminRouteName = '', string $mode = 'read')
     {
         $user = Auth::guard('admin-api')->user();
         if (!$user instanceof AdminUser || (int) $user->status !== 1) {
@@ -57,8 +58,13 @@ class ApiAdminAuthorize
         // WHY: HEAD is answered by GET routes; any other verb is checked as itself so a
         // future write endpoint needs the matching write grant (view.all stays read-only).
         $method = in_array($request->method(), ['GET', 'HEAD'], true) ? 'GET' : $request->method();
-        if (!$adminRoute instanceof Route
-            || !AdminRouteAccess::allows($user, $method, $adminRoute, $this->samplePath($adminRoute))) {
+        if (!$adminRoute instanceof Route) {
+            return ApiErrorResponder::forbidden();
+        }
+        $allowed = $mode === 'write'
+            ? $this->allowsWrite($user, $adminRoute)
+            : AdminRouteAccess::allows($user, $method, $adminRoute, $this->samplePath($adminRoute));
+        if (!$allowed) {
             return ApiErrorResponder::forbidden();
         }
 
@@ -73,6 +79,33 @@ class ApiAdminAuthorize
         ApiStoreScope::set($storeId);
 
         return $next($request);
+    }
+
+    /**
+     * `api.admin:<screen route>,write`: decide exactly as a write action on that admin
+     * screen does (Livewire authorizeAction) — action fence veto, view.all read-only,
+     * then a POST grant on the screen path, wildcards included — so whoever may change
+     * the data on the screen may change it through the API, and nobody else.
+     *
+     * @param AdminUser $user
+     * @param Route     $screenRoute Admin route of the screen (e.g. admin_order.index).
+     * @return bool
+     *
+     * @aidlc-unit api-admin-write
+     * @aidlc-story US-api-admin-write-order-status
+     * @aidlc-adr api-admin-write_write-authorization-as-admin-action
+     */
+    private function allowsWrite(AdminUser $user, Route $screenRoute): bool
+    {
+        try {
+            $path = parse_url(route($screenRoute->getName()), PHP_URL_PATH);
+        } catch (\Throwable $e) {
+            return false;
+        }
+        $screenUri = is_string($path) ? ltrim($path, '/') : null;
+
+        return app(\GP247\Core\AdminShell\Application\AuthorizeAdminAction::class)
+            ->authorize(new \GP247\Core\AdminShell\Infrastructure\EloquentAdminUserAdapter($user), $screenUri, 'update')->isAllowed();
     }
 
     /**
