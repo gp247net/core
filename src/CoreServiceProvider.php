@@ -609,11 +609,14 @@ class CoreServiceProvider extends ServiceProvider
 
         // WHY: Laravel sorts the middleware listed in its priority (auth, throttle…) ahead of
         // the others, so a 401 from auth:* would skip the request id and a disabled API group
-        // would answer 401 instead of api_disabled. Put both at the very front (request id
-        // first) on the HTTP kernel: its priority list is the source the router is synced from.
+        // would answer 401 instead of api_disabled; and auth:* would run before the request is
+        // forced to JSON, building a redirect to a `login` route that does not exist (500).
+        // Put the three at the very front (request id first) on the HTTP kernel: its priority
+        // list is the source the router is synced from.
         $kernel = $this->app->make(\Illuminate\Contracts\Http\Kernel::class);
         if (method_exists($kernel, 'prependToMiddlewarePriority')) {
             $kernel->prependToMiddlewarePriority(\GP247\Core\Api\Middleware\ApiEnabled::class);
+            $kernel->prependToMiddlewarePriority(ForceJsonResponse::class);
             $kernel->prependToMiddlewarePriority(\GP247\Core\Api\Middleware\ApiRequestId::class);
         }
 
