@@ -155,6 +155,14 @@ return [
             'write'    => env('GP247_API_WRITE_THROTTLE', '300,1'),
         ],
 
+        // Event log for ERP sync (turned on on the API management screen). Types are registered by
+        // core / shop / plugins: 'type' => ['fields' => [...], 'permission' => '<admin route name>'].
+        'events'               => [],
+        // Days an event is kept (cleaned lazily during requests, no cron).
+        'event_days'           => env('GP247_API_EVENT_DAYS', 30),
+        // Seconds an event waits before readers see it (two changes committing at once never skip one).
+        'event_settle_seconds' => env('GP247_API_EVENT_SETTLE_SECONDS', 5),
+
         // Second sign-in step (MFA) registered by plugins: class names implementing
         // GP247\Core\Api\Contracts\LoginChallenge, per audience (US-CMP-api-login-challenge-seam).
         'login_challenge' => [

@@ -76,6 +76,10 @@ class ApiConnectionManager extends GP247AdminComponent
     #[Locked]
     public array $apiSwitches = [];
 
+    /** @var bool Whether the event log for ERP sync is on. Locked: only setEventLog() changes it. */
+    #[Locked]
+    public bool $eventLog = false;
+
     /** @var bool Whether GP247_API_MODE lets the API exist (false locks the switches). */
     #[Locked]
     public bool $apiServerEnabled = true;
@@ -138,6 +142,29 @@ class ApiConnectionManager extends GP247AdminComponent
             ->value('value');
         $this->apiSwitches = ApiSwitch::states();
         $this->apiServerEnabled = ApiSwitch::serverEnabled();
+        $this->eventLog = \GP247\Core\Api\Sync\ApiEvents::enabled();
+    }
+
+    /**
+     * Turn the event log for ERP sync on or off (global setting, default off).
+     *
+     * @param bool $on
+     * @return void
+     *
+     * @aidlc-unit api-sync
+     * @aidlc-story US-api-sync-event-record
+     */
+    public function setEventLog(bool $on): void
+    {
+        $this->authorizeAction('update');
+
+        AdminConfig::updateOrCreate(
+            ['key' => \GP247\Core\Api\Sync\ApiEvents::SWITCH_KEY, 'store_id' => $this->globalStoreId()],
+            ['group' => 'global', 'code' => 'api_config', 'value' => $on ? '1' : '0', 'detail' => 'admin.api_connection.event_log']
+        );
+        $this->eventLog = $on;
+
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**

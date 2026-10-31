@@ -113,6 +113,9 @@ class Doctor extends GP247Command
         // update but not gp247:update, which rebuilds the cache). Read-only.
         $checks[] = $this->apiRouteGateCheck();
 
+        // Event log for ERP sync whose lazy cleaning does not run (no requests). Read-only.
+        $checks[] = $this->apiEventRetentionCheck();
+
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
         if (!$this->isJson()) {
@@ -354,6 +357,34 @@ class Doctor extends GP247Command
             count($missing) . ' cached API route(s) without the switch gate - run php artisan gp247:cache-rebuild',
             array_slice(array_values(array_unique($missing)), 0, 20)
         );
+    }
+
+    /**
+     * The event log keeps events GP247_API_EVENT_DAYS days and cleans them during requests;
+     * events older than that by two days mean the cleaning does not run. Read-only.
+     *
+     * @return array
+     *
+     * @aidlc-unit api-sync
+     * @aidlc-story US-api-sync-event-retention
+     */
+    protected function apiEventRetentionCheck(): array
+    {
+        try {
+            if (!\GP247\Core\Api\Sync\ApiEvents::ready()) {
+                return $this->check('api_event_retention', 'pass', 'skipped (no event table - run php artisan gp247:update)');
+            }
+            $days = \GP247\Core\Api\Sync\EventPruner::keepDays();
+            $stale = \DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'api_event')
+                ->where('occurred_at', '<', now()->subDays($days + 2))->count();
+        } catch (\Throwable $e) {
+            return $this->check('api_event_retention', 'pass', 'skipped (database unavailable)');
+        }
+        if ($stale === 0) {
+            return $this->check('api_event_retention', 'pass', 'no event older than ' . $days . ' days');
+        }
+
+        return $this->check('api_event_retention', 'warn', $stale . ' event(s) older than ' . $days . ' days - cleaning runs on API requests; read GET api/v2/core/events or lower GP247_API_EVENT_DAYS');
     }
 
     /**

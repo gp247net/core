@@ -170,6 +170,8 @@ class DataDefaultSeeder extends Seeder
             ['group' => 'global','code' => 'api_config','key' => 'api_v1_front','value' => '0','sort' => '4','detail' => 'admin.api_connection.switch_front','store_id' => 0],
             ['group' => 'global','code' => 'api_config','key' => 'api_v2_core','value' => '1','sort' => '5','detail' => 'admin.api_connection.switch_core','store_id' => 0],
             ['group' => 'global','code' => 'api_config','key' => 'api_v2_front','value' => '1','sort' => '6','detail' => 'admin.api_connection.switch_front','store_id' => 0],
+            // Event log for ERP sync (US-api-sync-event-record): off until the site owner turns it on.
+            ['group' => 'global','code' => 'api_config','key' => 'api_event_log','value' => '0','sort' => '7','detail' => 'admin.api_connection.event_log','store_id' => 0],
             ['group' => 'global','code' => 'cache','key' => 'cache_status','value' => '0','sort' => '0','detail' => 'admin.cache.cache_status','store_id' => 0],
             ['group' => 'global','code' => 'cache','key' => 'cache_time','value' => '600','sort' => '0','detail' => 'admin.cache.cache_time','store_id' => 0],
             ['group' => 'global','code' => 'cache','key' => 'cache_category','value' => '0','sort' => '3','detail' => 'admin.cache.cache_category','store_id' => 0],

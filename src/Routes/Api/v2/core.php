@@ -22,4 +22,8 @@ Route::group([
         Route::get('sessions', $authController.'@sessions');
         Route::delete('sessions/{id}', $authController.'@revokeSession');
     });
+
+    // Event log for ERP sync, read by cursor (US-api-sync-event-read).
+    Route::middleware(['auth:admin-api', ApiAbilities::admin(), 'api.admin:*events'])
+        ->get('events', gp247_namespace(\GP247\Core\Api\V2\EventsController::class).'@index');
 });

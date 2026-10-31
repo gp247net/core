@@ -179,6 +179,17 @@
                     </label>
                 </div>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.api_connection.switch_help') }}</p>
+
+                <div class="mt-4 flex items-center gap-3">
+                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ gp247_language_render('admin.api_connection.event_log') }}</span>
+                    <label class="relative inline-flex h-6 w-11 cursor-pointer items-center">
+                        <input type="checkbox" class="peer sr-only" data-testid="api-connection-event-log-switch"
+                            @checked($eventLog) wire:change="setEventLog($event.target.checked)">
+                        <span class="absolute inset-0 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 dark:bg-gray-600"></span>
+                        <span class="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                    </label>
+                </div>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.api_connection.event_log_help') }}</p>
             </div>
 
 

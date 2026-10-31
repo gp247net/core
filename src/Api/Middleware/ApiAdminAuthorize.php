@@ -49,7 +49,11 @@ class ApiAdminAuthorize
         // only sets it in memory for this request, it does not start or write a session.
         Auth::guard('admin')->setUser($user);
 
-        $adminRoute = $adminRouteName !== '' ? RouteFacade::getRoutes()->getByName($adminRouteName) : null;
+        // WHY `*events`: the event log has no screen of its own — an admin may read it when
+        // allowed to open the screen of at least one registered event type (US-api-sync-event-read).
+        $adminRoute = $adminRouteName === '*events'
+            ? \GP247\Core\Api\Sync\EventType::firstReadableRoute($user)
+            : ($adminRouteName !== '' ? RouteFacade::getRoutes()->getByName($adminRouteName) : null);
         // WHY: HEAD is answered by GET routes; any other verb is checked as itself so a
         // future write endpoint needs the matching write grant (view.all stays read-only).
         $method = in_array($request->method(), ['GET', 'HEAD'], true) ? 'GET' : $request->method();

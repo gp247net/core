@@ -341,6 +341,8 @@ return [
     'admin.api_connection.edit' => '接続を編集',
     'admin.api_connection.api_connection_required_help' => 'API詳細ガイドのリンク: <a href="https://gp247.net/en/docs/api/about-api-gp247.html" target="_new">こちら</a><br>(*) <span class="text-red">your-bearer-token</span> はAPIログインで取得します',
     'admin.api_connection.service' => 'API接続によるセキュリティ',
+    'admin.api_connection.event_log' => '同期用イベントログ（ERP）',
+    'admin.api_connection.event_log_help' => '注文・在庫・商品・顧客の変更を記録し、同期ツールが api/v2/core/events で読めるようにします。30 日間保持します。ERP が読まない場合はオフのままにしてください。',
     'admin.api_connection.switch_all' => 'REST API（全グループ）',
     'admin.api_connection.switch_core' => '管理API (core)',
     'admin.api_connection.switch_front' => '公開・顧客API (front)',

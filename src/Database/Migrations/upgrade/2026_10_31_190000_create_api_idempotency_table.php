@@ -29,6 +29,6 @@ return new class extends Migration
      */
     public function down()
     {
-        ApiSyncSchema::drop(Schema::connection(GP247_DB_CONNECTION));
+        ApiSyncSchema::dropIdempotency(Schema::connection(GP247_DB_CONNECTION));
     }
 };
