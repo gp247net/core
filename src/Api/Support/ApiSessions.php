@@ -21,7 +21,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  * plain token as before and revokeAll() still deletes the owner's tokens.
  *
  * @aidlc-unit compat-foundation
- * @aidlc-story US-CMP-api-session-management, US-CMP-api-refresh-token-rotation, US-CMP-api-token-lifetime
+ * @aidlc-story US-CMP-api-session-management, US-CMP-api-refresh-token-rotation, US-CMP-api-token-lifetime, US-LW-password-change-revokes-api-sessions
  * @aidlc-adr compat-foundation_api-token-rotation
  */
 final class ApiSessions
@@ -31,6 +31,9 @@ final class ApiSessions
 
     /** @var bool|null Memo of the schema probe (one per process). */
     private static ?bool $ready = null;
+
+    /** @var int|null Access token the model-level revocation must spare while keeping() runs. */
+    private static ?int $keptTokenId = null;
 
     /**
      * Whether the session tables exist.
@@ -167,6 +170,41 @@ final class ApiSessions
             // WHY: a replayed refresh token is the signature of a stolen one.
             gp247_report('API refresh token reused; session revoked (session ' . $session->id . ', audience ' . $session->audience . ')');
         }
+    }
+
+    /**
+     * Run $fn while the model-level revocation (a password change caught by the owner
+     * model's `updated` hook) spares the access token $tokenId — the session changing
+     * the password through the API. The previous value is restored afterwards, so
+     * nested calls and exceptions leave no stale exemption behind.
+     *
+     * @param int|null $tokenId
+     * @param callable $fn
+     * @return mixed What $fn returns.
+     *
+     * @aidlc-story US-LW-password-change-revokes-api-sessions
+     */
+    public static function keeping(?int $tokenId, callable $fn): mixed
+    {
+        $previous = self::$keptTokenId;
+        self::$keptTokenId = $tokenId;
+        try {
+            return $fn();
+        } finally {
+            self::$keptTokenId = $previous;
+        }
+    }
+
+    /**
+     * Access token to spare in revokeAll() called from a model hook (null = revoke all).
+     *
+     * @return int|null
+     *
+     * @aidlc-story US-LW-password-change-revokes-api-sessions
+     */
+    public static function keptTokenId(): ?int
+    {
+        return self::$keptTokenId;
     }
 
     /**
