@@ -9,7 +9,7 @@
     @aidlc-story US-UI-005, US-CMP-api-admin-switch, US-CMP-api-docs-link-from-admin
     @aidlc-adr ADR-001, ADR-005, compat-foundation_rest-api-hardening
 
-    Variables: $rows (paginator), $routeGroups (list of {key, switch, title, items, on}), $docsGuide (string|null),
+    Variables: $rows (paginator), $routeGroups (list of {key, switch, title, items, on}), $docsGuide (string|null), $canManageWebhooks (bool),
     plus the component's $apiSwitches / $apiServerEnabled.
 --}}
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -234,5 +234,12 @@
                 </div>
             @endif
         </x-gp247::card>
+
+        {{-- Webhooks for sync (administrators only; US-api-sync-webhook-register) --}}
+        @if ($canManageWebhooks)
+            <div class="mt-6">
+                @livewire(\GP247\Core\AdminShell\Http\Livewire\ApiWebhookManager::class)
+            </div>
+        @endif
     </div>
 </div>

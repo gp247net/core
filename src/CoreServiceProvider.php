@@ -211,6 +211,10 @@ class CoreServiceProvider extends ServiceProvider
                 // WHY: fingerprint is non-critical; a failure here must never
                 // surface to visitors or abort application boot.
             }
+
+            // Webhook retries ride on ordinary requests (no cron or worker): one cache
+            // read, and the sends run after the response (US-api-sync-webhook-delivery).
+            $this->app->booted(fn () => \GP247\Core\Api\Sync\WebhookDispatcher::kickIfDue());
         }
 
         if (GP247_ACTIVE == 1 && \Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {

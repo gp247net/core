@@ -74,16 +74,7 @@ class EventsController extends RootAdminController
         $rows = $rows->take($size)->values();
 
         return response()->json([
-            'data' => $rows->map(fn ($row) => [
-                'id'          => (int) $row->id,
-                'type'        => $row->type,
-                'subject_id'  => $row->subject_id,
-                'store_id'    => $row->store_id,
-                'source'      => $row->source,
-                'actor'       => $row->actor_type ? ['type' => $row->actor_type, 'id' => $row->actor_id] : null,
-                'data'        => json_decode((string) $row->data) ?: new \stdClass(),
-                'occurred_at' => \Illuminate\Support\Carbon::parse($row->occurred_at)->toIso8601String(),
-            ])->values(),
+            'data' => $rows->map(fn ($row) => \GP247\Core\Api\Sync\EventPayload::fromRow($row))->values(),
             'meta' => [
                 'per_page'   => $size,
                 'next_after' => $rows->isNotEmpty() ? (int) $rows->last()->id : (int) ($after ?? 0),

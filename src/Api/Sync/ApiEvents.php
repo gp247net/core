@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
  * only), written after the surrounding transaction commits — a rolled back change
  * leaves no event — and a failure to record is reported, never thrown, so it cannot
  * break the change. Nothing is written while the log is off (default) or for a type
- * nobody registered.
+ * nobody registered. Each recorded event is queued for the webhooks following its type.
  *
  * @aidlc-unit api-sync
  * @aidlc-story US-api-sync-event-record
@@ -79,7 +79,8 @@ final class ApiEvents
             ];
             DB::connection(GP247_DB_CONNECTION)->afterCommit(function () use ($row) {
                 try {
-                    DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'api_event')->insert($row + ['occurred_at' => now()]);
+                    $id = (int) DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'api_event')->insertGetId($row + ['occurred_at' => now()]);
+                    WebhookDispatcher::enqueue($id, $row['type']);
                     if (random_int(1, self::PRUNE_ODDS) === 1) {
                         EventPruner::attempt();
                     }

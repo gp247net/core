@@ -10,8 +10,8 @@ use Illuminate\Database\Schema\Builder;
  * migration so both build the same schema. Creating is idempotent.
  *
  * @aidlc-unit api-sync
- * @aidlc-story US-api-sync-write-idempotency, US-api-sync-event-record
- * @aidlc-adr api-sync_admin-idempotency-store, api-sync_event-log-after-commit
+ * @aidlc-story US-api-sync-write-idempotency, US-api-sync-event-record, US-api-sync-webhook-register
+ * @aidlc-adr api-sync_admin-idempotency-store, api-sync_event-log-after-commit, api-sync_webhook-deferred-delivery
  */
 final class ApiSyncSchema
 {
@@ -52,6 +52,34 @@ final class ApiSyncSchema
                 $table->index('occurred_at');
             });
         }
+        if (!$schema->hasTable(GP247_DB_PREFIX . 'api_webhook')) {
+            $schema->create(GP247_DB_PREFIX . 'api_webhook', function (Blueprint $table) {
+                $table->id();
+                $table->string('url', 500);
+                $table->text('event_types');
+                $table->text('secret');
+                $table->tinyInteger('status')->default(1);
+                $table->unsignedInteger('consecutive_failures')->default(0);
+                $table->string('disabled_reason', 255)->nullable();
+                $table->timestamps();
+            });
+        }
+        if (!$schema->hasTable(GP247_DB_PREFIX . 'api_webhook_delivery')) {
+            $schema->create(GP247_DB_PREFIX . 'api_webhook_delivery', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('webhook_id');
+                $table->unsignedBigInteger('event_id');
+                $table->unsignedTinyInteger('attempts')->default(0);
+                $table->string('status', 10);
+                $table->timestamp('next_attempt_at')->nullable();
+                $table->unsignedSmallInteger('last_status_code')->nullable();
+                $table->string('last_error', 255)->nullable();
+                $table->timestamps();
+                $table->index(['status', 'next_attempt_at']);
+                $table->index(['webhook_id', 'id']);
+                $table->index('updated_at');
+            });
+        }
     }
 
     /**
@@ -64,6 +92,19 @@ final class ApiSyncSchema
     {
         self::dropIdempotency($schema);
         self::dropEventLog($schema);
+        self::dropWebhooks($schema);
+    }
+
+    /**
+     * Drop the webhook tables (registrations, signing secrets and delivery history are lost).
+     *
+     * @param Builder $schema
+     * @return void
+     */
+    public static function dropWebhooks(Builder $schema): void
+    {
+        $schema->dropIfExists(GP247_DB_PREFIX . 'api_webhook_delivery');
+        $schema->dropIfExists(GP247_DB_PREFIX . 'api_webhook');
     }
 
     /**

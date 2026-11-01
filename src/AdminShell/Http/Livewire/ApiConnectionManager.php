@@ -419,6 +419,9 @@ class ApiConnectionManager extends GP247AdminComponent
             'routeGroups' => $this->routeGroups(),
             'docsGuide' => $this->docsGuide(),
             'revealedKey' => $this->revealedKey,
+            // WHY both: webhooks send data out (administrators only), and their tables come with gp247:update.
+            'canManageWebhooks' => app(\GP247\Core\AdminShell\Domain\AdminUserContract::class)->isAdministrator()
+                && \Illuminate\Support\Facades\Schema::connection(GP247_DB_CONNECTION)->hasTable(GP247_DB_PREFIX . 'api_webhook'),
         ])->layout('gp247-admin::layouts.admin', ['title' => gp247_language_render('admin.api_connection.list')]);
     }
 }

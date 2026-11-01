@@ -54,11 +54,32 @@ final class EventPruner
                         );
                     }
                 }
+                self::pruneDeliveries();
             } finally {
                 Cache::forget(self::LOCK);
             }
         } catch (\Throwable $e) {
             gp247_report($e);
+        }
+    }
+
+    /**
+     * Finished webhook deliveries (delivered or given up) older than the event keep period, one batch.
+     *
+     * @return void
+     *
+     * @aidlc-story US-api-sync-webhook-delivery
+     */
+    private static function pruneDeliveries(): void
+    {
+        $db = \Illuminate\Support\Facades\DB::connection(GP247_DB_CONNECTION);
+        if (!$db->getSchemaBuilder()->hasTable(GP247_DB_PREFIX . 'api_webhook_delivery')) {
+            return;
+        }
+        $ids = $db->table(GP247_DB_PREFIX . 'api_webhook_delivery')->where('status', '<>', 'pending')
+            ->where('updated_at', '<', now()->subDays(self::keepDays()))->orderBy('id')->limit(self::BATCH)->pluck('id')->all();
+        if ($ids) {
+            $db->table(GP247_DB_PREFIX . 'api_webhook_delivery')->whereIn('id', $ids)->delete();
         }
     }
 
