@@ -36,13 +36,14 @@ final class ApiQuery
      * @param array<string, string>   $sorts   name => qualified column.
      * @param callable|null           $search  fn(Builder $q, string $term): void for `q`.
      * @param bool                    $changedSince Admin lists: accept `updated_since` (sync mode, keyset paging).
+     * @param ApiShapeSelection|null  $shape   fields/include chosen by the request (null = the declared resource as is).
      * @return JsonResponse
      * @throws ValidationException When a filter/sort name is not declared.
      *
-     * @aidlc-story US-api-sync-changed-since-filter
-     * @aidlc-adr api-sync_keyset-changed-since
+     * @aidlc-story US-api-sync-changed-since-filter, US-CMP-api-sparse-fieldsets, US-CMP-api-include-relations
+     * @aidlc-adr api-sync_keyset-changed-since, compat-foundation_api-http-caching-and-shaping
      */
-    public static function page(Builder $query, Request $request, callable $toArray, array $filters = [], array $sorts = [], ?callable $search = null, bool $changedSince = false): JsonResponse
+    public static function page(Builder $query, Request $request, callable $toArray, array $filters = [], array $sorts = [], ?callable $search = null, bool $changedSince = false, ?ApiShapeSelection $shape = null): JsonResponse
     {
         $requested = (array) $request->query('filter', []);
         $unknown = array_diff(array_keys($requested), array_keys($filters));
@@ -68,7 +69,7 @@ final class ApiQuery
 
         $query->reorder();
         if ($changedSince && $request->query('updated_since') !== null) {
-            return self::changedSincePage($query, $request, $toArray);
+            return self::changedSincePage($query, $request, $toArray, $shape);
         }
         $sort = $request->query('sort', '');
         if ($sort !== '') {
@@ -90,7 +91,7 @@ final class ApiQuery
         $link = fn (?int $n) => $n === null ? null : $request->url() . '?' . http_build_query(array_merge($request->query(), ['page' => ['number' => $n, 'size' => $size]]));
 
         return response()->json([
-            'data'  => $paginator->getCollection()->map(fn ($row) => $toArray($row))->values(),
+            'data'  => $paginator->getCollection()->map(fn ($row) => self::shaped($row, $toArray, $shape, $request))->values(),
             'meta'  => [
                 'current_page' => $paginator->currentPage(),
                 'per_page'     => $paginator->perPage(),
@@ -114,6 +115,7 @@ final class ApiQuery
      * @param Builder  $query   Filters, search and scope already applied; order cleared.
      * @param Request  $request
      * @param callable $toArray
+     * @param ApiShapeSelection|null $shape
      * @return JsonResponse
      * @throws ValidationException On a bad mark, a forged cursor, `sort` or `page[number]`.
      *
@@ -121,7 +123,7 @@ final class ApiQuery
      * @aidlc-story US-api-sync-changed-since-filter
      * @aidlc-adr api-sync_keyset-changed-since
      */
-    private static function changedSincePage(Builder $query, Request $request, callable $toArray): JsonResponse
+    private static function changedSincePage(Builder $query, Request $request, callable $toArray, ?ApiShapeSelection $shape = null): JsonResponse
     {
         $since = $request->query('updated_since');
         if (!is_string($since) || !preg_match('/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/', $since)) {
@@ -164,7 +166,7 @@ final class ApiQuery
             : null;
 
         return response()->json([
-            'data'  => $rows->map(fn ($row) => $toArray($row))->values(),
+            'data'  => $rows->map(fn ($row) => self::shaped($row, $toArray, $shape, $request))->values(),
             'meta'  => [
                 'per_page'   => $size,
                 'next_after' => $nextAfter,
@@ -178,13 +180,32 @@ final class ApiQuery
     /**
      * Answer one record, or 404 when there is none.
      *
-     * @param mixed    $row
-     * @param callable $toArray
+     * @param mixed                  $row
+     * @param callable               $toArray
+     * @param ApiShapeSelection|null $shape fields/include chosen by the request.
      * @return JsonResponse
+     *
+     * @aidlc-story US-CMP-api-v2-contract, US-CMP-api-sparse-fieldsets, US-CMP-api-include-relations
      */
-    public static function one($row, callable $toArray): JsonResponse
+    public static function one($row, callable $toArray, ?ApiShapeSelection $shape = null): JsonResponse
     {
-        return $row ? response()->json(['data' => $toArray($row)]) : ApiErrorResponder::notFound();
+        return $row ? response()->json(['data' => self::shaped($row, $toArray, $shape, request())]) : ApiErrorResponder::notFound();
+    }
+
+    /**
+     * The resource of one row, shaped by the request's fields/include when there are any.
+     *
+     * @param mixed                  $row
+     * @param callable               $toArray
+     * @param ApiShapeSelection|null $shape
+     * @param Request                $request
+     * @return mixed
+     */
+    private static function shaped($row, callable $toArray, ?ApiShapeSelection $shape, Request $request)
+    {
+        $data = $toArray($row);
+
+        return $shape !== null && is_array($data) ? $shape->apply($data, $row, $request) : $data;
     }
 
     /**

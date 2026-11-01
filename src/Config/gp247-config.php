@@ -155,6 +155,17 @@ return [
             'write'    => env('GP247_API_WRITE_THROTTLE', '300,1'),
         ],
 
+        // Public catalog / content routes (middleware api.cache.public): seconds a browser or CDN
+        // may keep an answer read without a token. 0 = always revalidate (304 when unchanged).
+        'cache' => [
+            'public_max_age' => env('GP247_API_PUBLIC_MAX_AGE', 0),
+        ],
+
+        // include=a,b on v2: most relations one request may include (each costs one query).
+        'query' => [
+            'max_include' => env('GP247_API_MAX_INCLUDE', 3),
+        ],
+
         // Event log for ERP sync (turned on on the API management screen). Types are registered by
         // core / shop / plugins: 'type' => ['fields' => [...], 'permission' => '<admin route name>'].
         'events'               => [],

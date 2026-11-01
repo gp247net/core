@@ -571,6 +571,9 @@ class CoreServiceProvider extends ServiceProvider
         'api.admin'        => \GP247\Core\Api\Middleware\ApiAdminAuthorize::class,
         'api.admin.active' => \GP247\Core\Api\Middleware\ApiAdminActive::class,
         'api.idempotent'   => \GP247\Core\Api\Middleware\ApiIdempotent::class,
+        'api.etag'         => \GP247\Core\Api\Middleware\ApiConditionalGet::class,
+        'api.cache.public' => \GP247\Core\Api\Middleware\ApiPublicCache::class,
+        'api.deprecated'   => \GP247\Core\Api\Middleware\ApiDeprecated::class,
         //Admin
         'admin.auth'       => Authenticate::class,
         'admin.log'        => LogOperation::class,
@@ -634,14 +637,18 @@ class CoreServiceProvider extends ServiceProvider
      * @return void
      *
      * @aidlc-unit compat-foundation
-     * @aidlc-story US-CMP-api-login-throttle, US-CMP-api-customer-register, US-api-sync-write-throttle
+     * @aidlc-story US-CMP-api-login-throttle, US-CMP-api-customer-register, US-api-sync-write-throttle, US-CMP-api-throttle-per-account
      * @aidlc-adr compat-foundation_rest-api-hardening
      */
     protected function registerApiRateLimiters(): void
     {
+        // WHY per account once signed in: many app users behind one carrier NAT must not share
+        // one counter; anonymous calls (and made-up tokens) still count per IP.
         \Illuminate\Support\Facades\RateLimiter::for('gp247-api', function (Request $request) {
             $perMinute = max(1, (int) config('gp247-config.api.throttle.default', 1000));
-            return \Illuminate\Cache\RateLimiting\Limit::perMinute($perMinute)->by($request->ip());
+            $user = self::apiAuthenticatedUser();
+            $by = $user ? 'api|' . strtolower(class_basename($user)) . ':' . $user->getKey() : $request->ip();
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute($perMinute)->by($by);
         });
         // WHY per IP: register / password reset run before any account is known.
         \Illuminate\Support\Facades\RateLimiter::for('gp247-api-account', function (Request $request) {
@@ -660,6 +667,30 @@ class CoreServiceProvider extends ServiceProvider
             $by = $user ? 'write|' . strtolower(class_basename($user)) . ':' . $user->getKey() : 'write|ip:' . $request->ip();
             return \Illuminate\Cache\RateLimiting\Limit::perMinutes($minutes, $max)->by($by);
         });
+    }
+
+    /**
+     * The caller an `auth:*` middleware of this route has already authenticated on a Sanctum
+     * guard, or null. Only guards that already hold a user are asked — the limiter never
+     * resolves a bearer token itself, so a made-up token costs no lookup and opens no counter.
+     *
+     * @return \Illuminate\Contracts\Auth\Authenticatable|null
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-api-throttle-per-account
+     */
+    protected static function apiAuthenticatedUser()
+    {
+        foreach ((array) config('auth.guards', []) as $name => $guard) {
+            if (($guard['driver'] ?? null) !== 'sanctum') {
+                continue;
+            }
+            $instance = auth()->guard($name);
+            if (method_exists($instance, 'hasUser') && $instance->hasUser()) {
+                return $instance->user();
+            }
+        }
+        return null;
     }
 
     /**
