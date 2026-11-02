@@ -47,7 +47,7 @@ File khai báo thông tin cơ bản của plugin:
 - configKey: Khóa cấu hình, là giá trị duy nhất, trùng vói tên folder Plugin
 - version: Phiên bản
 - requireCore: Là phiên bản Gp247/Core phù hợp với extension (chuẩn hiện tại để ["2.1"]).
-- requireUpdateFrom: Phiên bản đang cài tối thiểu được phép cập nhật 1-click lên bản này. Mặc định bằng version của scaffold (thực tế không giới hạn gì); hãy nâng lên khi phát hành bản major mà hook update() không migrate được từ dòng cũ — ví dụ đặt "2.0" cho bản 2.9 để chặn cập nhật từ bản 1.x. Bỏ trống nếu không giới hạn.
+- minUpdateFrom: Phiên bản đang cài thấp nhất (>=) được phép cập nhật 1-click lên bản này — ví dụ "1.2" cho 1.2, 1.3, 1.9 hay 2.x cập nhật thẳng, chặn 1.1. Mặc định bằng version của scaffold (thực tế không giới hạn gì); hãy nâng lên khi phát hành bản major mà hook update() không migrate được từ dòng cũ — ví dụ đặt "2.0" cho bản 2.9 để chặn cập nhật từ bản 1.x. Bỏ trống nếu không giới hạn. Cần gp247/core 3.9 trở lên; tên cũ `requireUpdateFrom` vẫn chạy kèm cảnh báo deprecated và bị gỡ ở gp247/core 4.0 — hãy đổi thành `minUpdateFrom`.
 
 > **Giữ `update()` idempotent.** Core gọi nó từ cập nhật 1-click trên marketplace *và* từ `php artisan gp247:ext-update --local` / `gp247:update` / nút **Áp dụng cập nhật dữ liệu** sau khi file plugin được thay bằng cách khác (git pull, composer, FTP). Site cài trước khi core ghi nhớ phiên bản sẽ nhận thêm một lần gọi với `$fromVersion = null`. Chỉ seed phần còn thiếu; không chèn lại hay reset thứ chủ site đã lưu.
 

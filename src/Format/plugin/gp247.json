@@ -9,7 +9,7 @@
     "configKey": "Extension_Key",
     "version": "1.0",
     "requireCore": ["3.0"],
-    "requireUpdateFrom": "1.0",
+    "minUpdateFrom": "1.0",
     "requireComposerPackages": [],
     "requireGp247Extensions": [],
     "requireLivewire": false,

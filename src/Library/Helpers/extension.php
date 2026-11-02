@@ -212,6 +212,43 @@ if (!function_exists('gp247_extension_get_installed') && !in_array('gp247_extens
         }
     }
 
+if (!function_exists('gp247_extension_min_update_from') && !in_array('gp247_extension_min_update_from', config('gp247_functions_except', []))) {
+    /**
+     * Minimum installed version a manifest allows to 1-click update to its release.
+     *
+     * The key was renamed requireUpdateFrom -> minUpdateFrom in gp247/core 3.9 because the
+     * old name did not say it is a floor (installed >= value). WHY one reader: the legacy key
+     * is dropped in gp247/core 4.0, and this is the only place that fallback lives.
+     *
+     * @param array $manifest Decoded gp247.json.
+     * @return string The floor version, or '' for no floor.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_manifest-min-update-from
+     */
+    function gp247_extension_min_update_from(array $manifest): string
+    {
+        $read = function (string $name) use ($manifest): string {
+            $value = $manifest[$name] ?? '';
+            return (is_string($value) || is_int($value) || is_float($value)) ? trim((string) $value) : '';
+        };
+
+        $floor = $read('minUpdateFrom');
+        if ($floor !== '') {
+            return $floor;
+        }
+
+        $legacy = $read('requireUpdateFrom');
+        if ($legacy !== '') {
+            logger()->warning('[gp247.json deprecated] "requireUpdateFrom" is deprecated since gp247/core 3.9; '
+                . 'use "minUpdateFrom" instead. It will be removed in gp247/core 4.0.');
+        }
+
+        return $legacy;
+    }
+}
+
 
 if (!function_exists('gp247_extension_source_exists') && !in_array('gp247_extension_source_exists', config('gp247_functions_except', []))) {
     /**

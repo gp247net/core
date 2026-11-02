@@ -199,7 +199,7 @@ class ExtensionUpdateManager
             }
             // Authoritative minimum-from-version gate: read from the package's own
             // manifest so it holds even if the server did not advertise it.
-            $manifestUpdateFrom = $config['requireUpdateFrom'] ?? '';
+            $manifestUpdateFrom = gp247_extension_min_update_from($config);
             if ($manifestUpdateFrom && version_compare($oldVersion, $manifestUpdateFrom, '<')) {
                 throw new \Exception(gp247_language_render('admin.extension.update_from_too_low', ['from' => $manifestUpdateFrom, 'local' => $oldVersion]));
             }
