@@ -40,6 +40,42 @@ if (!function_exists('gp247_extension_version_in_required_core_ranges') && !in_a
     }
 }
 
+if (!function_exists('gp247_extension_core_min_versions') && !in_array('gp247_extension_core_min_versions', config('gp247_functions_except', []))) {
+    /**
+     * Collapse a list of supported core versions into the minimum version of each major line.
+     *
+     * Mirrors the requireCore semantics ("3.0" means >= 3.0 and < 4.0), so
+     * "2.1,3.0,3.1" becomes ['3.0', '2.1'] and is shown as "Core 3.0+", "Core 2.1+".
+     *
+     * @param array|string $versions Supported versions, as an array or a comma-separated string.
+     * @return string[] Minimum version per major line, newest major first.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     */
+    function gp247_extension_core_min_versions($versions): array
+    {
+        if (is_string($versions)) {
+            $versions = explode(',', $versions);
+        }
+
+        $minByMajor = [];
+        foreach ((array) $versions as $version) {
+            $version = trim((string) $version);
+            if (!preg_match('/^\d+(\.\d+)*$/', $version)) {
+                continue;
+            }
+            $major = (int) explode('.', $version)[0];
+            if (!isset($minByMajor[$major]) || version_compare($version, $minByMajor[$major], '<')) {
+                $minByMajor[$major] = $version;
+            }
+        }
+        krsort($minByMajor);
+
+        return array_values($minByMajor);
+    }
+}
+
 if (!function_exists('gp247_extension_get_all_local') && !in_array('gp247_extension_get_all_local', config('gp247_functions_except', []))) {
     /**
      * Get all extension local

@@ -137,7 +137,7 @@
                     @else
                         @foreach ($arrExtensions as $extension)
                             @php
-                                $gp247Versions = explode(',', $extension['gp247_version']);
+                                $coreMinVersions = gp247_extension_core_min_versions($extension['gp247_version'] ?? '');
                                 $isLocal = array_key_exists($extension['key'], $arrExtensionsLocal);
                                 $isFree  = $extension['is_free'] || $extension['price_final'] == 0;
                                 $hasDiscount = !$isFree && $extension['price_final'] != $extension['price'];
@@ -221,9 +221,14 @@
                                 {{-- Compatible --}}
                                 <td class="px-4 py-3">
                                     <div class="flex flex-wrap gap-1">
-                                        @foreach ($gp247Versions as $v)
-                                            <span class="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                                {{ trim($v) }}
+                                        @foreach ($coreMinVersions as $v)
+                                            @php
+                                                // WHY: highlight only the line the running core belongs to; other majors are informational.
+                                                $matchesCore = gp247_extension_version_in_required_core_ranges([$v], (string) config('gp247.core'));
+                                            @endphp
+                                            <span data-testid="plugin-manager-online-core-min"
+                                                class="inline-flex items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-medium {{ $matchesCore ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400' }}">
+                                                <i class="fas fa-cube text-[10px]"></i>Core {{ $v }}+
                                             </span>
                                         @endforeach
                                     </div>
