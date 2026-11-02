@@ -2,12 +2,17 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+| Version | Platform | Status | Security fixes until |
+| ------- | -------- | ------ | -------------------- |
+| 3.x | Laravel 13 · PHP 8.3+ | :white_check_mark: Supported | March 2028 |
+| 2.x and earlier | Laravel 12–13 | :x: No longer supported | — |
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 3.x   | :white_check_mark: |
+New features go into the newest line only. When a new line ships, the previous line gets critical bug fixes for 6 more
+months and security fixes until the time in the table — never past the security support of the Laravel version it runs on.
+
+Recommended versions and how to update: [S-Cart releases and security](https://github.com/gp247net/gp247-docs/blob/main/release/release.md).
+
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within GP247, please send an e-mail to GP247 Team via gp247.net@gmail.com. All security vulnerabilities will be promptly addressed.
+If you discover a security vulnerability within GP247, please email **support@gp247.net**. Do not open a public GitHub issue,
+so the problem is not exposed before a fix is released. All security vulnerabilities will be promptly addressed.
