@@ -476,8 +476,8 @@ class Doctor extends GP247Command
     protected function secretDecryptableCheck(bool $installed): array
     {
         // WHY inline (no gp247_* helper): Doctor is a bootstrap-tier command whose
-        // source must not reference gp247_* helpers (they do not exist pre-install) —
-        // BootstrapCommandRegistrationTest enforces this. Envelope tags are literals.
+        // source must not reference gp247_* helpers (they do not exist pre-install).
+        // Envelope tags are literals.
         if (!$installed) {
             return $this->check('secret_decryptable', 'pass', 'skipped (not installed)');
         }
