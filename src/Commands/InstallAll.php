@@ -98,6 +98,11 @@ class InstallAll extends GP247Command
         if ($app !== null && $app->has('gp247:shop-install')) {
             $steps[] = 'gp247:shop-install';
         }
+        // WHY after the shop: gp247/mcp requires the shop. Not destructive (it owns no table),
+        // so it stays out of the confirmation gate's warning list (US-CLI-003, core 3.9).
+        if ($app !== null && $app->has('gp247:mcp-install')) {
+            $steps[] = 'gp247:mcp-install';
+        }
         if ($this->option('sample') && $app !== null && $app->has('gp247:shop-sample')) {
             $steps[] = 'gp247:shop-sample';
         }

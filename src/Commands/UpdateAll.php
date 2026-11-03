@@ -155,6 +155,16 @@ class UpdateAll extends GP247Command
             $done[] = 'gp247:shop-update';
         }
 
+        // WHY probe the command, not the class: the core never imports gp247/mcp (NFR-MAINT-001);
+        // the package registers gp247:mcp-update itself (US-CLI-003, core 3.9).
+        if ($this->getApplication()?->has('gp247:mcp-update')) {
+            $this->info('==> gp247:mcp-update');
+            if ($this->runArtisan('gp247:mcp-update') !== Command::SUCCESS) {
+                return $this->respondFailure('mcp_update_failed', 'gp247:mcp-update failed', ['completed' => $done]);
+            }
+            $done[] = 'gp247:mcp-update';
+        }
+
         if ($this->option('overwrite-lang')) {
             $this->info('==> gp247:language-update');
             $this->runArtisan('gp247:language-update');

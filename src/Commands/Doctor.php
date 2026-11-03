@@ -225,6 +225,7 @@ class Doctor extends GP247Command
             base_path('vendor/gp247/core/src'),
             base_path('vendor/gp247/front/src'),
             base_path('vendor/gp247/shop/src'),
+            base_path('vendor/gp247/mcp/src'),
         ], 'is_dir');
 
         $bom = chr(0xEF).chr(0xBB).chr(0xBF);

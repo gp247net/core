@@ -33,6 +33,7 @@ class Info extends GP247Command
                 'gp247/core'  => $packages['gp247/core'] ?? null,
                 'gp247/front' => $packages['gp247/front'] ?? null,
                 'gp247/shop'  => $packages['gp247/shop'] ?? null,
+                'gp247/mcp'   => $packages['gp247/mcp'] ?? null,
             ],
             'installed' => Storage::disk('local')->exists('gp247-installed.txt'),
             'plugins'   => $this->countExtensions('Plugins'),
