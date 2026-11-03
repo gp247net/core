@@ -128,18 +128,23 @@ trait  ExtensionController
     }
 
     /**
-     * Uninstall plugin
+     * Uninstall an extension, or remove the files of one that is on disk but not installed.
      *
-     * @return  [type]  [return description]
+     * @return \Illuminate\Http\JsonResponse
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-remove-not-installed
      */
     public function uninstall()
     {
         $key = request('key');
         $onlyRemoveData = (bool) request('onlyRemoveData');
+        // Sent by the trash button only after the admin confirmed (the CLI's --purge).
+        $purge = (bool) request('purge');
 
         // Guards (extension_protected + template-in-use) are enforced inside the
         // shared installer so both UI and CLI honor them (ADR system-cli_service-extraction).
-        $response = (new ExtensionInstaller)->uninstall($this->groupType, $key, $onlyRemoveData);
+        $response = (new ExtensionInstaller)->uninstall($this->groupType, $key, $onlyRemoveData, $purge);
         if (is_array($response) && ($response['error'] ?? 1) == 0) {
             gp247_notice_add(type:$this->groupType, typeId: $key, content:'admin.notice.gp247_'.strtolower($this->groupType).'_uninstall::name__'.$key);
         }

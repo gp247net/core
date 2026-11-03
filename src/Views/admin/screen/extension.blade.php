@@ -575,6 +575,9 @@
         loading(true);
         const body = new URLSearchParams({ _token: _csrf, key });
         if (action === 'delete') body.append('onlyRemoveData', '1');
+        // The confirm() above is the screen's --purge: without it the folder of an extension
+        // that is on disk but not installed could never be removed from the admin.
+        if (action === 'remove') body.append('purge', '1');
         // Per-store enable/disable: scope the toggle to one store (list per-store mode).
         if (storeId !== undefined && storeId !== null && storeId !== '') body.append('store_id', storeId);
 
