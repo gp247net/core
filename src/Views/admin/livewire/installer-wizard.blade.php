@@ -113,6 +113,14 @@
             </div>
 
             <div>
+                <label for="installer-admin-username" class="block text-xs font-medium text-gray-600 mb-1">Admin Username (used to sign in)</label>
+                <input id="installer-admin-username" wire:model="adminUsername" type="text" autocomplete="username"
+                       data-testid="installer-deploy-wizard-admin-username"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                @error('adminUsername') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+            </div>
+
+            <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Admin Name</label>
                 <input wire:model="adminName" type="text"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -168,7 +176,12 @@
         <div class="text-center py-4">
             <div class="text-green-500 text-5xl mb-3">✓</div>
             <h2 class="text-xl font-semibold text-gray-800 mb-2">Installation Complete!</h2>
-            <p class="text-sm text-gray-500 mb-6">GP247 has been installed successfully.</p>
+            <p class="text-sm text-gray-500 mb-2">GP247 has been installed successfully.</p>
+            <p class="text-sm text-gray-600 mb-6">
+                Sign in with the username
+                <span class="font-semibold text-gray-800" data-testid="installer-deploy-wizard-done-username">{{ $adminUsername }}</span>
+                and the password you chose.
+            </p>
 
             <a href="{{ url(config('gp247.admin_prefix', 'gp247_admin') . '/auth/login') }}"
                class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-lg transition">

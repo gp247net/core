@@ -431,8 +431,11 @@ class CoreServiceProvider extends ServiceProvider
         // including the installer wizard's own Step 1 AJAX round-trip - force the
         // file driver until installation completes so the wizard isn't blocked by
         // the very migration it exists to run. Reverts automatically once
-        // InstallerWizard::runInstall() writes the flag file.
-        if (!file_exists(storage_path('app/gp247-installed.txt'))) {
+        // InstallerWizard::runInstall() writes the flag file. The marker lives on
+        // the `local` disk (storage/app/private by default) like every other check
+        // of it - a hard-coded storage/app path never matched, which forced the
+        // file driver on installed sites too.
+        if (!\Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {
             config(['session.driver' => 'file']);
         }
 

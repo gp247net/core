@@ -2,11 +2,13 @@
 
 namespace GP247\Core\AdminShell\Http\Livewire;
 
+use GP247\Core\Database\Seeders\DataDefaultSeeder;
+use GP247\Core\Models\AdminUser;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Livewire\Component;
 
 /**
@@ -21,12 +23,16 @@ use Livewire\Component;
  *   1 — Environment check (PHP version, extensions, directory permissions)
  *   2 — Database configuration (host, port, db, user, pass)
  *   3 — Site & admin account configuration
- *   4 — Running installation (migrate, seed, create admin, write flag)
+ *   4 — Running installation (migrate, seed, hand the seeded admin the entered
+ *       credentials, write flag)
  *   5 — Done
+ *
+ * Every step action is a no-op once the install marker exists.
  *
  * @aidlc-unit installer-deploy
  * @aidlc-story US-DEP-001
  * @aidlc-story US-DEP-002
+ * @aidlc-adr installer-deploy_initial-admin-account
  */
 class InstallerWizard extends Component
 {
@@ -35,6 +41,9 @@ class InstallerWizard extends Component
      * this package's composer.json — keep both in step.
      */
     public const MIN_PHP_VERSION_ID = 80300;
+
+    /** Install marker on the `local` disk — the single "is it installed?" signal. */
+    public const INSTALLED_MARKER = 'gp247-installed.txt';
 
     // -----------------------------------------------------------------------
     // Wizard state
@@ -63,6 +72,7 @@ class InstallerWizard extends Component
     // -----------------------------------------------------------------------
 
     public string $siteName = 'GP247';
+    public string $adminUsername = 'admin';
     public string $adminEmail = '';
     public string $adminPassword = '';
     public string $adminName = 'Administrator';
@@ -82,9 +92,19 @@ class InstallerWizard extends Component
      */
     public function mount(): void
     {
-        if (Storage::disk('local')->exists('gp247-installed.txt')) {
+        if ($this->isInstalled()) {
             $this->redirect(url(config('gp247.admin_prefix', 'gp247_admin') . '/auth/login'));
         }
+    }
+
+    /**
+     * Whether GP247 is already installed (the marker exists on the local disk).
+     *
+     * @return bool
+     */
+    protected function isInstalled(): bool
+    {
+        return Storage::disk('local')->exists(self::INSTALLED_MARKER);
     }
 
     // -----------------------------------------------------------------------
@@ -132,6 +152,10 @@ class InstallerWizard extends Component
      */
     public function goToStep2(): void
     {
+        if ($this->isInstalled()) {
+            return;
+        }
+
         $this->envErrors = $this->checkEnvironment();
 
         if (empty($this->envErrors)) {
@@ -148,10 +172,17 @@ class InstallerWizard extends Component
      */
     public function goToStep3(): void
     {
+        if ($this->isInstalled()) {
+            return;
+        }
+
+        // WHY the host/name patterns: both are interpolated into the PDO DSN, so
+        // `;` or `=` would inject extra DSN options. Hyphens are valid in MySQL
+        // database names (e.g. `s-cart`) and must be accepted.
         $this->validate([
-            'dbHost' => 'required',
+            'dbHost' => ['required', 'max:255', 'regex:/^[a-zA-Z0-9._\-:\[\]]+$/'],
             'dbPort' => 'required|numeric|min:1|max:65535',
-            'dbName' => ['required', 'regex:/^[a-zA-Z0-9_]+$/'],
+            'dbName' => ['required', 'max:64', 'regex:/^[a-zA-Z0-9_\-]+$/'],
             'dbUser' => 'required',
         ]);
 
@@ -181,9 +212,15 @@ class InstallerWizard extends Component
      */
     public function goToStep4(): void
     {
+        if ($this->isInstalled()) {
+            return;
+        }
+
+        // Limits mirror the admin_user columns (username 100, email 150, name 100).
         $this->validate([
             'siteName'      => 'required|max:100',
-            'adminEmail'    => 'required|email|max:255',
+            'adminUsername' => 'required|alpha_dash|min:3|max:100',
+            'adminEmail'    => 'required|email|max:150',
             'adminPassword' => 'required|min:8|max:100',
             'adminName'     => 'required|max:100',
         ]);
@@ -196,8 +233,12 @@ class InstallerWizard extends Component
     // -----------------------------------------------------------------------
 
     /**
-     * Write .env, run migrations and seeders, create the admin account, and
-     * write the gp247-installed.txt flag to complete installation.
+     * Write .env, run migrations and seeders, hand the seeded administrator
+     * the entered credentials, and write the install marker.
+     *
+     * Refuses to run on an installed site. On failure the marker is not
+     * written (the site stays installable) and only a generic message reaches
+     * the browser; details go to the server log.
      *
      * Sets QUEUE_CONNECTION=sync so shared hosts without queue workers work
      * out of the box (US-DEP-002 AC3).
@@ -206,10 +247,18 @@ class InstallerWizard extends Component
     {
         $this->installError = '';
 
+        if ($this->isInstalled()) {
+            $this->installError = 'GP247 is already installed.';
+            return;
+        }
+
         try {
             $this->writeEnv();
 
-            // Reload config so new DB creds are in effect.
+            // WHY: this request booted with the previous .env, and config:clear
+            // only deletes the cache file — without this, migrate would run
+            // against the old database settings.
+            $this->applyDatabaseConfig(GP247_DB_CONNECTION);
             Artisan::call('config:clear');
 
             Artisan::call('migrate', ['--force' => true]);
@@ -222,14 +271,15 @@ class InstallerWizard extends Component
             Artisan::call('db:seed', ['--class' => \GP247\Core\Database\Seeders\DataStoreSeeder::class, '--force' => true]);
             Artisan::call('db:seed', ['--class' => \GP247\Core\Database\Seeders\DataLocaleSeeder::class, '--force' => true]);
 
-            $this->createAdminUser();
+            $this->claimSeededAdmin();
 
-            Storage::disk('local')->put('gp247-installed.txt', now()->toDateTimeString());
+            Storage::disk('local')->put(self::INSTALLED_MARKER, now()->toDateTimeString());
 
             $this->step = 5;
 
         } catch (\Throwable $e) {
-            $this->installError = 'Installation failed: ' . $e->getMessage();
+            Log::error('GP247 web installer failed', ['exception' => $e]);
+            $this->installError = 'Installation failed. Details were written to the server log (storage/logs).';
         }
     }
 
@@ -258,7 +308,7 @@ class InstallerWizard extends Component
      */
     private function writeEnv(): void
     {
-        $envPath = base_path('.env');
+        $envPath = $this->envPath();
 
         if (!file_exists($envPath)) {
             copy(base_path('.env.example'), $envPath);
@@ -305,31 +355,74 @@ class InstallerWizard extends Component
     }
 
     /**
-     * Insert the initial administrator account using validated inputs.
+     * Path of the .env file the installer writes.
      *
-     * WHY: The GP247 admin user table uses UUID primary keys (no autoincrement).
-     * We insert directly because the GP247 admin auth model is not available
-     * until after the seeder runs and the framework fully boots.
+     * @return string
      */
-    private function createAdminUser(): void
+    protected function envPath(): string
     {
-        $table = config('gp247.admin_table', 'gp247_admins');
+        return base_path('.env');
+    }
 
-        // Skip if an admin already exists (seeder may have created one).
-        if (DB::table($table)->count() > 0) {
-            return;
+    /**
+     * Apply the entered database settings to the running request.
+     *
+     * The connection is purged only when a value differs, so an already
+     * correct connection (and any transaction on it) is left untouched.
+     *
+     * @param string $connection Connection name in config/database.php.
+     * @return bool True when the settings changed and the connection was purged.
+     */
+    protected function applyDatabaseConfig(string $connection): bool
+    {
+        $wanted = [
+            'host'     => $this->dbHost,
+            'port'     => $this->dbPort,
+            'database' => $this->dbName,
+            'username' => $this->dbUser,
+            'password' => $this->dbPass,
+        ];
+
+        $changed = false;
+        foreach ($wanted as $key => $value) {
+            $configKey = "database.connections.{$connection}.{$key}";
+            if ((string) config($configKey) !== $value) {
+                config([$configKey => $value]);
+                $changed = true;
+            }
         }
 
-        DB::table($table)->insert([
-            'id'         => (string) Str::uuid(),
-            'username'   => Str::slug($this->adminName, '_'),
-            'email'      => $this->adminEmail,
-            'password'   => Hash::make($this->adminPassword),
-            'name'       => $this->adminName,
-            'status'     => 1,
-            'role_id'    => '1',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if ($changed) {
+            DB::purge($connection);
+        }
+
+        return $changed;
+    }
+
+    /**
+     * Hand the administrator account created by DataDefaultSeeder the
+     * credentials entered in step 3, so no account keeps the default password.
+     *
+     * WHY update instead of insert: the seeder already created the account with
+     * its Administrator role (admin_role_user); a second account would leave the
+     * default one signing in. See ADR installer-deploy_initial-admin-account.
+     *
+     * @return void
+     * @throws \RuntimeException When the seeded account is missing.
+     */
+    private function claimSeededAdmin(): void
+    {
+        $admin = AdminUser::find(DataDefaultSeeder::SEED_ADMIN_ID);
+        if (!$admin) {
+            throw new \RuntimeException('Seeded administrator account ' . DataDefaultSeeder::SEED_ADMIN_ID . ' not found after seeding.');
+        }
+
+        $admin->forceFill([
+            'username' => $this->adminUsername,
+            'name'     => $this->adminName,
+            'email'    => $this->adminEmail,
+            'password' => Hash::make($this->adminPassword),
+            'status'   => 1,
+        ])->save();
     }
 }

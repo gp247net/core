@@ -6,6 +6,15 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 class DataDefaultSeeder extends Seeder
 {
+    /**
+     * Id of the administrator account this seeder creates. The web installer
+     * looks it up to hand it the credentials the site owner entered.
+     *
+     * @aidlc-unit installer-deploy
+     * @aidlc-story US-DEP-001
+     */
+    public const SEED_ADMIN_ID = 'AU-AAAAA';
+
     public $adminUser = 'admin';
     public $adminPassword = '$2y$10$JcmAHe5eUZ2rS0jU1GWr/.xhwCnh2RU13qwjTPcqfmtZXjZxcryPO';
     public $adminEmail = 'admin@gp247.local';
@@ -153,14 +162,14 @@ class DataDefaultSeeder extends Seeder
 
     public function dataAdminRoleUser() {
         $dataAdminRoleUser = [
-            ['role_id' => '1','user_id' => 'AU-AAAAA']
+            ['role_id' => '1','user_id' => self::SEED_ADMIN_ID]
         ];
         return $dataAdminRoleUser;
     }
 
     public function dataAdminUser($username, $password, $email) {
         $dataAdminUser = [
-            ['id' => 'AU-AAAAA','username' => $username,'password' => $password,'email' => $email,'name' => 'Administrator','avatar' => '/GP247/Core/avatar/admin.png','created_at' => date('Y-m-d H:i:s')]
+            ['id' => self::SEED_ADMIN_ID,'username' => $username,'password' => $password,'email' => $email,'name' => 'Administrator','avatar' => '/GP247/Core/avatar/admin.png','created_at' => date('Y-m-d H:i:s')]
         ];
         return $dataAdminUser;
     }
