@@ -62,13 +62,10 @@ class DataDefaultSeeder extends Seeder
                 ['id' => 1,'size' => 12, 'sort'=> 1,'view' => 'gp247-admin::component.home_default','status' => 1],
             ]
         );
-        // "System alerts" block on top of the dashboard (US-admin-shell-system-alerts); site
-        // upgrades get it from upgrade/2026_11_04_113754_seed_admin_alert_block.php.
-        $db->table(GP247_DB_PREFIX.'admin_home')->insertOrIgnore(
-            [
-                ['size' => 12, 'sort' => 1000, 'view' => 'gp247-admin::component.alerts', 'status' => 1],
-            ]
-        );
+        // "System alerts" block on top of the dashboard (US-admin-shell-system-alerts). Added by
+        // view, not insertOrIgnore: gp247:update re-runs this seeder and the row has no unique
+        // key, so a plain insert added one more block on every update (core 3.10.0).
+        \GP247\Core\AdminShell\Support\AdminAlertBlock::ensure($db);
 
     }
 
