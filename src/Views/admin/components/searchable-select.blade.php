@@ -211,7 +211,14 @@
                         this._seed(this.$wire.get(model));
                         this.$wire.$watch(model, v => this._seed(v));
                     }
-                    this.$watch('query', () => { if (!this.open) this._openDropdown(); });
+                },
+
+                // WHY: open on the admin's typing (the `input` event), not on every
+                // change of `query` — _seed() rewrites `query` whenever the server
+                // pushes a value (two-column edit / "+ Create new"), and a watcher
+                // on `query` popped the list open with nobody touching the field.
+                onQueryInput() {
+                    if (!this.open) this._openDropdown();
                 },
 
                 // WHY: the dropdown is `position: fixed` (not `absolute`) so it
@@ -358,8 +365,8 @@
                     this._openDropdown();
                     // WHY: `query` still holds the current selection's label, so
                     // leaving it intact would filter the list down to just that
-                    // match. Clear it (after opening, so this doesn't re-trigger
-                    // the query $watch above) so the full option list shows right
+                    // match. Clear it (a programmatic write, so it does not go
+                    // through onQueryInput) so the full option list shows right
                     // away — matches native <select> behavior. onInputBlur
                     // restores the label if the user leaves without picking.
                     if (!multiple) this.query = '';
@@ -439,6 +446,7 @@
                     class="gp247-ss-tag-input"
                     :placeholder="multi.length ? '' : ph"
                     x-model="query"
+                    @input="onQueryInput"
                     @focus="onInputFocus"
                     @blur="onInputBlur"
                     @keydown.backspace="onBackspace"
@@ -459,6 +467,7 @@
                     class="gp247-ss-input"
                     :placeholder="ph"
                     x-model="query"
+                    @input="onQueryInput"
                     @focus="onInputFocus"
                     @blur="onInputBlur"
                     autocomplete="off"
