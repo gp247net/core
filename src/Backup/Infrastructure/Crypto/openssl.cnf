@@ -1,0 +1,14 @@
+# Minimal OpenSSL configuration shipped with gp247/core for the backup feature.
+#
+# WHY: openssl_pkey_new() / openssl_pkey_export() read a config file. Many Windows and shared
+# hosts have none at the default path, and PHP then refuses to create EC keys ("Private key
+# length must be at least 384 bits, configured to 0"). Passing this file makes key creation
+# work everywhere; it only sets the request defaults PHP needs.
+HOME = .
+
+[ req ]
+default_bits = 2048
+default_md = sha256
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]

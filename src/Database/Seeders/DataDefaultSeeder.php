@@ -42,7 +42,10 @@ class DataDefaultSeeder extends Seeder
 
         $dataAdminPermission = $this->dataAdminPermission(GP247_ADMIN_PREFIX);
         $db->table(GP247_DB_PREFIX.'admin_permission')->insertOrIgnore($dataAdminPermission);
-        
+        // Backup area: switch, create / download / restore permissions, hidden menu item — same helper
+        // as upgrade/2026_11_05_090000_create_backup_area.php (US-backup-admin-install-lifecycle).
+        \GP247\Core\Backup\Infrastructure\Install\BackupInstaller::ensure($db);
+
         $dataAdminRole = $this->dataAdminRole();
         $db->table(GP247_DB_PREFIX.'admin_role')->insertOrIgnore($dataAdminRole);
         

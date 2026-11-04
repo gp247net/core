@@ -284,6 +284,9 @@ return new class extends Migration
 
         // Stored results of admin API writes by Idempotency-Key (US-api-sync-write-idempotency)
         \GP247\Core\Api\Sync\ApiSyncSchema::create($schema);
+
+        // Backup area (US-backup-admin-install-lifecycle) — same helper as upgrade/2026_11_05_090000_create_backup_area.php
+        \GP247\Core\Backup\Infrastructure\Install\BackupSchema::create($schema);
     }
 
     /**
@@ -318,6 +321,7 @@ return new class extends Migration
         $schema->dropIfExists('personal_access_tokens');
         \GP247\Core\Api\Support\ApiSessionSchema::drop($schema);
         \GP247\Core\Api\Sync\ApiSyncSchema::drop($schema);
-        
+        \GP247\Core\Backup\Infrastructure\Install\BackupSchema::drop($schema);
+
     }
 };
