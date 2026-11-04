@@ -393,6 +393,7 @@
     const _isTemplate = @js($groupType === 'Templates');
     const _msgUpdateConfirm = @js(gp247_language_render('admin.extension.update_confirm', ['key' => ':key', 'old' => ':old', 'new' => ':new']));
     const _msgUpdateConfirmTemplate = @js(gp247_language_render('admin.extension.update_confirm_template', ['key' => ':key']));
+    const _msgPreChangeContinue = @js(gp247_language_render('admin.pre_change.update_continue', ['reason' => ':reason']));
     const _csrf = @js(csrf_token());
 
     function notify(type, msg) {
@@ -438,12 +439,16 @@
 
         loading(true);
         try {
-            const res  = await fetch(_updateUrl, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: new URLSearchParams({ _token: _csrf, key }),
-            });
-            const data = await res.json();
+            let data = await postUpdate(key, false);
+            // A "before change" registrant (e.g. the backup snapshot) stopped the update:
+            // nothing changed yet, so the person may choose to go on without it.
+            if (parseInt(data.pre_change) === 1) {
+                if (!confirm(_msgPreChangeContinue.replace(':reason', data.msg))) {
+                    loading(false);
+                    return;
+                }
+                data = await postUpdate(key, true);
+            }
             if (parseInt(data.error) === 0) {
                 notify('success', data.msg);
                 location.reload();
@@ -456,6 +461,17 @@
             loading(false);
         }
     };
+
+    async function postUpdate(key, skipPreChange) {
+        const body = new URLSearchParams({ _token: _csrf, key });
+        if (skipPreChange) body.append('skip_pre_change', '1');
+        const res = await fetch(_updateUrl, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body,
+        });
+        return res.json();
+    }
 
     const _msgLicenseEnter = @js(gp247_language_render('admin.extension.license_enter', ['key' => ':key']));
 

@@ -26,7 +26,8 @@ class ExtUpdate extends ExtCommand
         {--key= : Extension key to update}
         {--all : Update every extension of the group that has an available update}
         {--local : Do not download; run the data hook of extensions whose files were updated outside the marketplace (git pull, composer, FTP)}
-        {--dry-run : With --local: list what would be applied without running any hook}';
+        {--dry-run : With --local: list what would be applied without running any hook}
+        {--skip-pre-change : Do not ask "before change" registrants (e.g. the backup snapshot) before updating}';
 
     /** @var string */
     protected $description = 'Update plugin(s)/template(s) from the marketplace (1-click, backup/rollback)';
@@ -72,7 +73,7 @@ class ExtUpdate extends ExtCommand
         $updated = [];
         $failed = [];
         foreach ($targets as $k) {
-            $response = $manager->update($type, $k);
+            $response = $manager->update($type, $k, (bool) $this->option('skip-pre-change'));
             if (($response['error'] ?? 1) == 0) {
                 $updated[] = $k;
                 $this->info('Updated: '.$k);

@@ -20,6 +20,38 @@ return [
         'decrypt_report_ttl'      => (int) env('GP247_DECRYPT_REPORT_TTL', 3600),
     ],
 
+    // "Before change" registrants (ADR system-cli_pre-change-registry): asked before
+    // gp247:update, an extension update or a template switch changes data; any of them may
+    // ask to stop (e.g. the backup feature while it snapshots). Callable, or
+    // ['key' => string, 'callback' => callable]; appended at boot by a package or plugin.
+    'core' => [
+        'pre_change' => [],
+    ],
+
+    // Backup data groups (ADR backup-engine_data-group-registry). The core declares only its
+    // own tables (names without GP247_DB_PREFIX); front / shop append theirs through
+    // DataGroupRegistry::declare(), extensions through the "dataTables" key of gp247.json.
+    'backup' => [
+        'data_groups' => [
+            'config' => ['tables' => [
+                'admin_config', 'admin_store', 'admin_store_description', 'admin_home', 'admin_language',
+                'languages', 'admin_country', 'admin_custom_field', 'admin_custom_field_detail',
+                'api_connection', 'api_webhook',
+            ]],
+            'admin_access' => ['tables' => [
+                'admin_user', 'admin_role', 'admin_permission', 'admin_role_permission', 'admin_role_user',
+                'admin_user_permission', 'admin_menu',
+            ]],
+            'logs' => ['tables' => ['admin_log', 'admin_notice', 'api_event', 'api_webhook_delivery']],
+        ],
+        // Never backed up: restoring sessions, reset links or tokens could revive access that
+        // was revoked after the backup; the backup feature's own bookkeeping is not site data.
+        'excluded_tables' => [
+            'personal_access_tokens', 'admin_password_resets', 'api_session', 'api_refresh_token', 'api_idempotency',
+            'backup_archive', 'backup_job', 'backup_download_token',
+        ],
+    ],
+
     'admin' => [
         //Enable, disable page libary online
         'api_plugins'      => env('GP247_ADMIN_API_PLUGIN', 1),

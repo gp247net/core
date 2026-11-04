@@ -180,7 +180,9 @@ trait ExtensionOnlineController
             return response()->json(['error' => 1, 'msg' => gp247_language_render('admin.extension.update_not_found', ['key' => (string) $key])]);
         }
 
-        $response = (new ExtensionUpdateManager)->update($this->groupType, $key);
+        // WHY a plain boolean flag: the browser resends it only after the person confirmed
+        // "continue without a snapshot" (US-PLG-pre-change-hook).
+        $response = (new ExtensionUpdateManager)->update($this->groupType, $key, request()->boolean('skip_pre_change'));
 
         if (($response['error'] ?? 1) == 0) {
             gp247_notice_add(type: $this->groupType, typeId: $key, content: 'admin.notice.gp247_'.strtolower($this->groupType).'_update::name__'.$key);

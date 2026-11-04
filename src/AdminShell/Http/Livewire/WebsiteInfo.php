@@ -7,6 +7,8 @@ use GP247\Core\AdminShell\Infrastructure\HasStoreScopeUi;
 use GP247\Core\Models\AdminLanguage;
 use GP247\Core\Models\AdminStore;
 use GP247\Core\Models\AdminStoreDescription;
+use GP247\Core\Support\PreChange\PreChange;
+use GP247\Core\Support\PreChange\PreChangeGate;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -65,6 +67,15 @@ class WebsiteInfo extends GP247AdminComponent
      * @var string|null
      */
     public ?string $pendingTemplate = null;
+
+    /**
+     * Why a "before change" registrant (e.g. the backup snapshot) stopped the pending
+     * template switch; the modal then offers "continue without a snapshot".
+     * Null when nothing is blocking (US-PLG-pre-change-hook).
+     *
+     * @var string|null
+     */
+    public ?string $preChangeBlocked = null;
 
     /** Store scalar text fields editable on this screen (excludes domain, handled separately). */
     private const FIELDS = ['phone', 'long_phone', 'email', 'time_active', 'address', 'office', 'warehouse'];
@@ -290,16 +301,19 @@ class WebsiteInfo extends GP247AdminComponent
     /**
      * Execute the deferred template switch after the admin confirms in the modal.
      * Runs the same activateTemplate() (removeStore + setupStore) the field used
-     * to run directly on change, now gated behind explicit confirmation.
+     * to run directly on change, now gated behind explicit confirmation. The
+     * "before change" registrants are asked first; a stop keeps the modal open with
+     * the reason, and the person may confirm again with $skipPreChange.
      *
+     * @param bool $skipPreChange The person chose to switch without a snapshot.
      * @return void
      * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
      *
      * @aidlc-unit admin-shell-rbac
-     * @aidlc-story US-AUI-008
-     * @aidlc-adr admin-shell-rbac_template-switch-confirmation
+     * @aidlc-story US-AUI-008, US-PLG-pre-change-hook
+     * @aidlc-adr admin-shell-rbac_template-switch-confirmation, system-cli_pre-change-registry
      */
-    public function confirmTemplateSwitch(): void
+    public function confirmTemplateSwitch(bool $skipPreChange = false): void
     {
         $this->authorizeAction('update');
 
@@ -307,6 +321,21 @@ class WebsiteInfo extends GP247AdminComponent
             return;
         }
 
+        if (!$skipPreChange) {
+            $current = (string) (AdminStore::where('id', $this->storeId())->value('template') ?? '');
+            $outcome = (new PreChangeGate)->run(new PreChange(
+                PreChange::TEMPLATE_SWITCH,
+                ['store_id' => (string) $this->storeId()],
+                $current,
+                $this->pendingTemplate
+            ));
+            if (!$outcome->proceed()) {
+                $this->preChangeBlocked = implode(' ', $outcome->reasons());
+                return;
+            }
+        }
+
+        $this->preChangeBlocked = null;
         $this->activateTemplate($this->pendingTemplate);
         $this->store['template'] = $this->pendingTemplate;
         $this->pendingTemplate = null; // closes the modal via the client bridge
@@ -328,6 +357,7 @@ class WebsiteInfo extends GP247AdminComponent
     {
         $this->store['template'] = (string) (AdminStore::where('id', $this->storeId())->value('template') ?? '');
         $this->pendingTemplate = null; // closes the modal via the client bridge
+        $this->preChangeBlocked = null;
     }
 
     /**

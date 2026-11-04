@@ -6,6 +6,8 @@ use GP247\Core\Console\GP247Command;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use GP247\Core\Support\TemplateSourceAudit;
+use GP247\Core\Support\PreChange\PreChange;
+use GP247\Core\Support\PreChange\PreChangeGate;
 
 /**
  * Orchestrate a safe post-`composer update` refresh for a live site: core-update,
@@ -99,6 +101,7 @@ class UpdateAll extends GP247Command
     /** @var string */
     protected $signature = 'gp247:update
         {--overwrite-lang : Also run gp247:language-update (overwrites edited translations)}
+        {--skip-pre-change : Do not ask "before change" registrants (e.g. the backup snapshot) before updating}
         {--publish= : Re-publish assets/views by tag token, comma-separated: core-public,core-view,front-public,front-template,front-view,shop-view-admin,shop-view-front,all. Default: none. core-public and front-public are safe (compiled assets, regenerable); view/template tokens overwrite your customizations. "all" skips GP247Front targets on a site that uses another template (see command-line-reference).}';
 
     /** @var string */
@@ -126,6 +129,13 @@ class UpdateAll extends GP247Command
         }
 
         $done = [];
+
+        // WHY after --publish validation: a typo must not cost a snapshot; WHY before
+        // core-update: that is the first step that changes data (US-CLI-pre-change-hook).
+        $preChange = $this->askBeforeChange();
+        if ($preChange['stopped']) {
+            return $this->respondFailure('pre_change_stopped', $preChange['message'], ['pre_change' => $preChange['entries'], 'completed' => $done]);
+        }
 
         $this->info('==> gp247:core-update');
         if ($this->runArtisan('gp247:core-update') !== Command::SUCCESS) {
@@ -197,7 +207,7 @@ class UpdateAll extends GP247Command
 
         $this->hintTemplatePrune();
 
-        return $this->respondSuccess(['completed' => $done, 'published' => $published, 'extension_data' => $extensionStep]);
+        return $this->respondSuccess(['completed' => $done, 'published' => $published, 'extension_data' => $extensionStep, 'pre_change' => $preChange['entries']]);
     }
 
     /**
@@ -378,6 +388,38 @@ class UpdateAll extends GP247Command
      * @aidlc-unit system-cli
      * @aidlc-story US-CLI-template-source-lifecycle
      */
+    /**
+     * Ask the "before change" registrants whether the update may run. A stop asks the
+     * person in an interactive terminal (default: no); --json / non-interactive runs stop.
+     *
+     * @return array{stopped: bool, message: string, entries: list<array>}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-pre-change-hook
+     * @aidlc-adr system-cli_pre-change-registry
+     */
+    private function askBeforeChange(): array
+    {
+        if ($this->option('skip-pre-change')) {
+            return ['stopped' => false, 'message' => '', 'entries' => []];
+        }
+
+        $outcome = (new PreChangeGate)->run(new PreChange(PreChange::SYSTEM_UPDATE, ['data' => 'all'], null, (string) config('gp247.core')));
+        foreach ($outcome->notices() as $notice) {
+            $this->addWarning($notice);
+        }
+        if ($outcome->proceed()) {
+            return ['stopped' => false, 'message' => '', 'entries' => $outcome->toArray()];
+        }
+
+        $message = 'Stopped before updating: '.implode('; ', $outcome->reasons());
+        $continue = !$this->isJson()
+            && $this->input->isInteractive()
+            && $this->confirm($message.' Update anyway (no snapshot)?', false);
+
+        return ['stopped' => !$continue, 'message' => $message, 'entries' => $outcome->toArray()];
+    }
+
     private function hintTemplatePrune(): void
     {
         try {

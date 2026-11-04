@@ -190,14 +190,30 @@
                 {{ gp247_language_render('admin.store.template_switch_warning') }}
             </p>
         </div>
+        @if ($preChangeBlocked)
+            {{-- A "before change" registrant (e.g. the backup snapshot) stopped the switch
+                 (US-PLG-pre-change-hook); the reason comes from the registrant. --}}
+            <div class="flex items-start gap-3" data-testid="website-info-template-pre-change-reason">
+                <i class="fas fa-triangle-exclamation mt-0.5 text-xl text-amber-500"></i>
+                <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                    {{ gp247_language_render('admin.pre_change.template_blocked') }} {{ $preChangeBlocked }}
+                </p>
+            </div>
+        @endif
 
         <x-slot:footer>
             <x-gp247::button variant="secondary" size="sm" wire:click="cancelTemplateSwitch">
                 {{ gp247_language_render('admin.store.template_switch_cancel') }}
             </x-gp247::button>
-            <x-gp247::button variant="danger" size="sm" wire:click="confirmTemplateSwitch">
-                {{ gp247_language_render('admin.store.template_switch_confirm') }}
-            </x-gp247::button>
+            @if ($preChangeBlocked)
+                <x-gp247::button variant="danger" size="sm" wire:click="confirmTemplateSwitch(true)" data-testid="website-info-template-pre-change-continue">
+                    {{ gp247_language_render('admin.pre_change.continue_without_snapshot') }}
+                </x-gp247::button>
+            @else
+                <x-gp247::button variant="danger" size="sm" wire:click="confirmTemplateSwitch">
+                    {{ gp247_language_render('admin.store.template_switch_confirm') }}
+                </x-gp247::button>
+            @endif
         </x-slot:footer>
     </x-gp247::modal>
 </div>

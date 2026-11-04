@@ -1,6 +1,8 @@
 <?php
 namespace GP247\Core\Library;
 
+use GP247\Core\Support\PreChange\PreChange;
+use GP247\Core\Support\PreChange\PreChangeGate;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -126,14 +128,20 @@ class ExtensionUpdateManager
      * replace files, then run the AppConfig::update() hook. Any failure after
      * live files were replaced triggers a restore from the backup.
      *
-     * @param string $type 'Plugins' or 'Templates'.
-     * @param string $key  Extension key (folder name / configKey).
-     * @return array ['error' => 0|1, 'msg' => string]
+     * Before any file is backed up or replaced, the "before change" registrants are asked
+     * (US-PLG-pre-change-hook); a stop returns ['pre_change' => 1] with nothing changed, and the
+     * caller may retry with $skipPreChange once the person chose to go on without a snapshot.
+     *
+     * @param string $type          'Plugins' or 'Templates'.
+     * @param string $key           Extension key (folder name / configKey).
+     * @param bool   $skipPreChange Do not ask the "before change" registrants.
+     * @return array ['error' => 0|1, 'msg' => string, 'pre_change'? => 1, 'pre_change_detail'? => list<array>]
      *
      * @aidlc-unit plugin-manager
-     * @aidlc-story US-PLG-005
+     * @aidlc-story US-PLG-005, US-PLG-pre-change-hook
+     * @aidlc-adr system-cli_pre-change-registry
      */
-    public function update(string $type, string $key): array
+    public function update(string $type, string $key, bool $skipPreChange = false): array
     {
         $type = ($type === 'Templates') ? 'Templates' : 'Plugins';
 
@@ -212,6 +220,15 @@ class ExtensionUpdateManager
             File::deleteDirectory($pathTmp);
             gp247_report(msg: 'Extension update error ('.$key.'): '.$e->getMessage(), channel: null);
             return ['error' => 1, 'msg' => $e->getMessage()];
+        }
+
+        if (!$skipPreChange) {
+            $outcome = (new PreChangeGate)->run(new PreChange(PreChange::EXTENSION_UPDATE, ['type' => $type, 'key' => $key], $oldVersion, $newVersion));
+            if (!$outcome->proceed()) {
+                File::deleteDirectory($pathTmp);
+
+                return ['error' => 1, 'pre_change' => 1, 'msg' => implode(' ', $outcome->reasons()), 'pre_change_detail' => $outcome->toArray()];
+            }
         }
 
         $backupPath = '';
