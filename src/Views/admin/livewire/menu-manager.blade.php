@@ -14,6 +14,9 @@
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
     {{-- Left: create / edit form --}}
     <x-gp247::card :title="gp247_language_render($editingId ? 'admin.menu.form_edit' : 'admin.menu.form_new')">
+        <x-slot:actions>
+            <x-gp247::form-new-button :editing="$editingId" data-testid="admin-menu-form-new" />
+        </x-slot:actions>
         <form wire:submit="save" class="space-y-4">
             <x-gp247::input :label="gp247_language_render('admin.menu.field_title')" name="title" wire:model="form.title"
                 :help="gp247_language_render('admin.menu.title_help')"
@@ -35,8 +38,7 @@
             <x-gp247::input :label="gp247_language_render('admin.sort')" name="sort" type="number" wire:model="form.sort"
                 :error="$errors->first('form.sort')" />
 
-            <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
-                <x-gp247::button variant="secondary" wire:click="cancelEdit" data-testid="admin-menu-form-cancel">{{ gp247_language_render($editingId ? 'admin.cancel' : 'admin.reset') }}</x-gp247::button>
+            <div class="flex items-center justify-end border-t border-gray-200 pt-4 dark:border-gray-700">
                 <x-gp247::button type="submit" wire:loading.attr="disabled"><i class="fas fa-save"></i> {{ gp247_language_render($editingId ? 'admin.update' : 'admin.submit') }}</x-gp247::button>
             </div>
         </form>

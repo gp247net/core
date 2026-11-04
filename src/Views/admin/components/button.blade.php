@@ -11,7 +11,7 @@
     @aidlc-adr ADR-005
 
     @props array
-      - variant (string): primary|secondary|success|danger|warning|ghost. Default primary.
+      - variant (string): primary|secondary|success|danger|warning|ghost|outline. Default primary.
       - size (string): sm|md|lg. Default md.
       - href (string|null): when set, renders an anchor instead of a button.
 --}}
@@ -35,6 +35,10 @@
         'warning' => 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400',
         'ghost' => 'bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-300 '
             . 'dark:text-gray-300 dark:hover:bg-gray-700',
+        // WHY: a clearly visible secondary action (e.g. "+ Create new" in a form
+        // header) that still does not compete with the solid primary submit button.
+        'outline' => 'border border-blue-600 bg-white text-blue-700 hover:bg-blue-50 focus:ring-blue-500 '
+            . 'dark:border-blue-400 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-blue-900/20',
     ];
 
     $sizes = [

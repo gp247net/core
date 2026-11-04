@@ -278,7 +278,7 @@
             {{-- Modal footer --}}
             <div class="flex justify-end gap-2 border-t border-gray-200 px-5 py-4 dark:border-gray-700">
                 <x-gp247::button variant="secondary" wire:click="closeAdd">
-                    {{ gp247_language_render('admin.reset') }}
+                    {{ gp247_language_render('admin.cancel') }}
                 </x-gp247::button>
                 <x-gp247::button wire:click="addString" wire:loading.attr="disabled">
                     <i class="fas fa-save"></i>

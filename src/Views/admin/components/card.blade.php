@@ -11,7 +11,8 @@
     @props array
       - title (string|null): header heading.
       - subtitle (string|null): muted line under the title.
-    @slots header, footer
+    @slots header, footer, actions (buttons beside the title, e.g. <x-gp247::form-new-button>;
+           ignored when a `header` slot replaces the whole header — US-AUI-two-panel-state-preservation)
 --}}
 @props([
     'title' => null,
@@ -31,6 +32,9 @@
                         <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{!! $subtitle !!}</p>
                     @endif
                 </div>
+                @isset($actions)
+                    <div class="flex items-center gap-2">{{ $actions }}</div>
+                @endisset
             @endisset
         </div>
     @endif

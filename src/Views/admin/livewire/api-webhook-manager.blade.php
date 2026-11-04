@@ -11,9 +11,12 @@
 --}}
 <div data-testid="api-sync-webhook-panel">
     <x-gp247::card>
-        <div class="mb-4 border-b border-gray-100 pb-4 dark:border-gray-700">
-            <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ gp247_language_render('admin.api_webhook.title') }}</p>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.api_webhook.help') }}</p>
+        <div class="mb-4 flex items-start justify-between gap-4 border-b border-gray-100 pb-4 dark:border-gray-700">
+            <div>
+                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ gp247_language_render('admin.api_webhook.title') }}</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.api_webhook.help') }}</p>
+            </div>
+            <x-gp247::form-new-button :editing="$editingId" action="resetForm" data-testid="api-sync-webhook-form-new" />
         </div>
 
         <form wire:submit="save" class="space-y-4">
@@ -53,9 +56,6 @@
             @endif
 
             <div class="flex justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
-                <x-gp247::button variant="secondary" size="sm" type="button" wire:click="resetForm">
-                    {{ gp247_language_render('action.reset') }}
-                </x-gp247::button>
                 <x-gp247::button variant="primary" size="sm" type="submit" data-testid="api-sync-webhook-save">
                     {{ gp247_language_render('action.submit') }}
                 </x-gp247::button>

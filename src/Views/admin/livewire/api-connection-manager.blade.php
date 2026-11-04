@@ -40,11 +40,7 @@
                         <i class="fas fa-plus"></i> {{ gp247_language_render('admin.api_connection.create') }}
                     @endif
                 </h3>
-                @if ($editingId)
-                    <x-gp247::button variant="secondary" size="sm" wire:click="resetForm">
-                        <i class="fas fa-list"></i> {{ gp247_language_render('admin.back_list') }}
-                    </x-gp247::button>
-                @endif
+                <x-gp247::form-new-button :editing="$editingId" action="resetForm" data-testid="api-connection-form-new" />
             </div>
 
             <form wire:submit="save" class="space-y-4">
@@ -94,9 +90,6 @@
                 </div>
 
                 <div class="flex justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
-                    <x-gp247::button variant="secondary" size="sm" type="button" wire:click="resetForm">
-                        {{ gp247_language_render('action.reset') }}
-                    </x-gp247::button>
                     <x-gp247::button variant="primary" size="sm" type="submit">
                         {{ gp247_language_render('action.submit') }}
                     </x-gp247::button>

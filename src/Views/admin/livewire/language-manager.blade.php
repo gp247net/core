@@ -12,6 +12,9 @@
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
     {{-- Left: add / edit form --}}
     <x-gp247::card :title="gp247_language_render($editingId ? 'admin.language.edit' : 'admin.language.add')">
+        <x-slot:actions>
+            <x-gp247::form-new-button :editing="$editingId" data-testid="admin-language-form-new" />
+        </x-slot:actions>
         <form wire:submit="save" class="space-y-4">
             <x-gp247::input :label="gp247_language_render('admin.name')" name="name" wire:model="form.name"
                 :error="$errors->first('form.name')" required />
@@ -31,8 +34,7 @@
                 <x-gp247::checkbox :label="gp247_language_render('admin.active')" wire:model="form.status" value="1" />
             </div>
 
-            <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
-                <x-gp247::button variant="secondary" wire:click="cancelEdit" data-testid="admin-language-form-cancel">{{ gp247_language_render($editingId ? 'admin.cancel' : 'admin.reset') }}</x-gp247::button>
+            <div class="flex items-center justify-end border-t border-gray-200 pt-4 dark:border-gray-700">
                 <x-gp247::button type="submit" wire:loading.attr="disabled">
                     <i class="fas fa-save"></i> {{ gp247_language_render($editingId ? 'admin.update' : 'admin.submit') }}
                 </x-gp247::button>
