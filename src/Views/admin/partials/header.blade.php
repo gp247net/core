@@ -82,6 +82,27 @@
             </div>
         @endif
 
+        {{-- System alerts shield (US-admin-shell-system-alerts): Administrator only, count of
+             critical alerts read from cache — never runs a check on an ordinary page
+             (NFR-PERF-admin-alert-non-blocking). Same classes as the bell below. --}}
+        @php
+            $gp247AlertService = app(\GP247\Core\AdminShell\Support\AdminAlertService::class);
+        @endphp
+        @if ($gp247AlertService->allowed())
+            @php
+                $gp247AlertCritical = $gp247AlertService->criticalCount();
+            @endphp
+            <a href="{{ gp247_route_admin('admin.system_alerts') }}" wire:navigate data-testid="admin-header-alerts"
+                class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                title="{{ gp247_language_render('admin.alerts.title') }}"
+                aria-label="{{ gp247_language_render('admin.alerts.title') }}">
+                <i class="fas fa-shield-alt"></i>
+                @if ($gp247AlertCritical)
+                    <span class="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">{{ $gp247AlertCritical > 99 ? '99+' : $gp247AlertCritical }}</span>
+                @endif
+            </a>
+        @endif
+
         {{-- Admin notifications (mirrors the legacy AdminLTE notice block,
              AdminNotice model). Alpine dropdown, TailAdmin styling. --}}
         @php

@@ -36,8 +36,13 @@ final class AdminRouteAccess
             return true;
         }
 
+        $guard = new PermissionMiddleware();
+        // Administrator-only screens win over View.all and every role grant.
+        if (in_array($path, $guard->administratorOnly(), true)) {
+            return false;
+        }
+
         if ($user->isViewAll()) {
-            $guard = new PermissionMiddleware();
             return $method === 'GET'
                 && !in_array($path, $guard->viewWithoutToMessage(), true)
                 && !in_array($path, $guard->viewWithout(), true);

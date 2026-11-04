@@ -23,6 +23,8 @@ export default {
         // it as two namespaces over the same root) — a single glob covers both.
         'vendor/gp247/core/src/Views/admin/**/*.blade.php',
         'vendor/gp247/core/src/AdminShell/resources/assets/js/**/*.js',
+        // Alert icon/colour classes shared by the dashboard block and the "System alerts" page.
+        'vendor/gp247/core/src/AdminShell/Support/AdminAlertStyle.php',
     ],
     safelist: [
         {

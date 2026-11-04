@@ -197,6 +197,25 @@ class CoreServiceProvider extends ServiceProvider
             classNamespace: 'GP247\\Core\\AdminShell\\Http\\Livewire',
         );
 
+        // Core's own "System alerts" checks go through the same registry packages and
+        // plugins use (US-admin-shell-alert-check-registry). Order = display order of
+        // equal-severity alerts.
+        foreach ([
+            \GP247\Core\Support\Health\AppDebugCheck::class,
+            \GP247\Core\Support\Health\HttpsCheck::class,
+            \GP247\Core\Support\Health\DefaultAdminPasswordCheck::class,
+            \GP247\Core\Support\Health\PasswordPolicyCheck::class,
+            \GP247\Core\Support\Health\EncryptionKeyDedicatedCheck::class,
+            \GP247\Core\Support\Health\SecretDecryptableCheck::class,
+            \GP247\Core\Support\Health\MfaEnabledCheck::class,
+            \GP247\Core\Support\Health\ApiExposureCheck::class,
+            \GP247\Core\Support\Health\SupportLineCheck::class,
+            \GP247\Core\Support\Health\ExtensionDataPendingCheck::class,
+            \GP247\Core\Support\Health\ExtensionAssetsCheck::class,
+        ] as $alertCheck) {
+            \GP247\Core\AdminShell\Support\AdminAlertRegistry::register($alertCheck);
+        }
+
         // Ecosystem fingerprint: a versionless GP247 marker (HTTP header + <meta
         // generator>) on every response so technology-detection services can count
         // GP247 adoption. Registered as a global middleware here — not tied to a

@@ -27,7 +27,10 @@ class DataDefaultSeeder extends Seeder
         $db = DB::connection(GP247_DB_CONNECTION);
         $dataMenu = $this->dataMenu();
         $db->table(GP247_DB_PREFIX.'admin_menu')->insertOrIgnore($dataMenu);
-        
+        // "System alerts" page menu item, inserted by uri (no fixed id) — same helper as
+        // upgrade/2026_11_04_145407_add_system_alerts_page.php (US-admin-shell-system-alerts-page).
+        \GP247\Core\AdminShell\Support\SystemAlertsMenu::ensure($db);
+
         $dataAdminPermission = $this->dataAdminPermission(GP247_ADMIN_PREFIX);
         $db->table(GP247_DB_PREFIX.'admin_permission')->insertOrIgnore($dataAdminPermission);
         
@@ -57,6 +60,13 @@ class DataDefaultSeeder extends Seeder
         $db->table(GP247_DB_PREFIX.'admin_home')->insertOrIgnore(
             [
                 ['id' => 1,'size' => 12, 'sort'=> 1,'view' => 'gp247-admin::component.home_default','status' => 1],
+            ]
+        );
+        // "System alerts" block on top of the dashboard (US-admin-shell-system-alerts); site
+        // upgrades get it from upgrade/2026_11_04_113754_seed_admin_alert_block.php.
+        $db->table(GP247_DB_PREFIX.'admin_home')->insertOrIgnore(
+            [
+                ['size' => 12, 'sort' => 1000, 'view' => 'gp247-admin::component.alerts', 'status' => 1],
             ]
         );
 

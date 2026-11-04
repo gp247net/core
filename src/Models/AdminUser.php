@@ -163,7 +163,20 @@ class AdminUser extends Authenticatable
      */
     public function checkUrlAllowAccess($url)
     {
-        if ($this->isAdministrator() || $this->isViewAll()) {
+        if ($this->isAdministrator()) {
+            return true;
+        }
+
+        // Administrator-only screens stay hidden from View.all and every role grant
+        // (same list PermissionMiddleware enforces, US-admin-shell-system-alerts-page).
+        // Compare full URLs (url() adds the base path), so a site installed in a sub-folder matches too.
+        foreach ((new \GP247\Core\Middleware\PermissionMiddleware())->administratorOnly() as $adminOnlyPath) {
+            if (rtrim((string) $url, '/') === url($adminOnlyPath)) {
+                return false;
+            }
+        }
+
+        if ($this->isViewAll()) {
             return true;
         }
 

@@ -46,4 +46,10 @@ return [
         // kept red on purpose. Set to null to hide it.
         'debug'          => ['label' => 'DEBUG ON', 'color' => 'red', 'icon' => 'fas fa-bug'],
     ],
+
+    // Last month (YYYY-MM) this version line receives security fixes. Read by the
+    // "System alerts" check `support_line` (warns 6 months before, critical after).
+    // Hard-coded on purpose (no network call); it MUST match SECURITY.md and the
+    // public release page whenever the support lifecycle changes.
+    'support_until'        => '2028-03',
 ];

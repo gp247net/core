@@ -2,11 +2,21 @@
 
 namespace GP247\Core\Commands;
 
+use GP247\Core\AdminShell\Domain\AdminAlertCheck;
+use GP247\Core\AdminShell\Infrastructure\AdminAlert;
 use GP247\Core\Console\GP247Command;
-use Illuminate\Encryption\Encrypter;
-use Illuminate\Support\Facades\Crypt;
+use GP247\Core\Support\Health\ApiExposureCheck;
+use GP247\Core\Support\Health\AppDebugCheck;
+use GP247\Core\Support\Health\DefaultAdminPasswordCheck;
+use GP247\Core\Support\Health\EncryptionKeyDedicatedCheck;
+use GP247\Core\Support\Health\ExtensionAssetsCheck;
+use GP247\Core\Support\Health\ExtensionDataPendingCheck;
+use GP247\Core\Support\Health\HttpsCheck;
+use GP247\Core\Support\Health\MfaEnabledCheck;
+use GP247\Core\Support\Health\PasswordPolicyCheck;
+use GP247\Core\Support\Health\SecretDecryptableCheck;
+use GP247\Core\Support\Health\SupportLineCheck;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use GP247\Core\Support\TemplateSourceAudit;
 
@@ -65,8 +75,10 @@ class Doctor extends GP247Command
         }
 
         // DB connectivity.
+        $dbOk = false;
         try {
             DB::connection(GP247_DB_CONNECTION)->getPdo();
+            $dbOk = true;
             $checks[] = $this->check('db_connection', 'pass', config('database.default'));
         } catch (\Throwable $e) {
             $checks[] = $this->check('db_connection', 'fail', $e->getMessage());
@@ -76,14 +88,9 @@ class Doctor extends GP247Command
         $installed = Storage::disk('local')->exists('gp247-installed.txt');
         $checks[] = $this->check('installed', $installed ? 'pass' : 'warn', $installed ? 'yes' : 'not installed');
 
-        // Dedicated encryption key present? (warn = secrets are tied to APP_KEY).
-        $checks[] = $this->check(
-            'encryption_key_dedicated',
-            (string) config('gp247-config.security.encryption_key', '') !== '' ? 'pass' : 'warn',
-            (string) config('gp247-config.security.encryption_key', '') !== ''
-                ? 'GP247_ENCRYPTION_KEY set'
-                : 'not set — secrets use APP_KEY; set GP247_ENCRYPTION_KEY to insulate them from an APP_KEY change'
-        );
+        // Dedicated encryption key present? (warn = secrets are tied to APP_KEY). Config only,
+        // so it runs before install too.
+        $checks[] = $this->healthRow(new EncryptionKeyDedicatedCheck, 'skipped (check failed)');
 
         // Secret decryptability — the only visible signal that at-rest secrets died
         // (e.g. the key changed without keeping the old one). Read-only. Skipped when
@@ -115,6 +122,10 @@ class Doctor extends GP247Command
 
         // Event log for ERP sync whose lazy cleaning does not run (no requests). Read-only.
         $checks[] = $this->apiEventRetentionCheck();
+
+        // Security rows shared with the dashboard "System alerts" block (one source of logic).
+        // Never `fail` — the exit code stays driven by the environment checks above.
+        array_push($checks, ...$this->securityChecks($installed, $dbOk));
 
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
@@ -390,6 +401,7 @@ class Doctor extends GP247Command
 
     /**
      * Extensions waiting for their data hook (US-PLG-local-update-data-converge).
+     * Logic lives in the shared check class (NFR-MAINT-health-check-single-source).
      *
      * @param bool $installed Whether the site is installed.
      * @return array{name: string, status: string, detail: string, items?: array<int, string>}
@@ -399,72 +411,28 @@ class Doctor extends GP247Command
         if (!$installed) {
             return $this->check('extension_data_pending', 'pass', 'skipped (not installed)');
         }
-        try {
-            $pending = (new \GP247\Core\Library\ExtensionDataUpdater)->pending();
-        } catch (\Throwable $e) {
-            return $this->check('extension_data_pending', 'pass', 'skipped (database unavailable)');
-        }
-        if ($pending === []) {
-            return $this->check('extension_data_pending', 'pass', 'every installed extension is up to date');
-        }
-        $items = array_map(fn ($p) => $p['type'].'/'.$p['key'].' '.($p['from'] ?? 'unknown').' -> '.$p['to'], array_values($pending));
 
-        return $this->check(
-            'extension_data_pending',
-            'warn',
-            count($items).' extension(s) updated on disk but not in the database - run: php artisan gp247:ext-update --local --all (or gp247:update)',
-            $items
-        );
+        return $this->healthRow(new ExtensionDataPendingCheck, 'skipped (database unavailable)');
     }
 
+    /**
+     * Installed extensions whose static files never reached public/ (US-CLI-extension-asset-repair).
+     *
+     * @param bool $installed Whether the site is installed.
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
+     */
     protected function extensionAssetsCheck(bool $installed): array
     {
         if (!$installed) {
             return $this->check('extension_assets', 'pass', 'skipped (not installed)');
         }
 
-        try {
-            $rows = DB::connection(GP247_DB_CONNECTION)
-                ->table(GP247_DB_PREFIX.'admin_config')
-                ->where('store_id', defined('GP247_STORE_ID_GLOBAL') ? GP247_STORE_ID_GLOBAL : '0')
-                ->whereIn('group', ['Plugins', 'Templates'])
-                ->get(['group', 'key']);
-        } catch (\Throwable $e) {
-            return $this->check('extension_assets', 'pass', 'skipped (database unavailable)');
-        }
-
-        $missing = [];
-        foreach ($rows as $row) {
-            $relative = 'GP247/'.$row->group.'/'.$row->key;
-            $source = app_path($relative.'/public');
-            if (preg_match('/^[A-Za-z0-9_-]+$/', (string) $row->key) !== 1 || !is_dir($source)) {
-                continue;
-            }
-            foreach (File::allFiles($source) as $file) {
-                if (!is_file(public_path($relative.'/'.$file->getRelativePathname()))) {
-                    $missing[] = $row->group.'/'.$row->key;
-                    break;
-                }
-            }
-        }
-
-        if ($missing === []) {
-            return $this->check('extension_assets', 'pass', 'every installed extension has its static files in public/');
-        }
-
-        $shown = array_slice($missing, 0, 3);
-        $detail = count($missing).' installed extension(s) miss static files in public/: '.implode(', ', $shown)
-            .(count($missing) > 3 ? ' (+'.(count($missing) - 3).' more)' : '')
-            .' — run "php artisan gp247:ext-publish --type=plugin|template --key=<Key>" (or --all)';
-
-        return $this->check('extension_assets', 'warn', $detail, $missing);
+        return $this->healthRow(new ExtensionAssetsCheck, 'skipped (database unavailable)');
     }
 
     /**
-     * Verify every at-rest secret (admin_config.security = 1) still decrypts under the
-     * current + previous APP_KEYs. A row that fails is the tell-tale of a changed
-     * APP_KEY; report it — naming each broken row (group/key/store or table.column#id)
-     * and its key id, never the value — so the owner knows which setting to recover.
+     * Every at-rest secret still decrypts under the current + previous keys; broken rows
+     * are named (never their value).
      *
      * @param bool $installed Whether the site is installed (skip otherwise).
      * @return array{name: string, status: string, detail: string, items?: array<int, string>}
@@ -476,163 +444,69 @@ class Doctor extends GP247Command
      */
     protected function secretDecryptableCheck(bool $installed): array
     {
-        // WHY inline (no gp247_* helper): Doctor is a bootstrap-tier command whose
-        // source must not reference gp247_* helpers (they do not exist pre-install).
-        // Envelope tags are literals.
         if (!$installed) {
             return $this->check('secret_decryptable', 'pass', 'skipped (not installed)');
         }
 
-        $columns = (array) config('gp247-config.security.encrypted_columns', []);
-        $total = 0;
-        $broken = [];
-
-        try {
-            $connection = DB::connection(GP247_DB_CONNECTION);
-            $schema = $connection->getSchemaBuilder();
-            foreach ($columns as $table => $cols) {
-                $fullTable = GP247_DB_PREFIX . $table;
-                // A registered table that does not exist yet (feature not upgraded on this
-                // site) holds no secret — skip it instead of failing the whole check.
-                if (!$schema->hasTable($fullTable)) {
-                    continue;
-                }
-                // Row identity for the report: config rows by group/key/store, any other
-                // registered table by its id (never the value).
-                $identity = $schema->hasColumns($fullTable, ['group', 'key', 'store_id'])
-                    ? ['group', 'key', 'store_id']
-                    : ($schema->hasColumn($fullTable, 'id') ? ['id'] : []);
-                foreach ((array) $cols as $column) {
-                    if (!$schema->hasColumn($fullTable, (string) $column)) {
-                        continue;
-                    }
-                    $rows = $connection->table($fullTable)
-                        ->where($column, 'like', 'enc:%')
-                        ->get(array_merge($identity, [$column]));
-                    foreach ($rows as $row) {
-                        $value = (string) ($row->{$column} ?? '');
-                        $total++;
-                        if (!$this->canDecrypt($value)) {
-                            $broken[] = $this->secretRowLabel((string) $table, (string) $column, $identity, $row, $value);
-                        }
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            return $this->check('secret_decryptable', 'pass', 'skipped (db unavailable)');
-        }
-
-        if ($broken !== []) {
-            $shown = array_slice($broken, 0, 10);
-            $more = count($broken) - count($shown);
-
-            return $this->check(
-                'secret_decryptable',
-                'warn',
-                count($broken) . ' of ' . $total . ' secrets undecryptable: ' . implode(', ', $shown)
-                    . ($more > 0 ? ' …and ' . $more . ' more' : '')
-                    . ' — the encryption key may have changed; set GP247_ENCRYPTION_PREVIOUS_KEYS / APP_PREVIOUS_KEYS or re-enter them',
-                $broken
-            );
-        }
-
-        return $this->check('secret_decryptable', 'pass', $total . ' secrets OK');
+        return $this->healthRow(new SecretDecryptableCheck, 'skipped (db unavailable)');
     }
 
     /**
-     * Human label of an undecryptable secret row plus the key id it was written with:
-     * "<group>/<key>@<store_id> kid=<kid>" for config rows, "<table>.<column>#<id> kid=<kid>"
-     * otherwise ("v1" = legacy APP_KEY envelope). Never includes the value.
+     * Security rows shared with the "System alerts" dashboard block. Only on an installed
+     * site with a reachable database (they read admin_config / admin_user).
      *
-     * @param string             $table    Unprefixed table.
-     * @param string             $column   Secret column.
-     * @param array<int, string> $identity Identity columns selected for the row.
-     * @param object             $row      Query row.
-     * @param string             $value    Raw enveloped value (only its kid is read).
-     * @return string
+     * @param bool $installed Whether the site is installed.
+     * @param bool $dbOk      Whether the database connection works.
+     * @return array<int, array{name: string, status: string, detail: string, items?: array<int, string>}>
      *
      * @aidlc-unit system-cli
-     * @aidlc-story US-CMP-secret-decrypt-diagnosable
+     * @aidlc-story US-CLI-004
+     * @aidlc-adr admin-shell_system-alert-registry
      */
-    private function secretRowLabel(string $table, string $column, array $identity, object $row, string $value): string
+    protected function securityChecks(bool $installed, bool $dbOk): array
     {
-        if ($identity === ['group', 'key', 'store_id']) {
-            $label = $row->group . '/' . $row->key . '@' . $row->store_id;
-        } else {
-            $label = $table . '.' . $column . ($identity === ['id'] ? '#' . $row->id : '');
+        if (!$installed || !$dbOk) {
+            return [];
         }
 
-        $kid = 'v1';
-        if (str_starts_with($value, 'enc:v2:')) {
-            $rest = substr($value, strlen('enc:v2:'));
-            $kid = substr($rest, 0, (int) strpos($rest, ':'));
+        $rows = [];
+        foreach ([
+            new AppDebugCheck,
+            new HttpsCheck,
+            new DefaultAdminPasswordCheck,
+            new PasswordPolicyCheck,
+            new MfaEnabledCheck,
+            new ApiExposureCheck,
+            new SupportLineCheck,
+        ] as $check) {
+            $rows[] = $this->healthRow($check, 'skipped (check failed)');
         }
 
-        return $label . ' kid=' . $kid;
+        return $rows;
     }
 
     /**
-     * Attempt to decrypt one enveloped value (v1 = APP_KEY/Crypt, v2 = dedicated key).
-     * Inlined (no gp247_* helper) to keep Doctor bootstrap-tier clean.
+     * Turn a shared check result into a doctor row. Mapping: critical/warning ⇒ warn,
+     * info/ok ⇒ pass — never `fail`, so adding these rows cannot change the exit code.
      *
-     * @param string $value Raw stored value.
-     * @return bool Whether it decrypted.
+     * @param AdminAlertCheck $check
+     * @param string          $failedDetail Detail printed when the check throws (e.g. DB unreadable).
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-004
+     * @aidlc-adr admin-shell_system-alert-registry
      */
-    private function canDecrypt(string $value): bool
+    private function healthRow(AdminAlertCheck $check, string $failedDetail): array
     {
         try {
-            if (str_starts_with($value, 'enc:v2:')) {
-                $rest = substr($value, strlen('enc:v2:'));
-                $payload = substr($rest, strpos($rest, ':') + 1);
-                $encrypter = $this->dedicatedEncrypter();
-                if ($encrypter === null) {
-                    return false;
-                }
-                $encrypter->decryptString($payload);
-
-                return true;
-            }
-            if (str_starts_with($value, 'enc:v1:')) {
-                Crypt::decryptString(substr($value, strlen('enc:v1:')));
-
-                return true;
-            }
+            $alert = $check->evaluate();
         } catch (\Throwable $e) {
-            return false;
+            return $this->check($check->key(), 'pass', $failedDetail);
         }
 
-        return false;
-    }
+        $status = in_array($alert->level, [AdminAlert::CRITICAL, AdminAlert::WARNING], true) ? 'warn' : 'pass';
 
-    /**
-     * Build an Encrypter over the dedicated key set (active + previous), or the APP_KEY
-     * set when the dedicated key is unset. Inlined to avoid gp247_* helpers.
-     *
-     * @return \Illuminate\Encryption\Encrypter|null
-     */
-    private function dedicatedEncrypter(): ?Encrypter
-    {
-        $active = (string) config('gp247-config.security.encryption_key', '');
-        if ($active !== '') {
-            $previous = (array) config('gp247-config.security.encryption_previous_keys', []);
-        } else {
-            $active = (string) config('app.key', '');
-            $previous = (array) config('app.previous_keys', []);
-        }
-        $parse = static function (string $k): string {
-            $k = trim($k);
-            return $k !== '' && str_starts_with($k, 'base64:') ? (string) base64_decode(substr($k, 7)) : $k;
-        };
-        $activeRaw = $parse($active);
-        if ($activeRaw === '') {
-            return null;
-        }
-        $encrypter = new Encrypter($activeRaw, (string) config('app.cipher', 'AES-256-CBC'));
-        $prev = array_values(array_filter(array_map($parse, $previous)));
-        if ($prev !== []) {
-            $encrypter->previousKeys($prev);
-        }
-
-        return $encrypter;
+        return $this->check($alert->key, $status, $alert->detail, $alert->items);
     }
 }

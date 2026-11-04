@@ -23,6 +23,14 @@ class PermissionMiddleware
             return $next($request);
         }
 
+        // Administrator-only screens: refused before View.all and role grants are considered.
+        if (in_array($request->path(), $this->administratorOnly(), true)) {
+            if (!request()->ajax()) {
+                return redirect(gp247_route_admin('admin.deny'))->with(['url' => $request->url(), 'method' => $request->method()]);
+            }
+            return Permission::error();
+        }
+
         //Group view all
         // this group can view all path, but cannot change data
         // This condition need add before check permissions below
@@ -126,6 +134,27 @@ class PermissionMiddleware
             GP247_ADMIN_PREFIX . '/uploads/cropimage',
             GP247_ADMIN_PREFIX . '/uploads/crop',
             GP247_ADMIN_PREFIX . '/uploads/move',
+        ];
+    }
+
+    /**
+     * Admin paths only the Administrator role may open.
+     *
+     * WHY: these screens list the site's weak points. The rule wins over every other
+     * grant — View.all, default pass-through and role permissions — so it is checked
+     * right after the Administrator shortcut here, in AdminRouteAccess::allows() and
+     * in AdminUser::checkUrlAllowAccess() (menu).
+     *
+     * @return array<int, string> Request paths without leading slash, e.g. "gp247_admin/system_alerts".
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-system-alerts-page
+     * @aidlc-adr admin-shell_system-alerts-page
+     */
+    public function administratorOnly(): array
+    {
+        return [
+            GP247_ADMIN_PREFIX . '/system_alerts',
         ];
     }
 }

@@ -1929,6 +1929,11 @@ class DataLanguageSeeder extends Seeder
         ];
         // WHY: further default locales live in Locales/<code>.php (one source shared
         // with the upgrade path) instead of a third inline copy of every row.
-        return array_merge($dataLang, LocaleRows::fromFile(__DIR__.'/Locales/ja.php', 'ja', $dataLang));
+        // "System alerts" rows (en/vi/ja) come from the class the upgrade migration also uses.
+        return array_merge(
+            $dataLang,
+            LocaleRows::fromFile(__DIR__.'/Locales/ja.php', 'ja', $dataLang),
+            \GP247\Core\Support\Health\AlertLanguage::rows()
+        );
     }
 }
