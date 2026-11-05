@@ -287,6 +287,9 @@ return new class extends Migration
 
         // Backup area (US-backup-admin-install-lifecycle) — same helper as upgrade/2026_11_05_090000_create_backup_area.php
         \GP247\Core\Backup\Infrastructure\Install\BackupSchema::create($schema);
+
+        // Failed sign-in log (US-admin-shell-login-failure-log) — same helper as upgrade/2026_11_05_204048_create_login_failure_table.php
+        \GP247\Core\Support\LoginFailure\LoginFailureSchema::create($schema);
     }
 
     /**
@@ -322,6 +325,7 @@ return new class extends Migration
         \GP247\Core\Api\Support\ApiSessionSchema::drop($schema);
         \GP247\Core\Api\Sync\ApiSyncSchema::drop($schema);
         \GP247\Core\Backup\Infrastructure\Install\BackupSchema::drop($schema);
+        \GP247\Core\Support\LoginFailure\LoginFailureSchema::drop($schema);
 
     }
 };

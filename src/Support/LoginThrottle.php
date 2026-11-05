@@ -40,7 +40,10 @@ final class LoginThrottle
 
         foreach ([[$accountKey, $perAccount], [$ipKey, $perIp]] as [$key, $max]) {
             if (RateLimiter::tooManyAttempts($key, $max)) {
-                return max(1, RateLimiter::availableIn($key));
+                $retryAfter = max(1, RateLimiter::availableIn($key));
+                self::recordBlocked($request, $audience, $subject, $key, $retryAfter);
+
+                return $retryAfter;
             }
         }
 
@@ -81,6 +84,30 @@ final class LoginThrottle
         return $accountId !== null && $accountId !== ''
             ? 'id:' . $accountId
             : 'name:' . Str::lower(trim($identity));
+    }
+
+    /**
+     * Hand a refused sign-in to the failed sign-in log (one row per limiter key and block
+     * window — the recorder deduplicates). The subject is "id:<account>" or "name:<typed>".
+     *
+     * @param Request $request
+     * @param string  $audience
+     * @param string  $subject
+     * @param string  $key      Limiter key that blocks.
+     * @param int     $seconds  Seconds the block still lasts.
+     * @return void
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-login-failure-log
+     * @aidlc-adr admin-shell_login-failure-log
+     */
+    private static function recordBlocked(Request $request, string $audience, string $subject, string $key, int $seconds): void
+    {
+        $accountId = str_starts_with($subject, 'id:') ? substr($subject, 3) : null;
+        $identity = str_starts_with($subject, 'name:') ? substr($subject, 5) : null;
+
+        app(\GP247\Core\Support\LoginFailure\LoginFailureRecorder::class)
+            ->throttled($audience, $identity, $accountId, $key, $seconds, $request);
     }
 
     /**

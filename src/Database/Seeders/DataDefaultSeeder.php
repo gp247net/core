@@ -41,6 +41,10 @@ class DataDefaultSeeder extends Seeder
         // "System alerts" page menu item, inserted by uri (no fixed id) — same helper as
         // upgrade/2026_11_04_145407_add_system_alerts_page.php (US-admin-shell-system-alerts-page).
         \GP247\Core\AdminShell\Support\SystemAlertsMenu::ensure($db);
+        // "Login failures" screen + "record administrators" setting — same helpers as
+        // upgrade/2026_11_05_204048_create_login_failure_table.php (US-admin-shell-login-failure-list).
+        \GP247\Core\AdminShell\Support\LoginFailuresMenu::ensure($db);
+        $db->table(GP247_DB_PREFIX.'admin_config')->insertOrIgnore([\GP247\Core\Support\LoginFailure\LoginFailureSettings::defaultRow()]);
 
         $dataAdminPermission = $this->dataAdminPermission(GP247_ADMIN_PREFIX);
         $db->table(GP247_DB_PREFIX.'admin_permission')->insertOrIgnore($dataAdminPermission);

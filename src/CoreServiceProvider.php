@@ -206,6 +206,7 @@ class CoreServiceProvider extends ServiceProvider
             \GP247\Core\Support\Health\HttpsCheck::class,
             \GP247\Core\Support\Health\DefaultAdminPasswordCheck::class,
             \GP247\Core\Support\Health\PasswordPolicyCheck::class,
+            \GP247\Core\Support\Health\LoginFailuresCheck::class,
             \GP247\Core\Support\Health\EncryptionKeyDedicatedCheck::class,
             \GP247\Core\Support\Health\SecretDecryptableCheck::class,
             \GP247\Core\Support\Health\MfaEnabledCheck::class,
@@ -222,6 +223,18 @@ class CoreServiceProvider extends ServiceProvider
         // web installer checks the first password against this group's defaults
         // (US-admin-shell-password-policy-audiences).
         \GP247\Core\Support\Password\PasswordPolicyRegistry::register(\GP247\Core\Support\Password\PasswordAudience::admin());
+
+        // Failed sign-ins of every auth guard (admin, storefront, API, plugins) reach one
+        // listener; the recorder keeps only the groups the owner chose and never the
+        // password (US-admin-shell-login-failure-log). Recording errors never reach a sign-in.
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Failed::class,
+            [\GP247\Core\Support\LoginFailure\LoginFailureListener::class, 'failed']
+        );
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Lockout::class,
+            [\GP247\Core\Support\LoginFailure\LoginFailureListener::class, 'lockout']
+        );
 
         // Ecosystem fingerprint: a versionless GP247 marker (HTTP header + <meta
         // generator>) on every response so technology-detection services can count

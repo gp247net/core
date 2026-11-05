@@ -42,7 +42,7 @@ return [
                 'admin_user', 'admin_role', 'admin_permission', 'admin_role_permission', 'admin_role_user',
                 'admin_user_permission', 'admin_menu',
             ]],
-            'logs' => ['tables' => ['admin_log', 'admin_notice', 'api_event', 'api_webhook_delivery']],
+            'logs' => ['tables' => ['admin_log', 'admin_notice', 'api_event', 'api_webhook_delivery', 'admin_login_failure']],
         ],
         // Never backed up: restoring sessions, reset links or tokens could revive access that
         // was revoked after the backup; the backup feature's own bookkeeping is not site data.
@@ -80,6 +80,9 @@ return [
         //Config log access admin
         'admin_log_except'    => env('GP247_ADMIN_LOG_EXCEPT', ''), //Except log
         'admin_log'           => env('GP247_ADMIN_LOG', 1), //Log access admin
+        // Days failed sign-ins stay in the log (US-admin-shell-login-failure-log); older rows
+        // are removed while new ones are written — no cron needed.
+        'login_failure_keep_days' => (int) env('GP247_LOGIN_FAILURE_KEEP_DAYS', 30),
         // Livewire actions on admin screens are logged too (AdminShell\Support\LivewireOperationLog);
         // these action names are reads or framework plumbing, never operations.
         'admin_log_livewire_except' => env('GP247_ADMIN_LOG_LIVEWIRE_EXCEPT', '$refresh,$commit,__dispatch,gotoPage,previousPage,nextPage,setPage,resetPage'),

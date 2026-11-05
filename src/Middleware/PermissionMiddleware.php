@@ -148,13 +148,14 @@ class PermissionMiddleware
      * @return array<int, string> Request paths without leading slash, e.g. "gp247_admin/system_alerts".
      *
      * @aidlc-unit admin-shell
-     * @aidlc-story US-admin-shell-system-alerts-page
-     * @aidlc-adr admin-shell_system-alerts-page
+     * @aidlc-story US-admin-shell-system-alerts-page, US-admin-shell-login-failure-list
+     * @aidlc-adr admin-shell_system-alerts-page, admin-shell_login-failure-log
      */
     public function administratorOnly(): array
     {
         return [
             GP247_ADMIN_PREFIX . '/system_alerts',
+            GP247_ADMIN_PREFIX . '/login_failures',
         ];
     }
 }
