@@ -33,6 +33,9 @@ final class ArchiveRejected extends RuntimeException
     public const TABLE_UNKNOWN = 'table_unknown';
     /** A file path in a file group could leave its root (checked before anything is written). */
     public const PATH_INVALID = 'path_invalid';
+    /** Single-file envelope (.gp247bak, ADR archive-format amendment BK-4): cut short / not a valid envelope. */
+    public const PACK_TRUNCATED = 'pack_truncated';
+    public const PACK_CORRUPT = 'pack_corrupt';
 
     /**
      * @param string $reason One of the class constants.

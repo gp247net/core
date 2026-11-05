@@ -197,6 +197,11 @@ class CoreServiceProvider extends ServiceProvider
             'gp247-core',
             classNamespace: 'GP247\\Core\\AdminShell\\Http\\Livewire',
         );
+        // Backup area screens (ADR backup-engine_core-module-layout: GP247\Core\Backup\Livewire).
+        Livewire::addNamespace(
+            'gp247-backup',
+            classNamespace: 'GP247\\Core\\Backup\\Livewire',
+        );
 
         // Core's own "System alerts" checks go through the same registry packages and
         // plugins use (US-admin-shell-alert-check-registry). Order = display order of

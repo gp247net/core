@@ -4,7 +4,7 @@ namespace GP247\Core\Backup\Infrastructure\Install;
 
 /**
  * Language rows (en / vi / ja) of the backup area installed with it — one source for the
- * install seeder and the upgrade migration. Screen texts come with the backup screen.
+ * install seeder and the upgrade migrations. Screen texts: BackupScreenLanguage (BK-4).
  *
  * @aidlc-unit backup-admin
  * @aidlc-story US-backup-admin-install-lifecycle
@@ -17,7 +17,12 @@ final class BackupLanguage
      */
     public static function texts(): array
     {
-        return [
+        $screen = [];
+        foreach (BackupScreenLanguage::rows() as $code => [$en, $vi, $ja]) {
+            $screen[$code] = ['en' => $en, 'vi' => $vi, 'ja' => $ja];
+        }
+
+        return $screen + [
             'admin.menu_titles.backup' => [
                 'en' => 'Backup & restore',
                 'vi' => 'Sao lưu & phục hồi',

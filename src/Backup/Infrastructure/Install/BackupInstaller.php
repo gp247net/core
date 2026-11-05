@@ -12,10 +12,11 @@ use Illuminate\Database\ConnectionInterface;
  * site chose (switch off, renamed menu) is kept. Rows are found by slug / uri, never by a
  * fixed id (shop and plugins take auto-increment ids on running sites).
  *
- * The menu item is created hidden: the backup screen ships in a later step.
+ * The menu item is visible since the backup screen shipped (BK-4); sites updated from BK-1 get
+ * it shown, and the permission URIs widened, by the upgrade migration (`showScreen()`).
  *
  * @aidlc-unit backup-admin
- * @aidlc-story US-backup-admin-install-lifecycle
+ * @aidlc-story US-backup-admin-install-lifecycle, US-backup-admin-permissions
  * @aidlc-adr backup-engine_core-module-layout
  */
 final class BackupInstaller
@@ -77,7 +78,7 @@ final class BackupInstaller
                 'uri' => self::MENU_URI,
                 'key' => null,
                 'type' => 0,
-                'hidden' => 1,
+                'hidden' => 0,
             ]);
         }
     }
@@ -104,8 +105,9 @@ final class BackupInstaller
             return;
         }
         $ids = [];
+        $legacy = self::legacyPermissionUris($adminPrefix ?? GP247_ADMIN_PREFIX);
         foreach (self::permissionUris($adminPrefix ?? GP247_ADMIN_PREFIX) as $slug => $uri) {
-            $id = $db->table($p . 'admin_permission')->where('slug', $slug)->where('http_uri', $uri)->value('id');
+            $id = $db->table($p . 'admin_permission')->where('slug', $slug)->whereIn('http_uri', [$uri, $legacy[$slug]])->value('id');
             if ($id !== null) {
                 $ids[] = $id;
             }
@@ -124,12 +126,69 @@ final class BackupInstaller
      * @param string $prefix Admin URL prefix.
      * @return array<string, string>
      */
-    private static function permissionUris(string $prefix): array
+    public static function permissionUris(string $prefix): array
+    {
+        // WHY: download / restore also read the archive list (GET archives) — without it an admin
+        // given only "download" or "restore" could not reach the archive they may act on. Every
+        // action on that screen is checked again by BackupAccess (POST archives = create).
+        // WHY ANY on download/*: a method-specific entry only matches the route URI template exactly
+        // (download/{token}), never a wildcard; the route is GET only, so ANY grants nothing more.
+        return [
+            'backup.create' => 'ANY::' . $prefix . '/backup/archives,POST::' . $prefix . '/backup/tick',
+            'backup.download' => 'GET::' . $prefix . '/backup/archives,ANY::' . $prefix . '/backup/download/*',
+            'backup.restore' => 'GET::' . $prefix . '/backup/archives,ANY::' . $prefix . '/backup/restore*',
+        ];
+    }
+
+    /**
+     * URIs written by BK-1 (unreleased first cut), upgraded in place by showScreen().
+     *
+     * @param string $prefix
+     * @return array<string, string>
+     */
+    public static function legacyPermissionUris(string $prefix): array
     {
         return [
             'backup.create' => 'ANY::' . $prefix . '/backup/archives,POST::' . $prefix . '/backup/tick',
             'backup.download' => 'GET::' . $prefix . '/backup/download/*',
             'backup.restore' => 'ANY::' . $prefix . '/backup/restore*',
         ];
+    }
+
+    /**
+     * Sites that got the BK-1 area: show the menu item and widen the download / restore
+     * permissions. Only rows still exactly as BK-1 wrote them change — a URI the site edited
+     * is kept. Idempotent.
+     *
+     * @param ConnectionInterface $db
+     * @param string|null         $adminPrefix
+     * @return void
+     */
+    public static function showScreen(ConnectionInterface $db, ?string $adminPrefix = null): void
+    {
+        $schema = $db->getSchemaBuilder();
+        $p = GP247_DB_PREFIX;
+        $prefix = $adminPrefix ?? GP247_ADMIN_PREFIX;
+        if ($schema->hasTable($p . 'admin_permission')) {
+            $legacy = self::legacyPermissionUris($prefix);
+            foreach (self::permissionUris($prefix) as $slug => $uri) {
+                $db->table($p . 'admin_permission')->where('slug', $slug)->where('http_uri', $legacy[$slug])->update(['http_uri' => $uri]);
+            }
+        }
+        self::setMenuVisible($db, BackupFeature::enabled());
+    }
+
+    /**
+     * Show or hide the menu item (the switch hides it — ADR backup-engine_core-module-layout §3).
+     *
+     * @param ConnectionInterface $db
+     * @param bool                $visible
+     * @return void
+     */
+    public static function setMenuVisible(ConnectionInterface $db, bool $visible): void
+    {
+        if ($db->getSchemaBuilder()->hasTable(GP247_DB_PREFIX . 'admin_menu')) {
+            $db->table(GP247_DB_PREFIX . 'admin_menu')->where('uri', self::MENU_URI)->update(['hidden' => $visible ? 0 : 1]);
+        }
     }
 }

@@ -2,6 +2,7 @@
 
 namespace GP247\Core\Middleware;
 
+use GP247\Core\Backup\Application\BackupAudit;
 use GP247\Core\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -18,6 +19,35 @@ class PermissionMiddleware
      * @return mixed
      */
     public function handle(Request $request, \Closure $next, ...$args)
+    {
+        if (!BackupAudit::isBackupPath($request->path())) {
+            return $this->check($request, $next, ...$args);
+        }
+        // Backup area: a refusal must reach the operation log too (US-backup-admin-audit-log),
+        // and the request log (admin.log) runs after this middleware, so it never sees one.
+        $passed = false;
+        $response = $this->check($request, function ($request) use ($next, &$passed) {
+            $passed = true;
+
+            return $next($request);
+        }, ...$args);
+        if (!$passed) {
+            BackupAudit::deniedRequest($request->path(), $request->method());
+        }
+
+        return $response;
+    }
+
+    /**
+     * The permission decision itself.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param \Closure                 $next
+     * @param array                    $args
+     *
+     * @return mixed
+     */
+    protected function check(Request $request, \Closure $next, ...$args)
     {
         if (!empty($args) || (admin()->user() && admin()->user()->isAdministrator())) {
             return $next($request);
@@ -148,7 +178,7 @@ class PermissionMiddleware
      * @return array<int, string> Request paths without leading slash, e.g. "gp247_admin/system_alerts".
      *
      * @aidlc-unit admin-shell
-     * @aidlc-story US-admin-shell-system-alerts-page, US-admin-shell-login-failure-list
+     * @aidlc-story US-admin-shell-system-alerts-page, US-admin-shell-login-failure-list, US-backup-admin-permissions
      * @aidlc-adr admin-shell_system-alerts-page, admin-shell_login-failure-log
      */
     public function administratorOnly(): array
@@ -156,6 +186,8 @@ class PermissionMiddleware
         return [
             GP247_ADMIN_PREFIX . '/system_alerts',
             GP247_ADMIN_PREFIX . '/login_failures',
+            // Backup settings: backup password, recovery key, destinations (US-backup-admin-permissions).
+            GP247_ADMIN_PREFIX . '/backup/settings',
         ];
     }
 }

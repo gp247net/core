@@ -125,6 +125,7 @@ final class JobRunner
 
                 return $this->result('running', $job);
             }
+            $this->announce($job);
             $next = $job->archive_id === null || $job->type === Archive::JOB_RESTORE ? null : ($this->jobs->activeFor((string) $job->archive_id)[0] ?? null);
             if ($next === null || microtime(true) >= $deadline) {
                 return $this->result($next === null ? $this->outcome($job) : 'running', $job);
@@ -184,6 +185,37 @@ final class JobRunner
             $this->vault->deleteArchive((string) $job->archive_id);
         }
         BackupLog::failure('Backup job ' . $job->id . ' failed: ' . $error);
+        $this->announce($job);
+    }
+
+    /**
+     * Tell the site owner how a job ended (US-backup-admin-notifications): a failed backup or
+     * check, or the end of a restore. Called once, by the slice that ended the job; a mail error
+     * never reaches the runner.
+     *
+     * @param object $job
+     * @return void
+     *
+     * @aidlc-unit backup-admin
+     * @aidlc-story US-backup-admin-notifications
+     */
+    private function announce(object $job): void
+    {
+        try {
+            $ended = $this->jobs->find((int) $job->id);
+            if ($ended === null) {
+                return;
+            }
+            $notifier = app(BackupNotifier::class);
+            $archiveId = $ended->archive_id === null ? null : (string) $ended->archive_id;
+            if ($ended->type === Archive::JOB_RESTORE && in_array($ended->status, [Archive::JOB_DONE, Archive::JOB_FAILED], true)) {
+                $notifier->restoreFinished($archiveId, (string) $ended->status, $ended->error === null ? null : (string) $ended->error);
+            } elseif (in_array($ended->type, [Archive::JOB_BACKUP, Archive::JOB_VERIFY], true) && $ended->status === Archive::JOB_FAILED && $archiveId !== null) {
+                $notifier->backupFailed($archiveId, (string) $ended->error);
+            }
+        } catch (\Throwable $e) {
+            BackupLog::failure('Backup job ' . $job->id . ' outcome not announced: ' . $e->getMessage());
+        }
     }
 
     /**

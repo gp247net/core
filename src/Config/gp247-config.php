@@ -81,6 +81,13 @@ return [
         // Connection used to read site tables: null = automatic (a separate connection with a
         // consistent snapshot on MySQL / MariaDB), false = the GP247 connection itself.
         'reader_connection' => null,
+        // Backup screen (Bolt BK-4, ADR backup-admin_step-up-and-signed-download). The last verified
+        // archive older than this many hours is flagged "too old" on the screen.
+        'stale_hours' => 48,
+        // Seconds a re-confirmed sign-in (password + second step) stays valid; capped at 300.
+        'step_up_seconds' => 300,
+        // Seconds a download link stays valid (single use); capped at 300.
+        'download_link_seconds' => 300,
     ],
 
     'admin' => [
