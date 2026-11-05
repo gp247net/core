@@ -4,6 +4,8 @@ namespace GP247\Core\Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use GP247\Core\Support\Password\PasswordAudience;
+
 class DataDefaultSeeder extends Seeder
 {
     /**
@@ -198,8 +200,8 @@ class DataDefaultSeeder extends Seeder
             ['group' => 'global','code' => 'cache','key' => 'cache_country','value' => '0','sort' => '10','detail' => 'admin.cache.cache_country','store_id' => 0],
             ['group' => 'global','code' => 'env_mail','key' => 'smtp_mode','value' => '','sort' => '0','detail' => 'email.smtp_mode','store_id' => 0],
             ['group' => 'global','code' => 'env_mail','key' => 'email_action_queue','value' => '0','sort' => '1','detail' => 'email.email_action.email_action_queue','store_id' => 0],
-            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_min','value' => '6','sort' => '0','detail' => 'admin.password_policy.min','store_id' => 0],
-            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_max','value' => '16','sort' => '0','detail' => 'admin.password_policy.max','store_id' => 0],
+            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_min','value' => (string) PasswordAudience::ADMIN_MIN,'sort' => '0','detail' => 'admin.password_policy.min','store_id' => 0],
+            ['group' => 'global','code' => 'password_policy','key' => 'admin_password_max','value' => (string) PasswordAudience::ADMIN_MAX,'sort' => '0','detail' => 'admin.password_policy.max','store_id' => 0],
             ['group' => 'global','code' => 'password_policy','key' => 'admin_password_letter','value' => '0','sort' => '1','detail' => 'admin.password_policy.letter','store_id' => 0],
             ['group' => 'global','code' => 'password_policy','key' => 'admin_password_mixedcase','value' => '0','sort' => '2','detail' => 'admin.password_policy.mixed','store_id' => 0],
             ['group' => 'global','code' => 'password_policy','key' => 'admin_password_number','value' => '0','sort' => '3','detail' => 'admin.password_policy.number','store_id' => 0],

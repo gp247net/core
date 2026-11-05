@@ -217,6 +217,12 @@ class CoreServiceProvider extends ServiceProvider
             \GP247\Core\AdminShell\Support\AdminAlertRegistry::register($alertCheck);
         }
 
+        // Administrators are one account group of the Password policy screen, registered
+        // through the same seam shop / plugins use; outside the installed gate because the
+        // web installer checks the first password against this group's defaults
+        // (US-admin-shell-password-policy-audiences).
+        \GP247\Core\Support\Password\PasswordPolicyRegistry::register(\GP247\Core\Support\Password\PasswordAudience::admin());
+
         // Ecosystem fingerprint: a versionless GP247 marker (HTTP header + <meta
         // generator>) on every response so technology-detection services can count
         // GP247 adoption. Registered as a global middleware here — not tied to a

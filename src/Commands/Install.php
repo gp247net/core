@@ -3,6 +3,7 @@
 namespace GP247\Core\Commands;
 
 use GP247\Core\Console\GP247Command;
+use GP247\Core\Support\Password\InitialAdminPassword;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
  * assets, storage link, installed marker).
  *
  * @aidlc-unit system-cli
- * @aidlc-story US-CLI-005
+ * @aidlc-story US-CLI-005, US-CLI-003
  * @aidlc-adr system-cli_output-contract
  */
 class Install extends GP247Command
@@ -20,7 +21,24 @@ class Install extends GP247Command
      *
      * @var string
      */
-    protected $signature = 'gp247:core-install {--force=0}';
+    protected $signature = 'gp247:core-install {--force=0}
+        {--admin-password= : Password of the administrator account (omit to get a random one shown once; a value typed here stays in the shell history)}';
+
+    /**
+     * Administrator password given with --admin-password; null when none was given.
+     *
+     * @var string|null
+     */
+    private ?string $adminPassword = null;
+
+    /**
+     * Administrator account of the last run in this process, for an orchestrating command
+     * (gp247:install) to return in its own result: username + the generated password, or
+     * null for a given / unchanged one.
+     *
+     * @var array{username: string, password: string|null, state: string}|null
+     */
+    public static ?array $lastAdmin = null;
 
     /**
      * The console command description.
@@ -37,6 +55,17 @@ class Install extends GP247Command
     protected function handleGp247(): int
     {
         $force = $this->option('force') ?? 0;
+
+        // WHY before any step: a password that does not meet the policy must stop the install
+        // before anything is migrated; the message never repeats it (US-CLI-003).
+        $given = $this->option('admin-password');
+        if ($given !== null) {
+            $problem = InitialAdminPassword::problem((string) $given);
+            if ($problem !== null) {
+                return $this->respondFailure('invalid_admin_password', $problem);
+            }
+            $this->adminPassword = (string) $given;
+        }
 
         if (!$force) {
             if (!$this->checkGP247Installed()) {
@@ -67,9 +96,10 @@ class Install extends GP247Command
     /**
      * Print the welcome banner after a successful install.
      *
+     * @param array{username: string, password: string|null, state: string} $admin
      * @return void
      */
-    private function welcome()
+    private function welcome(array $admin)
     {
         $text = "
           _____  _____     ___  _  _   _____
@@ -82,13 +112,54 @@ class Install extends GP247Command
 
         $text .= "\n             Welcome to GP247 ".config('gp247.core');
         $text .= "\n             Admin path: yourdomain/".config('gp247-config.env.GP247_ADMIN_PREFIX')."";
-        $text .= "\n             User/password: admin/admin";
+        $text .= "\n             Username: ".$admin['username'];
+        $text .= "\n             Password: ".$this->passwordLine($admin);
         $text .= "\n";
 
         $lines = explode("\n", $text);
         foreach ($lines as $line) {
             $this->line($line);
         }
+    }
+
+    /**
+     * Password line of the banner. In --json mode the banner goes to STDERR, so a generated
+     * password is only referred to there — the envelope carries it once (US-CLI-003).
+     *
+     * @param array{username: string, password: string|null, state: string} $admin
+     * @return string
+     */
+    private function passwordLine(array $admin): string
+    {
+        if ($admin['state'] === 'generated') {
+            return $this->isJson()
+                ? 'generated — returned once in the JSON result (data.admin.password)'
+                : $admin['password'].'   (shown only once — save it now, then change it in the admin)';
+        }
+
+        return $admin['state'] === 'given'
+            ? 'the one you passed with --admin-password'
+            : 'unchanged — the account already had its own password';
+    }
+
+    /**
+     * Give the seeded administrator its password: the one passed, or a generated one.
+     * Called as the last step so a failed install never leaves a password nobody saw.
+     *
+     * @return array{username: string, password: string|null, state: string}
+     */
+    private function settleAdminPassword(): array
+    {
+        $password = $this->adminPassword ?? InitialAdminPassword::generate();
+        if (!InitialAdminPassword::assign($password)) {
+            $this->addWarning('The administrator account already had its own password; it was left unchanged.');
+
+            return ['username' => InitialAdminPassword::username(), 'password' => null, 'state' => 'kept'];
+        }
+
+        return $this->adminPassword === null
+            ? ['username' => InitialAdminPassword::username(), 'password' => $password, 'state' => 'generated']
+            : ['username' => InitialAdminPassword::username(), 'password' => null, 'state' => 'given'];
     }
 
     /**
@@ -148,13 +219,20 @@ class Install extends GP247Command
 
         $this->runArtisan('storage:link');
 
+        // WHY last: the seeded administrator never keeps the publicly known default password,
+        // and a step failing earlier leaves no password nobody has seen (US-CLI-003).
+        $admin = $this->settleAdminPassword();
+        self::$lastAdmin = $admin;
+
         Storage::disk('local')->put('gp247-installed.txt', date('Y-m-d H:i:s'));
 
-        $this->welcome();
+        $this->welcome($admin);
 
         return $this->respondSuccess([
             'installed' => true,
             'core'      => config('gp247.core'),
+            // A generated password is returned once here; a given one is never echoed.
+            'admin'     => ['username' => $admin['username'], 'password' => $admin['password']],
         ]);
     }
 }

@@ -228,7 +228,7 @@ class UserManager extends ResourcePanel
         ];
 
         if ($this->rawPassword !== '') {
-            $attributes['password'] = bcrypt($this->rawPassword);
+            $attributes['password'] = gp247_password_hash($this->rawPassword);
         }
 
         if ($this->editingId === null) {

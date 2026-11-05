@@ -100,6 +100,40 @@ class ResetPasswordController extends RootAdminController
         return Password::broker('admin_password');
     }
 
+    /**
+     * Reset rules: the new password follows the administrator password policy
+     * (Laravel's default rule would let a reset bypass it).
+     *
+     * @return array<string, mixed>
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-AUI-007, US-admin-shell-password-policy-single-source
+     * @aidlc-adr admin-shell_password-policy-registry
+     */
+    protected function rules()
+    {
+        return [
+            'token'    => 'required',
+            'email'    => 'required|email',
+            'password' => ['required', 'string', 'confirmed', \GP247\Core\Support\Password\PasswordPolicy::for('admin')->rule()],
+        ];
+    }
+
+    /**
+     * Store the new password through the shared hash function (single source).
+     *
+     * @param \Illuminate\Contracts\Auth\CanResetPassword $user
+     * @param string                                      $password
+     * @return void
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-password-policy-single-source
+     */
+    protected function setUserPassword($user, $password)
+    {
+        $user->password = gp247_password_hash($password);
+    }
+
     protected function guard()
     {
         return Auth::guard('admin');

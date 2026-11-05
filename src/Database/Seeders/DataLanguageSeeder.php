@@ -1934,6 +1934,7 @@ class DataLanguageSeeder extends Seeder
             $dataLang,
             LocaleRows::fromFile(__DIR__.'/Locales/ja.php', 'ja', $dataLang),
             \GP247\Core\Support\Health\AlertLanguage::rows(),
+            \GP247\Core\Support\Password\PasswordPolicyLanguage::rows(),
             \GP247\Core\Support\PreChange\PreChangeLanguage::rows(),
             \GP247\Core\Backup\Infrastructure\Install\BackupLanguage::rows()
         );

@@ -2,54 +2,49 @@
 
 namespace GP247\Core\Controllers;
 
+use GP247\Core\Support\Password\PasswordPolicy;
+
+/**
+ * Administrator password rules for the screens that set one (Users, own profile), taken
+ * from the administrator block of the Password policy screen.
+ *
+ * @aidlc-unit admin-shell
+ * @aidlc-story US-admin-shell-password-policy-single-source
+ * @aidlc-adr admin-shell_password-policy-registry
+ */
 trait PasswordValidationTrait
 {
     /**
-     * Get password validation rules
-     * @return array
+     * Rule object of the administrator password policy.
+     *
+     * @return \Illuminate\Validation\Rules\Password
      */
     protected function rule()
     {
-        $passwordValidate = \Illuminate\Validation\Rules\Password::min(gp247_config_global('admin_password_min', 6));
-        if (gp247_config('admin_password_letter')) {
-            // Require at least one letter...
-            $passwordValidate = $passwordValidate->letters();
-        }
-        if (gp247_config('admin_password_mixedcase')) {
-            // Require at least one uppercase and one lowercase letter...
-            $passwordValidate = $passwordValidate->mixedCase();
-        }
-        if (gp247_config('admin_password_number')) {
-            // Require at least one number...
-            $passwordValidate = $passwordValidate->numbers();
-        }
-        if (gp247_config('admin_password_symbol')) {
-            // Require at least one symbol...
-            $passwordValidate = $passwordValidate->symbols();
-        }
-        if (gp247_config('admin_password_max')) {
-            $passwordValidate = $passwordValidate->max(gp247_config_global('admin_password_max'));
-        }
-        return $passwordValidate;
-        return [
-            'password'          => ['required','string', $passwordValidate],
-            'password_confirm'  => ['required','string', $passwordValidate,'confirmed'],
-            'password_nullable' => ['nullable','string', $passwordValidate],
-        ];
+        return PasswordPolicy::for('admin')->rule();
     }
 
-    protected function rulePassword() {
-        $passwordValidate =  $this->rule();
-        return ['required','string', $passwordValidate];
+    /**
+     * @return array<int, mixed> Rules of a required password.
+     */
+    protected function rulePassword()
+    {
+        return ['required', 'string', $this->rule()];
     }
 
-    protected function rulePasswordConfirm() {
-        $passwordValidate =  $this->rule();
-        return ['required','string', $passwordValidate,'confirmed'];
+    /**
+     * @return array<int, mixed> Rules of a required, confirmed password.
+     */
+    protected function rulePasswordConfirm()
+    {
+        return ['required', 'string', $this->rule(), 'confirmed'];
     }
 
-    protected function rulePasswordNullable() {
-        $passwordValidate =  $this->rule();
-        return ['nullable','string', $passwordValidate];
+    /**
+     * @return array<int, mixed> Rules of an optional password (empty keeps the current one).
+     */
+    protected function rulePasswordNullable()
+    {
+        return ['nullable', 'string', $this->rule()];
     }
-} 
+}

@@ -184,6 +184,10 @@
                                     'options' => $options[$config->key] ?? [],
                                     'placeholder' => $secretState ? gp247_language_quickly('admin.config.secret_keep_placeholder', 'Leave blank to keep the saved value') : '',
                                 ])
+                                {{-- A screen that refuses a value (e.g. Password policy) reports it on the field. --}}
+                                @error('values.' . $config->key)
+                                    <p data-testid="config-form-error-{{ $config->key }}" class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                                @enderror
                                 {{-- Secrets are write-only: the stored value is never sent to the browser,
                                      only whether one exists (US-AUI-config-form-secret-write-only). --}}
                                 @if ($secretState !== null && !($subStoreScope && $this->isInherited($config->key)))

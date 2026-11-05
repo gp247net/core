@@ -162,7 +162,7 @@ class LoginController extends RootAdminController
             $dataUpdate['email'] = $data['email'];
         }
         if ($data['password']) {
-            $dataUpdate['password'] = bcrypt($data['password']);
+            $dataUpdate['password'] = gp247_password_hash($data['password']);
         }
         $dataUpdate = gp247_clean($dataUpdate, [], true);
         $user->update($dataUpdate);

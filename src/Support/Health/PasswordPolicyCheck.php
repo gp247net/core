@@ -4,22 +4,22 @@ namespace GP247\Core\Support\Health;
 
 use GP247\Core\AdminShell\Domain\AdminAlertCheck;
 use GP247\Core\AdminShell\Infrastructure\AdminAlert;
-use Illuminate\Support\Facades\DB;
+use GP247\Core\Support\Password\PasswordPolicy;
 
 /**
  * Admin password minimum length below the recommended 12 characters.
  *
- * Reads admin_config directly (not gp247_config_global, which caches for the
- * whole request) so "Check again" right after saving the policy is accurate.
+ * Reads through PasswordPolicy — straight from admin_config, not gp247_config_global
+ * which caches for the whole request — so "Check again" right after saving the policy
+ * is accurate, and a missing row means the same default every password path uses.
  *
  * @aidlc-unit admin-shell
- * @aidlc-story US-admin-shell-system-alerts, US-CLI-004
- * @aidlc-adr admin-shell_system-alert-registry
+ * @aidlc-story US-admin-shell-system-alerts, US-CLI-004, US-admin-shell-password-policy-single-source
+ * @aidlc-adr admin-shell_system-alert-registry, admin-shell_password-policy-registry
  */
 class PasswordPolicyCheck implements AdminAlertCheck
 {
     public const RECOMMENDED_MIN = 12;
-    private const SHIPPED_DEFAULT_MIN = 6;
 
     /** @return string */
     public function key(): string
@@ -38,12 +38,9 @@ class PasswordPolicyCheck implements AdminAlertCheck
      */
     public function evaluate(): AdminAlert
     {
-        $value = DB::connection(GP247_DB_CONNECTION)
-            ->table(GP247_DB_PREFIX . 'admin_config')
-            ->where('store_id', GP247_STORE_ID_GLOBAL)
-            ->where('key', 'admin_password_min')
-            ->value('value');
-        $min = is_numeric($value) ? (int) $value : self::SHIPPED_DEFAULT_MIN;
+        // WHY PasswordPolicy: the same value (and the same default when the row is missing)
+        // every password path enforces (US-admin-shell-password-policy-single-source).
+        $min = PasswordPolicy::for('admin')->min();
 
         if ($min < self::RECOMMENDED_MIN) {
             return AdminAlert::warning(

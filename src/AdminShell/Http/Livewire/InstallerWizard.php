@@ -6,7 +6,7 @@ use GP247\Core\Database\Seeders\DataDefaultSeeder;
 use GP247\Core\Models\AdminUser;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use GP247\Core\Support\Password\PasswordPolicy;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -221,7 +221,9 @@ class InstallerWizard extends Component
             'siteName'      => 'required|max:100',
             'adminUsername' => 'required|alpha_dash|min:3|max:100',
             'adminEmail'    => 'required|email|max:150',
-            'adminPassword' => 'required|min:8|max:100',
+            // WHY defaults(): no database yet, so the administrator group's defaults are the
+            // policy (US-DEP-001, US-admin-shell-password-policy-single-source).
+            'adminPassword' => ['required', 'string', PasswordPolicy::defaults('admin')->rule()],
             'adminName'     => 'required|max:100',
         ]);
 
@@ -421,7 +423,7 @@ class InstallerWizard extends Component
             'username' => $this->adminUsername,
             'name'     => $this->adminName,
             'email'    => $this->adminEmail,
-            'password' => Hash::make($this->adminPassword),
+            'password' => PasswordPolicy::hash($this->adminPassword),
             'status'   => 1,
         ])->save();
     }

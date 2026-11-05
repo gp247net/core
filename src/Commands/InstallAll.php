@@ -40,7 +40,8 @@ class InstallAll extends GP247Command
      */
     protected $signature = 'gp247:install
         {--sample : Seed demo shop data (dev only, wipes shop data)}
-        {--force=0 : Unattended install (skip confirmation — DESTROYS existing front/shop data)}';
+        {--force=0 : Unattended install (skip confirmation — DESTROYS existing front/shop data)}
+        {--admin-password= : Password of the administrator account (omit to get a random one shown once; a value typed here stays in the shell history)}';
 
     /**
      * The console command description.
@@ -66,6 +67,16 @@ class InstallAll extends GP247Command
     protected function handleGp247(): int
     {
         $force = (bool) $this->option('force');
+
+        // WHY here too: refuse a password that does not meet the policy before the
+        // confirmation and before any destructive step; never repeat it (US-CLI-003).
+        $adminPassword = $this->option('admin-password');
+        if ($adminPassword !== null) {
+            $problem = \GP247\Core\Support\Password\InitialAdminPassword::problem((string) $adminPassword);
+            if ($problem !== null) {
+                return $this->respondFailure('invalid_admin_password', $problem);
+            }
+        }
 
         $steps = $this->detectSteps();
         $alreadyInstalled = Storage::disk('local')->exists('gp247-installed.txt');
@@ -160,6 +171,7 @@ class InstallAll extends GP247Command
     private function runSteps(array $steps): int
     {
         $done = [];
+        Install::$lastAdmin = null;
         foreach ($steps as $command) {
             $this->info('==> ' . $command);
 
@@ -167,6 +179,9 @@ class InstallAll extends GP247Command
             // to skip its own prompt / already-installed refusal (avoids a nested
             // second prompt). front/shop-install expose no --force option.
             $args = $command === 'gp247:core-install' ? ['--force' => 1] : [];
+            if ($command === 'gp247:core-install' && $this->option('admin-password') !== null) {
+                $args['--admin-password'] = (string) $this->option('admin-password');
+            }
 
             $code = in_array($command, self::FRESH_PROCESS_STEPS, true)
                 ? $this->runInFreshProcess($command)
@@ -180,7 +195,14 @@ class InstallAll extends GP247Command
             $done[] = $command;
         }
 
-        return $this->respondSuccess(['completed' => $done]);
+        $data = ['completed' => $done];
+        // WHY: core-install runs nested without --json, so its result (the administrator and a
+        // generated password, once) is handed over in-process and returned here (US-CLI-003).
+        if (Install::$lastAdmin !== null) {
+            $data['admin'] = ['username' => Install::$lastAdmin['username'], 'password' => Install::$lastAdmin['password']];
+        }
+
+        return $this->respondSuccess($data);
     }
 
     /**
