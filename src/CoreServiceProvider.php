@@ -91,6 +91,7 @@ class CoreServiceProvider extends ServiceProvider
         UpdateAll::class,
         CacheRebuild::class,
         EncryptionKeyRotate::class,
+        \GP247\Core\Backup\Console\BackupRun::class,
         // WHY: Info stays in the runtime tier — it reads gp247_* helpers
         // (gp247_composer_get_package_installed / gp247_extension_*) that are only
         // loaded after the installed-gate, so it cannot run pre-install.

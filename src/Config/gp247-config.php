@@ -49,7 +49,27 @@ return [
         'excluded_tables' => [
             'personal_access_tokens', 'admin_password_resets', 'api_session', 'api_refresh_token', 'api_idempotency',
             'backup_archive', 'backup_job', 'backup_download_token',
+            // Laravel's own temporary tables (relevant when GP247_DB_PREFIX is empty).
+            'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs', 'password_reset_tokens',
         ],
+        // File groups (ADR backup-engine_archive-format). Only what cannot be reinstalled from
+        // package sources. 'disk' => null = the upload disk (lfm.disk), local drivers only.
+        'file_groups' => [
+            'uploads'    => ['disk' => null],
+            'extensions' => ['path' => app_path('GP247'), 'exclude' => ['.git', 'node_modules']],
+            'env'        => ['path' => base_path('.env')],
+            'lock'       => ['path' => base_path('composer.lock')],
+        ],
+        // Above this estimate a backup started from the web asks for confirmation and
+        // recommends the CLI (shared-host commitment, NFR-SCAL-backup-size-bounds).
+        'web_limit_bytes' => 500 * 1024 * 1024,
+        // Rows read per page = rows per segment (ADR archive-format: <= 5 000).
+        'page_rows' => 5000,
+        // Class implementing GP247\Core\Backup\Application\RetentionPolicy (Pro seam).
+        'retention_policy' => \GP247\Core\Backup\Application\CountRetentionPolicy::class,
+        // Connection used to read site tables: null = automatic (a separate connection with a
+        // consistent snapshot on MySQL / MariaDB), false = the GP247 connection itself.
+        'reader_connection' => null,
     ],
 
     'admin' => [

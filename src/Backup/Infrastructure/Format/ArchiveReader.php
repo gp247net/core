@@ -53,26 +53,74 @@ final class ArchiveReader
      */
     public static function open(string $dir, BackupSecret $secret, KeyService $keys): self
     {
-        $header = self::readHeader($dir);
-
-        $signingKey = $keys->signingKey();
-        if ($signingKey === null) {
-            throw new ArchiveRejected(ArchiveRejected::SIGNATURE_UNAVAILABLE);
-        }
-        if (!HeaderSignature::verify($header, $signingKey)) {
-            throw new ArchiveRejected(ArchiveRejected::SIGNATURE_MISMATCH);
-        }
-
-        $manifestPath = $dir . '/manifest.bin';
-        if (!is_file($manifestPath) || !hash_equals($header['manifest_sha256'], (string) hash_file('sha256', $manifestPath))) {
-            throw new ArchiveRejected(ArchiveRejected::MANIFEST_HASH_MISMATCH);
-        }
+        $header = self::signedHeader($dir, $keys->signingKey());
 
         $private = $keys->unlock($secret, $header);
         $dek = Ecies::unwrapDek($header['dek'], $private, $header['archive_id'], $header['key_id']);
         if ($dek === null) {
             throw new ArchiveRejected(ArchiveRejected::KEY_MISMATCH);
         }
+
+        return self::withDataKey($dir, $header, $dek);
+    }
+
+    /**
+     * Open an archive this site has just written, with the data key the writer still holds —
+     * the verify step right after creation, which runs without the backup password. Same checks
+     * as open() except unlocking the private key; a wrong key fails on the first frame.
+     *
+     * @param string      $dir        Archive directory.
+     * @param string      $dek        Archive data key (32 bytes).
+     * @param string|null $signingKey Site signing key.
+     * @return self
+     * @throws ArchiveRejected
+     */
+    public static function openWithDataKey(string $dir, #[\SensitiveParameter] string $dek, #[\SensitiveParameter] ?string $signingKey): self
+    {
+        if (strlen($dek) !== Ecies::DEK_BYTES) {
+            throw new ArchiveRejected(ArchiveRejected::KEY_MISMATCH);
+        }
+
+        return self::withDataKey($dir, self::signedHeader($dir, $signingKey), $dek);
+    }
+
+    /**
+     * Header shape, format, signature and manifest hash.
+     *
+     * @param string      $dir
+     * @param string|null $signingKey
+     * @return array<string, mixed>
+     * @throws ArchiveRejected
+     */
+    private static function signedHeader(string $dir, #[\SensitiveParameter] ?string $signingKey): array
+    {
+        $header = self::readHeader($dir);
+        if ($signingKey === null) {
+            throw new ArchiveRejected(ArchiveRejected::SIGNATURE_UNAVAILABLE);
+        }
+        if (!HeaderSignature::verify($header, $signingKey)) {
+            throw new ArchiveRejected(ArchiveRejected::SIGNATURE_MISMATCH);
+        }
+        $manifestPath = $dir . '/manifest.bin';
+        if (!is_file($manifestPath) || !hash_equals($header['manifest_sha256'], (string) hash_file('sha256', $manifestPath))) {
+            throw new ArchiveRejected(ArchiveRejected::MANIFEST_HASH_MISMATCH);
+        }
+
+        return $header;
+    }
+
+    /**
+     * Decrypt and validate the manifest with the archive data key.
+     *
+     * @param string               $dir
+     * @param array<string, mixed> $header Signature-checked header.
+     * @param string               $dek
+     * @return self
+     * @throws ArchiveRejected
+     */
+    private static function withDataKey(string $dir, array $header, #[\SensitiveParameter] string $dek): self
+    {
+        $manifestPath = $dir . '/manifest.bin';
         $cipher = new FrameCipher($dek, $header['archive_id']);
 
         $json = '';
@@ -118,16 +166,74 @@ final class ArchiveReader
      */
     public function verify(): void
     {
+        foreach ($this->verifySteps() as $step) {
+            $this->verifyStep($step);
+        }
+    }
+
+    /**
+     * The whole-archive check split into small steps, so a verification can run over several
+     * requests: every part (file hash + every frame), then every segment of tables and file groups.
+     *
+     * @return list<array> ['part', index] or ['segment', section, name, position].
+     */
+    public function verifySteps(): array
+    {
+        $steps = [];
         foreach ($this->manifest['parts'] as $part) {
+            $steps[] = ['part', $part['index']];
+        }
+        foreach (['tables', 'files'] as $section) {
+            foreach ($this->manifest[$section] ?? [] as $name => $entry) {
+                foreach (array_keys($entry['segments']) as $position) {
+                    $steps[] = ['segment', $section, (string) $name, $position];
+                }
+            }
+        }
+
+        return $steps;
+    }
+
+    /**
+     * @param array $step One entry of verifySteps().
+     * @return void
+     * @throws ArchiveRejected
+     */
+    public function verifyStep(array $step): void
+    {
+        if (($step[0] ?? null) === 'part' && is_int($step[1] ?? null) && isset($this->manifest['parts'][$step[1] - 1])) {
+            $part = $this->manifest['parts'][$step[1] - 1];
             $this->checkPart($part['index']);
             foreach (PartFile::read($this->partPath($part['index']), $this->cipher, $part['index'], $part['frames']) as $_) {
                 // authenticated frame by frame inside read()
             }
+
+            return;
         }
-        foreach ($this->manifest['tables'] as $table) {
-            foreach ($table['segments'] as $segment) {
-                $this->loadSegment($table['columns'], $segment);
-            }
+        $entry = ($step[0] ?? null) === 'segment' && in_array($step[1] ?? null, ['tables', 'files'], true)
+            ? ($this->manifest[$step[1]][$step[2] ?? ''] ?? null) : null;
+        $segment = is_array($entry) ? ($entry['segments'][$step[3] ?? -1] ?? null) : null;
+        if ($segment === null) {
+            throw new \InvalidArgumentException('Unknown verification step.');
+        }
+        $this->loadSegment($entry['columns'], $segment);
+    }
+
+    /**
+     * Chunks of the files of one group, in archive order (checked like table rows).
+     *
+     * @param string $group File group key.
+     * @return Generator<int, array{path: string, offset: int, size: int, mtime: int, data: string}>
+     * @throws ArchiveRejected
+     */
+    public function fileChunks(string $group): Generator
+    {
+        $entry = $this->manifest['files'][$group] ?? null;
+        if ($entry === null) {
+            throw new ArchiveRejected(ArchiveRejected::TABLE_UNKNOWN);
+        }
+        foreach ($entry['segments'] as $segment) {
+            yield from $this->loadSegment($entry['columns'], $segment);
         }
     }
 

@@ -15,7 +15,10 @@ use GP247\Core\Backup\Domain\ArchiveRejected;
 final class Manifest
 {
     public const FORMAT_MAJOR = 1;
-    public const FORMAT_MINOR = 0;
+    public const FORMAT_MINOR = 1;
+
+    /** @var list<string> Columns of a file-group section (one row = one chunk of one file). Since minor 1. */
+    public const FILE_COLUMNS = ['path', 'offset', 'size', 'mtime', 'data'];
 
     /**
      * @param array<string, mixed> $manifest  Decoded manifest.
@@ -40,6 +43,18 @@ final class Manifest
                 throw new ArchiveRejected(ArchiveRejected::NAME_INVALID, 'table');
             }
             self::table($table, $frames);
+        }
+
+        // Minor 1: optional file-group section, same shape as tables with fixed columns.
+        // Absent in 1.0 archives; readers treat a missing section as empty.
+        $files = $manifest['files'] ?? [];
+        self::check(is_array($files) && ($files === [] || !array_is_list($files)), 'files');
+        foreach ($files as $name => $group) {
+            if (!RowCodec::validName((string) $name)) {
+                throw new ArchiveRejected(ArchiveRejected::NAME_INVALID, 'file group');
+            }
+            self::table($group, $frames);
+            self::check($group['columns'] === self::FILE_COLUMNS, 'file columns');
         }
 
         return $manifest;

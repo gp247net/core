@@ -14,6 +14,12 @@ use Illuminate\Support\Facades\Schema;
  * first group and is reported by {@see duplicates()}; prefixed tables nobody claims form "Other"
  * ({@see unassigned()}). The core never names front / shop tables (NFR-MAINT-001).
  *
+ * Tables without GP247_DB_PREFIX (Laravel's `migrations`, older plugins that create
+ * unprefixed tables) are site data only when someone declares them by their real name: a
+ * declared name matches the prefixed table first, then an unprefixed table of that name.
+ * Undeclared unprefixed tables may belong to another application sharing the database, so
+ * they are never taken — {@see unassignedRaw()} lists them for warnings (BK-2 decision #3).
+ *
  * @aidlc-unit backup-engine
  * @aidlc-story US-backup-engine-data-groups
  * @aidlc-adr backup-engine_data-group-registry
@@ -34,7 +40,10 @@ final class DataGroupRegistry
     /** @var callable(): array<string, array> */
     private $manifestReader;
 
-    /** @var array{groups: array<string, DataGroup>, claims: array<string, list<string>>, unassigned: list<string>}|null */
+    /** @var callable(): list<string> */
+    private $rawTableLister;
+
+    /** @var array{groups: array<string, DataGroup>, claims: array<string, list<string>>, unassigned: list<string>, unassigned_raw: list<string>}|null */
     private ?array $resolved = null;
 
     /**
@@ -42,13 +51,17 @@ final class DataGroupRegistry
      * @param list<string>|null         $excluded       Tables never backed up; null = config.
      * @param callable|null             $tableLister    Returns existing tables without prefix; null = database.
      * @param callable|null             $manifestReader Returns "<Type>/<Key>" => gp247.json array; null = local extensions.
+     * @param callable|null             $rawTableLister Returns existing tables without the prefix in their real name;
+     *                                                  null = database when $tableLister is null, none otherwise.
      */
     public function __construct(
         ?array $declared = null,
         ?array $excluded = null,
         ?callable $tableLister = null,
         ?callable $manifestReader = null,
+        ?callable $rawTableLister = null,
     ) {
+        $this->rawTableLister = $rawTableLister ?? ($tableLister === null ? [self::class, 'databaseRawTables'] : static fn () => []);
         $this->declared = $declared ?? (array) config('gp247-config.backup.data_groups', []);
         $this->excluded = array_values(array_unique($excluded ?? (array) config('gp247-config.backup.excluded_tables', [])));
         $this->tableLister = $tableLister ?? [self::class, 'databaseTables'];
@@ -93,6 +106,14 @@ final class DataGroupRegistry
     }
 
     /**
+     * @return list<string> Existing unprefixed tables nobody declared and none excludes — not backed up.
+     */
+    public function unassignedRaw(): array
+    {
+        return $this->resolve()['unassigned_raw'];
+    }
+
+    /**
      * @return list<string> Tables that are never backed up.
      */
     public function excluded(): array
@@ -119,6 +140,9 @@ final class DataGroupRegistry
 
         $existing = array_values((array) ($this->tableLister)());
         $usable = array_flip(array_diff($existing, $this->excluded));
+        // A prefixed table wins over an unprefixed one of the same name.
+        $rawExisting = array_values(array_filter((array) ($this->rawTableLister)(), fn ($t) => !isset($usable[$t])));
+        $rawUsable = array_flip(array_diff($rawExisting, $this->excluded));
         $claims = [];
         $members = [];
         $labels = [];
@@ -126,7 +150,7 @@ final class DataGroupRegistry
         foreach ($this->declarations() as [$key, $label, $tables]) {
             $labels[$key] ??= $label;
             foreach ($tables as $table) {
-                if (!isset($usable[$table])) {
+                if (!isset($usable[$table]) && !isset($rawUsable[$table])) {
                     continue;
                 }
                 if (!in_array($key, $claims[$table] ?? [], true)) {
@@ -140,12 +164,14 @@ final class DataGroupRegistry
 
         $groups = [];
         foreach ($members as $key => $tables) {
-            $groups[$key] = new DataGroup($key, $labels[$key], $tables);
+            $raw = array_values(array_filter($tables, fn ($t) => !isset($usable[$t])));
+            $groups[$key] = new DataGroup($key, $labels[$key], $tables, $raw);
         }
 
         $unassigned = array_values(array_filter($existing, fn ($t) => isset($usable[$t]) && !isset($claims[$t])));
+        $unassignedRaw = array_values(array_filter($rawExisting, fn ($t) => isset($rawUsable[$t]) && !isset($claims[$t])));
 
-        return $this->resolved = ['groups' => $groups, 'claims' => $claims, 'unassigned' => $unassigned];
+        return $this->resolved = ['groups' => $groups, 'claims' => $claims, 'unassigned' => $unassigned, 'unassigned_raw' => $unassignedRaw];
     }
 
     /**
@@ -184,7 +210,7 @@ final class DataGroupRegistry
     {
         $prefix = (string) GP247_DB_PREFIX;
         $tables = [];
-        foreach (Schema::connection(GP247_DB_CONNECTION)->getTables() as $table) {
+        foreach (self::currentSchemaTables() as $table) {
             $name = (string) ($table['name'] ?? '');
             if ($name !== '' && ($prefix === '' || str_starts_with($name, $prefix))) {
                 $tables[] = substr($name, strlen($prefix));
@@ -192,6 +218,43 @@ final class DataGroupRegistry
         }
 
         return $tables;
+    }
+
+    /**
+     * Existing tables of the GP247 connection WITHOUT GP247_DB_PREFIX (real names). Empty when
+     * the prefix is empty — then every table is already listed by databaseTables().
+     *
+     * @return list<string>
+     */
+    public static function databaseRawTables(): array
+    {
+        $prefix = (string) GP247_DB_PREFIX;
+        if ($prefix === '') {
+            return [];
+        }
+        $tables = [];
+        foreach (self::currentSchemaTables() as $table) {
+            $name = (string) ($table['name'] ?? '');
+            if ($name !== '' && !str_starts_with($name, $prefix)) {
+                $tables[] = $name;
+            }
+        }
+
+        return $tables;
+    }
+
+    /**
+     * Tables of the GP247 connection's own database only. Since Laravel 12, getTables() without
+     * a schema lists every database the account can see — on a shared MySQL server that would
+     * pull other sites' tables into this site's backup.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function currentSchemaTables(): array
+    {
+        $schema = Schema::connection(GP247_DB_CONNECTION);
+
+        return $schema->getTables($schema->getCurrentSchemaListing());
     }
 
     /**

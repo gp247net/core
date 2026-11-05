@@ -38,7 +38,7 @@ final class ArchiveWriter
      * @param string               $dir   Archive directory.
      * @param array<string, mixed> $state Writer state.
      */
-    private function __construct(private readonly string $dir, private array $state)
+    private function __construct(private readonly string $dir, #[\SensitiveParameter] private array $state)
     {
         $dek = base64_decode((string) ($state['dek'] ?? ''), true);
         if ($dek === false || strlen($dek) !== Ecies::DEK_BYTES) {
@@ -52,7 +52,8 @@ final class ArchiveWriter
      *
      * @param string               $dir     Directory to create (must not exist or be empty).
      * @param KeyRing              $ring    Site public key ring.
-     * @param array<string, mixed> $options segment_rows, segment_bytes, part_bytes, compression ("gzip" | "none").
+     * @param array<string, mixed> $options segment_rows, segment_bytes, part_bytes, compression ("gzip" | "none"),
+     *                                      archive_id (ULID chosen by the caller, e.g. the catalogue row id).
      * @return self
      */
     public static function start(string $dir, KeyRing $ring, array $options = []): self
@@ -67,7 +68,10 @@ final class ArchiveWriter
         if (!in_array($compression, ['gzip', 'none'], true)) {
             throw new InvalidArgumentException('Unknown compression.');
         }
-        $archiveId = (string) Str::ulid();
+        $archiveId = (string) ($options['archive_id'] ?? Str::ulid());
+        if (preg_match('/^[0-9A-Z]{26}$/D', $archiveId) !== 1) {
+            throw new InvalidArgumentException('Archive id must be a ULID.');
+        }
         $dek = random_bytes(Ecies::DEK_BYTES);
 
         return new self($dir, [
@@ -86,6 +90,8 @@ final class ArchiveWriter
             'part_size' => 0,
             'parts' => [],
             'tables' => [],
+            'files' => [],
+            'section' => 'tables',
             'table' => null,
         ]);
     }
@@ -98,12 +104,16 @@ final class ArchiveWriter
      * @param array<string, mixed> $state From state().
      * @return self
      */
-    public static function resume(string $dir, array $state): self
+    public static function resume(string $dir, #[\SensitiveParameter] array $state): self
     {
         if (($state['v'] ?? null) !== self::STATE_VERSION || !is_dir($dir)) {
             throw new InvalidArgumentException('Cannot resume this archive.');
         }
+        // States saved before file groups existed (same format, no file section yet).
+        $state['files'] ??= [];
+        $state['section'] ??= 'tables';
         $writer = new self($dir, $state);
+        $writer->removeUnsavedFiles();
         if ($state['part'] !== null) {
             $path = $writer->partPath((int) $state['part']);
             clearstatcache(true, $path);
@@ -126,6 +136,15 @@ final class ArchiveWriter
     }
 
     /**
+     * @return string Raw archive data key, for the verify step that follows creation (keep it
+     *                encrypted at rest and drop it once verification ends). Empty after finish().
+     */
+    public function dataKey(): string
+    {
+        return (string) base64_decode((string) $this->state['dek'], true);
+    }
+
+    /**
      * @param string       $name    Table name (unprefixed or prefixed, as the caller chooses).
      * @param list<string> $columns Column names in row order.
      * @return void
@@ -140,7 +159,51 @@ final class ArchiveWriter
         }
         RowCodec::encodeColumns($columns);
         $this->state['tables'][$name] = ['columns' => array_values($columns), 'rows' => 0, 'segments' => []];
+        $this->state['section'] = 'tables';
         $this->state['table'] = $name;
+    }
+
+    /**
+     * Open a file group: its rows are chunks of files (Manifest::FILE_COLUMNS).
+     *
+     * @param string $group File group key ("uploads", "env"…).
+     * @return void
+     */
+    public function beginFiles(string $group): void
+    {
+        if ($this->state['table'] !== null) {
+            throw new RuntimeException('Another table is still open.');
+        }
+        if (!RowCodec::validName($group) || isset($this->state['files'][$group])) {
+            throw new InvalidArgumentException('Unsafe or repeated file group name.');
+        }
+        $this->state['files'][$group] = ['columns' => Manifest::FILE_COLUMNS, 'rows' => 0, 'segments' => []];
+        $this->state['section'] = 'files';
+        $this->state['table'] = $group;
+    }
+
+    /**
+     * @param string $path   Path relative to the group root, "/" separated.
+     * @param int    $offset Byte offset of this chunk in the file.
+     * @param int    $size   File size when read.
+     * @param int    $mtime  Modification time (Unix).
+     * @param string $data   Chunk bytes (at most one frame of plaintext keeps segments small).
+     * @return void
+     */
+    public function addFileChunk(string $path, int $offset, int $size, int $mtime, #[\SensitiveParameter] string $data): void
+    {
+        if ($this->state['section'] !== 'files' || $this->state['table'] === null) {
+            throw new RuntimeException('No file group is open.');
+        }
+        $this->addRow([$path, $offset, $size, $mtime, $data]);
+    }
+
+    /**
+     * @return void
+     */
+    public function endFiles(): void
+    {
+        $this->endTable();
     }
 
     /**
@@ -153,7 +216,7 @@ final class ArchiveWriter
         if ($table === null) {
             throw new RuntimeException('No table is open.');
         }
-        $columns = $this->state['tables'][$table]['columns'];
+        $columns = $this->state[$this->state['section']][$table]['columns'];
         if (!array_is_list($values)) {
             $ordered = [];
             foreach ($columns as $column) {
@@ -221,6 +284,7 @@ final class ArchiveWriter
             'compression' => $this->state['compression'],
             'meta' => $meta,
             'tables' => (object) $this->state['tables'],
+            'files' => (object) $this->state['files'],
             'parts' => $this->state['parts'],
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
         // Same limit as the reader: an archive that could never be opened must fail now, not at restore time.
@@ -269,10 +333,11 @@ final class ArchiveWriter
             return;
         }
         $table = $this->state['table'];
-        $raw = RowCodec::encodeColumns($this->state['tables'][$table]['columns']) . $this->buffer;
+        $section = $this->state['section'];
+        $raw = RowCodec::encodeColumns($this->state[$section][$table]['columns']) . $this->buffer;
         if (strlen($raw) > RowCodec::MAX_RAW_BYTES) {
             // Same limit as the reader (one row larger than this cannot be restored).
-            throw new RuntimeException('A row of table ' . $table . ' is larger than an archive can hold.');
+            throw new RuntimeException('A segment of ' . $table . ' is larger than an archive can hold.');
         }
         $stored = RowCodec::pack($raw, $this->state['compression']);
         $this->ensurePart(strlen($stored));
@@ -282,7 +347,7 @@ final class ArchiveWriter
             $this->state['part_size'] += PartFile::append($this->partPath($this->state['part']), $this->cipher, $this->state['part'], $this->state['frame'], false, $chunk);
             $this->state['frame']++;
         }
-        $this->state['tables'][$table]['segments'][] = [
+        $this->state[$section][$table]['segments'][] = [
             'part' => $this->state['part'],
             'first' => $first,
             'last' => $this->state['frame'] - 1,
@@ -290,7 +355,7 @@ final class ArchiveWriter
             'raw' => strlen($raw),
             'sha256' => hash('sha256', $stored),
         ];
-        $this->state['tables'][$table]['rows'] += $this->bufferRows;
+        $this->state[$section][$table]['rows'] += $this->bufferRows;
         $this->buffer = '';
         $this->bufferRows = 0;
     }
@@ -332,6 +397,28 @@ final class ArchiveWriter
         $this->state['part'] = null;
         $this->state['frame'] = 0;
         $this->state['part_size'] = 0;
+    }
+
+    /**
+     * Files written after the saved state by a request that died: parts opened later, and a
+     * manifest / header of a close that did not complete (a header must never outlive the
+     * state it was not part of — an archive with a header counts as finished).
+     *
+     * @return void
+     */
+    private function removeUnsavedFiles(): void
+    {
+        $known = count($this->state['parts']) + ($this->state['part'] !== null ? 1 : 0);
+        foreach (glob($this->dir . '/part-*.bin') ?: [] as $path) {
+            if (preg_match('/part-(\d{6})\.bin$/D', $path, $m) === 1 && (int) $m[1] > $known) {
+                @unlink($path);
+            }
+        }
+        foreach (['manifest.bin', 'header.json', 'header.json.tmp'] as $name) {
+            if (is_file($this->dir . '/' . $name)) {
+                @unlink($this->dir . '/' . $name);
+            }
+        }
     }
 
     /**
