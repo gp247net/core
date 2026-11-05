@@ -52,6 +52,17 @@ return [
             // Laravel's own temporary tables (relevant when GP247_DB_PREFIX is empty).
             'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs', 'password_reset_tokens',
         ],
+        // Parent table => [child table => column holding the parent key], all without
+        // GP247_DB_PREFIX: rows that come back together when a deleted record is restored.
+        // The core declares its own tables; front / shop add theirs through DataGroupRegistry::relate().
+        'relations' => [
+            'admin_user' => ['admin_role_user' => 'user_id', 'admin_user_permission' => 'user_id'],
+            'admin_role' => ['admin_role_user' => 'role_id', 'admin_role_permission' => 'role_id'],
+        ],
+        // Hours the tables replaced by a restore are kept for "undo" (ADR backup-restore_shadow-table-swap).
+        'restore_undo_hours' => 24,
+        // Most rows one "add back deleted records" may insert (larger: replace the group instead).
+        'restore_undelete_max_rows' => 5000,
         // File groups (ADR backup-engine_archive-format). Only what cannot be reinstalled from
         // package sources. 'disk' => null = the upload disk (lfm.disk), local drivers only.
         'file_groups' => [

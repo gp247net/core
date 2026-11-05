@@ -51,17 +51,46 @@ final class ArchiveReader
      * @throws ArchiveRejected   When the archive fails a check.
      * @throws WrongBackupSecret When the secret does not open it.
      */
-    public static function open(string $dir, BackupSecret $secret, KeyService $keys): self
+    public static function open(string $dir, #[\SensitiveParameter] BackupSecret $secret, KeyService $keys): self
     {
         $header = self::signedHeader($dir, $keys->signingKey());
 
+        return self::withDataKey($dir, $header, self::unwrap($header, $secret, $keys));
+    }
+
+    /**
+     * The data key of one archive, after the same header checks as open(). A restore keeps it
+     * (encrypted with the site key) in its job between slices instead of the backup password,
+     * so later slices open the archive with openWithDataKey() and the private key is never stored.
+     *
+     * @param string       $dir
+     * @param BackupSecret $secret Backup password or recovery key.
+     * @param KeyService   $keys
+     * @return string 32-byte data key.
+     * @throws ArchiveRejected
+     * @throws WrongBackupSecret
+     */
+    public static function dataKey(string $dir, #[\SensitiveParameter] BackupSecret $secret, KeyService $keys): string
+    {
+        return self::unwrap(self::signedHeader($dir, $keys->signingKey()), $secret, $keys);
+    }
+
+    /**
+     * @param array<string, mixed> $header Signature-checked header.
+     * @param BackupSecret         $secret
+     * @param KeyService           $keys
+     * @return string
+     * @throws ArchiveRejected
+     */
+    private static function unwrap(array $header, #[\SensitiveParameter] BackupSecret $secret, KeyService $keys): string
+    {
         $private = $keys->unlock($secret, $header);
         $dek = Ecies::unwrapDek($header['dek'], $private, $header['archive_id'], $header['key_id']);
         if ($dek === null) {
             throw new ArchiveRejected(ArchiveRejected::KEY_MISMATCH);
         }
 
-        return self::withDataKey($dir, $header, $dek);
+        return $dek;
     }
 
     /**
@@ -251,6 +280,34 @@ final class ArchiveReader
         foreach ($entry['segments'] as $segment) {
             yield from $this->loadSegment($entry['columns'], $segment);
         }
+    }
+
+    /**
+     * @param string $table Table name as written.
+     * @return int Number of segments of the table (a restore loads one segment at a time).
+     * @throws ArchiveRejected
+     */
+    public function segmentCount(string $table): int
+    {
+        $entry = $this->manifest['tables'][$table] ?? throw new ArchiveRejected(ArchiveRejected::TABLE_UNKNOWN);
+
+        return count($entry['segments']);
+    }
+
+    /**
+     * Rows of one segment of a table, checked like rows().
+     *
+     * @param string $table    Table name as written.
+     * @param int    $position Segment position (0-based).
+     * @return list<array<string, mixed>>
+     * @throws ArchiveRejected
+     */
+    public function segmentRows(string $table, int $position): array
+    {
+        $entry = $this->manifest['tables'][$table] ?? throw new ArchiveRejected(ArchiveRejected::TABLE_UNKNOWN);
+        $segment = $entry['segments'][$position] ?? throw new ArchiveRejected(ArchiveRejected::TABLE_UNKNOWN, 'segment');
+
+        return $this->loadSegment($entry['columns'], $segment);
     }
 
     /**

@@ -90,6 +90,56 @@ final class DataGroupRegistry
     }
 
     /**
+     * Declare child tables of a parent table, for restoring deleted records: when a parent row is
+     * added back, the archive rows of each child whose foreign-key column holds its key come with
+     * it (US-backup-restore-deleted-records). Called by the package that owns the tables at boot;
+     * does nothing on a core without a backup registry.
+     *
+     * @param string                $parent   Parent table without GP247_DB_PREFIX.
+     * @param array<string, string> $children Child table (without prefix) => column holding the parent key.
+     * @return void
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-deleted-records
+     */
+    public static function relate(string $parent, array $children): void
+    {
+        if (!config()->has('gp247-config.backup.data_groups')) {
+            return;
+        }
+        // WHY a whole-array write: dot-notation would split a key containing dots.
+        $relations = (array) config('gp247-config.backup.relations', []);
+        $relations[$parent] = array_merge((array) ($relations[$parent] ?? []), $children);
+        config(['gp247-config.backup.relations' => $relations]);
+    }
+
+    /**
+     * @param string $parent Parent table without prefix.
+     * @return array<string, string> Declared child table => column holding the parent key.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-deleted-records
+     */
+    public static function relationsOf(string $parent): array
+    {
+        $children = ((array) config('gp247-config.backup.relations', []))[$parent] ?? [];
+
+        return array_filter(array_map('strval', (array) $children), fn ($column, $child) => is_string($child) && $child !== '' && $column !== '', ARRAY_FILTER_USE_BOTH);
+    }
+
+    /**
+     * @param string $table Table without prefix (or real name of a declared unprefixed table).
+     * @return string|null Key of the group that owns it, null for "Other" / unknown tables.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-table-restore
+     */
+    public function groupOf(string $table): ?string
+    {
+        return $this->resolve()['claims'][$table][0] ?? null;
+    }
+
+    /**
      * @return array<string, DataGroup> Non-empty groups keyed by group key.
      */
     public function groups(): array

@@ -2,6 +2,7 @@
 
 namespace GP247\Core\Backup\Application;
 
+use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Infrastructure\Storage\LocalVault;
 use GP247\Core\Backup\Infrastructure\Store\ArchiveRepository;
 use GP247\Core\Backup\Infrastructure\Store\JobRepository;
@@ -53,6 +54,10 @@ final class RetentionService
         // last good archive, a pinned one, or one whose off-site copy is not done.
         $protected = [];
         $known = [];
+        // An archive a restore is reading from must stay until that restore ends.
+        foreach ($this->jobs->activeArchiveIds(Archive::JOB_RESTORE) as $id) {
+            $protected[$id] = true;
+        }
         foreach ($archives as $i => $archive) {
             $known[(string) $archive->id] = true;
             if ($i === 0 || (bool) $archive->pinned || in_array($archive->offsite, ['pending', 'failed'], true)) {

@@ -2,7 +2,6 @@
 
 namespace GP247\Core\Backup\Application;
 
-use Composer\InstalledVersions;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\FileGroup;
 use GP247\Core\Backup\Infrastructure\Database\ReaderConnection;
@@ -274,8 +273,8 @@ final class BackupStep
             'consistency' => $consistency,
             'via' => $plan['via'],
             'prefix' => (string) GP247_DB_PREFIX,
-            'packages' => self::packages(),
-            'migrations' => self::migrations(),
+            'packages' => SiteVersions::packages(),
+            'migrations' => SiteVersions::migrations(),
             'warnings' => array_values(array_unique(array_map([CursorValue::class, 'label'], $cursor['warnings']))),
         ], $this->keys->signingKey());
 
@@ -360,38 +359,5 @@ final class BackupStep
     private static function pageRows(): int
     {
         return max(1, min(5000, (int) config('gp247-config.backup.page_rows', 5000)));
-    }
-
-    /**
-     * @return array<string, string> Package => version, for compatibility checks at restore.
-     */
-    private static function packages(): array
-    {
-        $packages = ['gp247/core' => (string) config('gp247.core')];
-        foreach (['gp247/front', 'gp247/shop', 'gp247/mcp'] as $package) {
-            try {
-                if (class_exists(InstalledVersions::class) && InstalledVersions::isInstalled($package)) {
-                    $packages[$package] = (string) InstalledVersions::getPrettyVersion($package);
-                }
-            } catch (\Throwable $e) {
-                // Version unknown: restore falls back to the migration list.
-            }
-        }
-
-        return $packages;
-    }
-
-    /**
-     * @return list<string> Migrations run on this site (names only).
-     */
-    private static function migrations(): array
-    {
-        $setting = config('database.migrations');
-        $table = (string) (is_array($setting) ? ($setting['table'] ?? 'migrations') : ($setting ?: 'migrations'));
-        try {
-            return DB::connection(GP247_DB_CONNECTION)->table($table)->orderBy('id')->pluck('migration')->map(fn ($m) => (string) $m)->all();
-        } catch (\Throwable $e) {
-            return [];
-        }
     }
 }

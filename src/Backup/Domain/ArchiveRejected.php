@@ -31,6 +31,8 @@ final class ArchiveRejected extends RuntimeException
     public const SEGMENT_INVALID = 'segment_invalid';
     public const NAME_INVALID = 'name_invalid';
     public const TABLE_UNKNOWN = 'table_unknown';
+    /** A file path in a file group could leave its root (checked before anything is written). */
+    public const PATH_INVALID = 'path_invalid';
 
     /**
      * @param string $reason One of the class constants.

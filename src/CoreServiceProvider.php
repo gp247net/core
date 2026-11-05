@@ -254,6 +254,10 @@ class CoreServiceProvider extends ServiceProvider
             // Webhook retries ride on ordinary requests (no cron or worker): one cache
             // read, and the sends run after the response (US-api-sync-webhook-delivery).
             $this->app->booted(fn () => \GP247\Core\Api\Sync\WebhookDispatcher::kickIfDue());
+
+            // A maintenance mode left by a restore that can no longer finish is turned off on the
+            // next request — shared hosts have no command line for `php artisan up` (BK-3).
+            $this->app->booted(fn () => \GP247\Core\Backup\Application\RestoreWatchdog::onBoot());
         }
 
         if (GP247_ACTIVE == 1 && \Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {

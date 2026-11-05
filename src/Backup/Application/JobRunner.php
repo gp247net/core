@@ -6,6 +6,7 @@ use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Infrastructure\Storage\LocalVault;
 use GP247\Core\Backup\Infrastructure\Store\ArchiveRepository;
 use GP247\Core\Backup\Infrastructure\Store\JobRepository;
+use GP247\Core\Backup\Infrastructure\Store\RestoreLedger;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -33,6 +34,7 @@ final class JobRunner
     private LocalVault $vault;
     private BackupStep $backupStep;
     private VerifyStep $verifyStep;
+    private RestoreStep $restoreStep;
 
     /**
      * @param JobRepository|null     $jobs
@@ -55,6 +57,7 @@ final class JobRunner
         $retention ??= new RetentionService($this->archives, $this->jobs, $this->vault);
         $this->backupStep = new BackupStep($this->jobs, $this->archives, $keys, $this->vault);
         $this->verifyStep = new VerifyStep($this->jobs, $this->archives, $keys, $this->vault, $retention);
+        $this->restoreStep = new RestoreStep($this->jobs, $keys, $this->vault, new RestoreLedger);
     }
 
     /**
@@ -72,6 +75,10 @@ final class JobRunner
         $leaseSeconds = is_finite($budget) ? (int) ceil($budget) + self::LEASE_MARGIN : self::CLI_LEASE;
         $job = $jobId === null ? $this->jobs->nextActive() : $this->jobs->find($jobId);
         if ($job === null || !in_array($job->status, Archive::JOB_ACTIVE, true)) {
+            if ($job === null) {
+                $this->sweepCopies();
+            }
+
             return $this->result($job === null ? 'idle' : $this->outcome($job), $job);
         }
 
@@ -92,6 +99,7 @@ final class JobRunner
                 $finished = match ($job->type) {
                     Archive::JOB_BACKUP => $this->backupStep->run($job, $slice),
                     Archive::JOB_VERIFY => $this->verifyStep->run($job, $slice),
+                    Archive::JOB_RESTORE => $this->restoreStep->run($job, $slice),
                     default => throw new \RuntimeException('Unknown job type.'),
                 };
             } catch (LeaseLost $e) {
@@ -117,7 +125,7 @@ final class JobRunner
 
                 return $this->result('running', $job);
             }
-            $next = $job->archive_id === null ? null : ($this->jobs->activeFor((string) $job->archive_id)[0] ?? null);
+            $next = $job->archive_id === null || $job->type === Archive::JOB_RESTORE ? null : ($this->jobs->activeFor((string) $job->archive_id)[0] ?? null);
             if ($next === null || microtime(true) >= $deadline) {
                 return $this->result($next === null ? $this->outcome($job) : 'running', $job);
             }
@@ -147,11 +155,16 @@ final class JobRunner
      */
     private function fail(object $job, string $owner, string $error): void
     {
-        $ended = DB::connection(GP247_DB_CONNECTION)->transaction(function () use ($job, $owner, $error) {
+        $restore = $job->type === Archive::JOB_RESTORE;
+        // Read again, and before finish() clears it: the slice that just failed may have moved
+        // the restore on (up to the rename) since the row this runner holds was fetched.
+        $cursor = $restore ? $this->restoreCursor($this->jobs->find((int) $job->id) ?? $job) : [];
+        $ended = DB::connection(GP247_DB_CONNECTION)->transaction(function () use ($job, $owner, $error, $restore) {
             if (!$this->jobs->finish((int) $job->id, $owner, Archive::JOB_FAILED, $error)) {
                 return false;
             }
-            if ($job->archive_id !== null) {
+            // A restore that fails says nothing about its source archive.
+            if ($job->archive_id !== null && !$restore) {
                 $this->archives->update((string) $job->archive_id, ['status' => Archive::STATUS_BROKEN, 'error' => mb_substr($job->type . ': ' . $error, 0, 255)]);
             }
 
@@ -159,6 +172,13 @@ final class JobRunner
         });
         if (!$ended) {
             return;
+        }
+        if ($restore) {
+            try {
+                $this->restoreStep->abort($job, $cursor, $error);
+            } catch (\Throwable $e) {
+                BackupLog::failure('Restore job ' . $job->id . ' could not be rolled back: ' . self::describe($e));
+            }
         }
         if ($job->type === Archive::JOB_BACKUP && $job->archive_id !== null) {
             $this->vault->deleteArchive((string) $job->archive_id);
@@ -175,6 +195,9 @@ final class JobRunner
      */
     private function leaseLost(object $job): array
     {
+        if ($job->type === Archive::JOB_RESTORE) {
+            return $this->result('busy', $job);
+        }
         $archive = $job->archive_id === null ? null : $this->archives->find((string) $job->archive_id);
         if (($archive->status ?? null) === Archive::STATUS_CANCELLED) {
             $this->vault->deleteArchive((string) $job->archive_id);
@@ -191,6 +214,15 @@ final class JobRunner
      */
     private function outcome(object $job): string
     {
+        if ($job->type === Archive::JOB_RESTORE) {
+            $status = $this->jobs->find((int) $job->id)->status ?? $job->status;
+
+            return match (true) {
+                $status === Archive::JOB_DONE => 'done',
+                in_array($status, Archive::JOB_ACTIVE, true) => 'running',
+                default => 'failed',
+            };
+        }
         $archive = $job->archive_id === null ? null : $this->archives->find((string) $job->archive_id);
 
         return match ($archive->status ?? null) {
@@ -199,6 +231,35 @@ final class JobRunner
             Archive::STATUS_RUNNING, Archive::STATUS_VERIFYING => 'running',
             default => in_array($job->status, Archive::JOB_ACTIVE, true) ? 'running' : 'done',
         };
+    }
+
+    /**
+     * @param object $job
+     * @return array<string, mixed> Cursor of a restore job, empty when unreadable.
+     */
+    private function restoreCursor(object $job): array
+    {
+        try {
+            return $this->jobs->cursor($job);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * When the runner has nothing to do: restore copies whose undo window ended are dropped, and
+     * a maintenance mode left by a restore that is no longer running is turned off.
+     *
+     * @return void
+     */
+    private function sweepCopies(): void
+    {
+        try {
+            (new ShadowJanitor($this->jobs))->sweepExpired();
+            (new RestoreWatchdog($this->jobs))->sweep();
+        } catch (\Throwable $e) {
+            BackupLog::failure('Clean-up of restore copies failed: ' . self::describe($e));
+        }
     }
 
     /**

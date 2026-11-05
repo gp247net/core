@@ -202,6 +202,21 @@ class AdminConfig extends Model
 
 
     /**
+     * Forget the per-request memo of config values, so the next read sees rows written since
+     * (a configuration restore replaces the whole table under the running request).
+     *
+     * @return void
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-config-restore
+     */
+    public static function forgetMemo(): void
+    {
+        self::$getAllGlobal = null;
+        self::$getAllConfigOfStore = [];
+    }
+
+    /**
      * [getAllGlobal description]
      *
      * @return  [type]  [return description]

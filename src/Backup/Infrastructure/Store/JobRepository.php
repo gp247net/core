@@ -184,6 +184,31 @@ final class JobRepository
     }
 
     /**
+     * @param string $type Archive::JOB_*.
+     * @return list<string> Archives that active jobs of this type work on.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-table-restore
+     */
+    public function activeArchiveIds(string $type): array
+    {
+        return $this->table()->where('type', $type)->whereIn('status', Archive::JOB_ACTIVE)->whereNotNull('archive_id')
+            ->pluck('archive_id')->map(fn ($id) => (string) $id)->unique()->values()->all();
+    }
+
+    /**
+     * @param string $type Archive::JOB_*.
+     * @return list<object> Active jobs of this type, oldest first.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public function activeOfType(string $type): array
+    {
+        return $this->table()->where('type', $type)->whereIn('status', Archive::JOB_ACTIVE)->orderBy('id')->get()->all();
+    }
+
+    /**
      * @return object|null Oldest pending / running job.
      */
     public function nextActive(): ?object
