@@ -77,8 +77,48 @@ final class RetentionService
             });
             $this->vault->deleteArchive($id);
         }
+        $this->forwardToOffsite($ids, $archives);
 
         return $ids;
+    }
+
+    /**
+     * Archives removed here whose off-site copy is done go on the off-site retention list
+     * (decision BK-6 #4): the next copy job deletes those copies when the credential allows it.
+     *
+     * @param list<string>  $ids      Removed archive ids.
+     * @param list<object>  $archives Catalogue rows read before the removal.
+     * @return void
+     *
+     * @aidlc-unit backup-storage
+     * @aidlc-story US-backup-storage-immutable-guide
+     */
+    private function forwardToOffsite(array $ids, array $archives): void
+    {
+        if ($ids === []) {
+            return;
+        }
+        try {
+            $config = new DestinationConfig;
+            if (!$config->configured()) {
+                return;
+            }
+            $removed = array_flip($ids);
+            $done = [];
+            foreach ($archives as $archive) {
+                // WHY not imported archives: one fetched back may be the only clean copy left —
+                // whatever a retention policy does here, its off-site copy is never deleted.
+                if (isset($removed[(string) $archive->id]) && $archive->offsite === Archive::OFFSITE_DONE && $archive->reason !== Archive::REASON_IMPORT) {
+                    $done[] = (string) $archive->id;
+                }
+            }
+            if ($done !== []) {
+                $config->addTrash($done);
+            }
+        } catch (\Throwable $e) {
+            // Local retention is done; the off-site copies simply stay (lifecycle rule).
+            BackupLog::failure('Off-site retention list not updated: ' . class_basename($e));
+        }
     }
 
     /**

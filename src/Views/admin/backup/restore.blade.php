@@ -244,5 +244,41 @@
         </div>
     </x-gp247::card>
 
+    {{-- BK-6: archives at the external destination (US-backup-storage-fetch-remote). Listing needs no
+         backup password; bringing one back uses the password / recovery key typed above. --}}
+    <x-gp247::card :title="gp247_language_render('admin.backup.remote.title')" :subtitle="gp247_language_render('admin.backup.remote.help')" data-testid="backup-restore-remote">
+        @if (!$offsiteConfigured)
+            <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-remote-not-configured">{{ gp247_language_render('admin.backup.remote.not_configured') }}</p>
+        @else
+            <div class="space-y-4">
+                <x-gp247::button variant="secondary" wire:click="listRemote" :disabled="!$enabled" data-testid="backup-remote-list">{{ gp247_language_render('admin.backup.remote.list') }}</x-gp247::button>
+                @if (is_array($remoteArchives))
+                    @if ($remoteArchives === [])
+                        <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-remote-empty">{{ gp247_language_render('admin.backup.remote.empty') }}</p>
+                    @else
+                        <x-gp247::table>
+                            @foreach ($remoteArchives as $remote)
+                                <tr wire:key="backup-remote-{{ $remote['id'] }}" data-testid="backup-remote-row">
+                                    <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $remote['modified_at'] ? \Illuminate\Support\Carbon::createFromTimestamp($remote['modified_at'])->setTimezone(config('app.timezone'))->toDateTimeString() : '—' }}</td>
+                                    <td class="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-200">{{ $remote['id'] }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ number_format(((int) $remote['bytes']) / 1048576, 1) }} MB</td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        @if (!$remote['complete'])
+                                            <x-gp247::badge color="amber">{{ gp247_language_render('admin.backup.remote.incomplete') }}</x-gp247::badge>
+                                        @elseif ($remote['in_catalogue'])
+                                            <x-gp247::badge color="green">{{ gp247_language_render('admin.backup.remote.in_catalogue') }}</x-gp247::badge>
+                                        @else
+                                            <x-gp247::button size="sm" wire:click="fetchRemote('{{ $remote['id'] }}')" :disabled="!$enabled" data-testid="backup-remote-fetch">{{ gp247_language_render('admin.backup.remote.fetch') }}</x-gp247::button>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </x-gp247::table>
+                    @endif
+                @endif
+            </div>
+        @endif
+    </x-gp247::card>
+
     @include('gp247-admin::backup.partials.step-up')
 </div>

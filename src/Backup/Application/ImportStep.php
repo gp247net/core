@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  * One slice of an "import" job. Phases, each resumable:
  *
  *   unpack  the `.gp247bak` file is split into an archive folder inside the vault's incoming area;
+ *   fetch   (instead of unpack, BK-6) the archive's files are copied from the external destination
+ *           into that folder (FetchStep);
  *   open    signature: signed with this site's key ⇒ origin "site", otherwise "unverified" (only
  *           data integrity can be checked — ADR tamper-evidence decision 3); the header must be the
  *           one whose data key was unwrapped when the import started;
@@ -47,6 +49,7 @@ final class ImportStep
         private readonly ArchiveRepository $archives,
         private readonly KeyService $keys,
         private readonly LocalVault $vault,
+        private ?FetchStep $fetch = null,
     ) {
     }
 
@@ -69,6 +72,8 @@ final class ImportStep
             while (true) {
                 $completed = match ($cursor['phase'] ?? null) {
                     'unpack' => $this->unpack($cursor, $slice),
+                    // BK-6: an archive copied back from the external destination.
+                    'fetch' => ($this->fetch ??= new FetchStep)->run($cursor, $slice),
                     'open' => $this->open($cursor, $reader),
                     'verify' => $this->verify($cursor, $reader, $slice),
                     'adopt' => $this->adopt($job, $cursor, $slice),
@@ -210,6 +215,8 @@ final class ImportStep
                     'status' => Archive::STATUS_OK,
                     'consistency' => $meta['consistency'],
                     'origin' => (string) $cursor['origin'],
+                    // Fetched from the external destination: it is there already, not copied again.
+                    'offsite' => !empty($cursor['remote']) ? Archive::OFFSITE_DONE : Archive::OFFSITE_NONE,
                     'key_id' => (string) $cursor['key_id'],
                     'size' => $this->vault->archiveBytes($id),
                     'parts' => (int) $meta['parts'],

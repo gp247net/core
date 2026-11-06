@@ -36,6 +36,7 @@ final class JobRunner
     private VerifyStep $verifyStep;
     private RestoreStep $restoreStep;
     private ImportStep $importStep;
+    private UploadStep $uploadStep;
 
     /**
      * @param JobRepository|null     $jobs
@@ -60,6 +61,7 @@ final class JobRunner
         $this->verifyStep = new VerifyStep($this->jobs, $this->archives, $keys, $this->vault, $retention);
         $this->restoreStep = new RestoreStep($this->jobs, $keys, $this->vault, new RestoreLedger);
         $this->importStep = new ImportStep($this->jobs, $this->archives, $keys, $this->vault);
+        $this->uploadStep = new UploadStep($this->jobs, $this->archives, $this->vault);
     }
 
     /**
@@ -103,6 +105,7 @@ final class JobRunner
                     Archive::JOB_VERIFY => $this->verifyStep->run($job, $slice),
                     Archive::JOB_RESTORE => $this->restoreStep->run($job, $slice),
                     Archive::JOB_IMPORT => $this->importStep->run($job, $slice),
+                    Archive::JOB_UPLOAD => $this->uploadStep->run($job, $slice),
                     default => throw new \RuntimeException('Unknown job type.'),
                 };
             } catch (LeaseLost $e) {
@@ -167,8 +170,9 @@ final class JobRunner
             if (!$this->jobs->finish((int) $job->id, $owner, Archive::JOB_FAILED, $error)) {
                 return false;
             }
-            // A restore that fails says nothing about its source archive.
-            if ($job->archive_id !== null && !$restore) {
+            // A restore that fails says nothing about its source archive; a failed off-site copy
+            // leaves a good local archive (only its off-site state changes, in uploadStep->failed()).
+            if ($job->archive_id !== null && !$restore && $job->type !== Archive::JOB_UPLOAD) {
                 $this->archives->update((string) $job->archive_id, ['status' => Archive::STATUS_BROKEN, 'error' => mb_substr($job->type . ': ' . $error, 0, 255)]);
             }
 
@@ -192,6 +196,13 @@ final class JobRunner
         }
         if ($job->type === Archive::JOB_BACKUP && $job->archive_id !== null) {
             $this->vault->deleteArchive((string) $job->archive_id);
+        }
+        if ($job->type === Archive::JOB_UPLOAD) {
+            try {
+                $this->uploadStep->failed($job, $error);
+            } catch (\Throwable $e) {
+                BackupLog::failure('Upload job ' . $job->id . ' outcome not recorded: ' . self::describe($e));
+            }
         }
         BackupLog::failure('Backup job ' . $job->id . ' failed: ' . $error);
         $this->announce($job);
@@ -255,7 +266,7 @@ final class JobRunner
      */
     private function outcome(object $job): string
     {
-        if (self::isSiteJob($job)) {
+        if (self::isSiteJob($job) || $job->type === Archive::JOB_UPLOAD) {
             $status = $this->jobs->find((int) $job->id)->status ?? $job->status;
 
             return match (true) {

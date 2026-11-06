@@ -205,7 +205,7 @@
                         </td>
                         <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ implode(', ', array_merge((array) ((json_decode((string) $archive->scope, true) ?: [])['groups'] ?? []), (array) ((json_decode((string) $archive->scope, true) ?: [])['files'] ?? []))) ?: ($archive->kind === 'full' ? gp247_language_render('admin.backup.list.scope_all') : '—') }}</td>
                         <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ number_format(((int) $archive->size) / 1048576, 1) }} MB</td>
-                        <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ gp247_language_render('admin.backup.where.' . ($archive->offsite === 'none' ? 'local' : 'offsite')) }}</td>
+                        <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300" data-testid="backup-archive-where">{{ gp247_language_render('admin.backup.where.' . match ($archive->offsite) { 'done' => 'offsite', 'pending' => 'pending', 'failed' => 'failed', default => 'local' }) }}</td>
                         <td class="px-4 py-3">
                             <x-gp247::badge :color="match ($archive->status) { 'ok' => 'green', 'broken' => 'red', 'cancelled' => 'gray', default => 'amber' }" data-testid="backup-archive-status">{{ gp247_language_render('admin.backup.status.' . $archive->status) }}</x-gp247::badge>
                             @if ($archive->consistency)
@@ -219,6 +219,9 @@
                                 @endif
                                 @if ($archive->status === 'ok' && $can['restore'])
                                     <x-gp247::button size="sm" variant="secondary" :href="gp247_route_admin('admin.backup.restore', ['archive' => $archive->id])" data-testid="backup-archive-restore">{{ gp247_language_render('admin.backup.list.restore') }}</x-gp247::button>
+                                @endif
+                                @if ($can['create'] && $can['offsite'] && $archive->status === 'ok' && in_array($archive->offsite, ['none', 'failed'], true))
+                                    <x-gp247::button size="sm" variant="secondary" wire:click="pushOffsite('{{ $archive->id }}')" data-testid="backup-archive-push">{{ gp247_language_render('admin.backup.offsite.push') }}</x-gp247::button>
                                 @endif
                                 @if ($can['create'] && in_array($archive->status, ['ok', 'broken'], true))
                                     <x-gp247::button size="sm" variant="ghost" wire:click="openVerify('{{ $archive->id }}')" data-testid="backup-archive-verify">{{ gp247_language_render('admin.backup.list.verify') }}</x-gp247::button>

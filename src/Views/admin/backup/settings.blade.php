@@ -38,6 +38,9 @@
         </form>
     </x-gp247::card>
 
+    {{-- BK-6: one external destination (S3-compatible / SFTP), its own component. --}}
+    <livewire:gp247-backup::backup-destination-settings />
+
     @if ($setUp)
         <x-gp247::card :title="gp247_language_render('admin.backup.settings.security')">
             @if ($shownRecoverySecret !== null)

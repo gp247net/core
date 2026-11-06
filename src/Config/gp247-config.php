@@ -98,6 +98,15 @@ return [
         // Extra extensions never written into the upload folder by a restore (added to the
         // built-in list: php*, phtml, phar, cgi, pl, py, sh, asp*, jsp, shtml, ht*, ini…).
         'blocked_upload_extensions' => [],
+        // Bolt BK-6 (ADR backup-storage_optional-adapters). Types of external destination: key =>
+        // class implementing GP247\Core\Backup\Domain\DestinationFactory. BackupPro appends more.
+        // A type whose library is missing shows as "not available" with the install command.
+        'destinations' => [
+            's3'   => \GP247\Core\Backup\Infrastructure\Storage\S3Factory::class,
+            'sftp' => \GP247\Core\Backup\Infrastructure\Storage\SftpFactory::class,
+        ],
+        // Seconds to wait for an external destination to answer a connection.
+        'offsite_timeout' => 10,
     ],
 
     'admin' => [

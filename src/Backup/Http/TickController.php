@@ -64,7 +64,8 @@ class TickController
      */
     private function jobFor(bool $restore): ?object
     {
-        $types = $restore ? [Archive::JOB_RESTORE, Archive::JOB_IMPORT] : [Archive::JOB_BACKUP, Archive::JOB_VERIFY];
+        // BK-6: the copy to the external destination follows the verification on the same screen.
+        $types = $restore ? [Archive::JOB_RESTORE, Archive::JOB_IMPORT] : [Archive::JOB_BACKUP, Archive::JOB_VERIFY, Archive::JOB_UPLOAD];
         foreach ($types as $type) {
             $jobs = (new JobRepository)->activeOfType($type);
             if ($jobs !== []) {

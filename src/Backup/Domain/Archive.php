@@ -44,6 +44,8 @@ final class Archive
     public const JOB_VERIFY = 'verify';
     public const JOB_RESTORE = 'restore';
     public const JOB_IMPORT = 'import';
+    /** Copy of a verified archive to the external destination (BK-6); writes nothing on the site. */
+    public const JOB_UPLOAD = 'upload';
 
     /** @var list<string> Jobs that write site data or the catalogue: only one may be active at a time. */
     public const WRITE_JOBS = [self::JOB_BACKUP, self::JOB_RESTORE, self::JOB_IMPORT];

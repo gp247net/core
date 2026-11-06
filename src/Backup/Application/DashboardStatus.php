@@ -4,6 +4,7 @@ namespace GP247\Core\Backup\Application;
 
 use Carbon\CarbonInterface;
 use GP247\Core\Backup\Domain\Archive;
+use GP247\Core\Backup\Domain\DestinationFailure;
 use GP247\Core\Backup\Infrastructure\Store\JobRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,10 @@ final class DashboardStatus
     public const LAST_BROKEN = 'last_broken';
     public const MAIL_OFF = 'mail_off';
     public const DISABLED = 'disabled';
+    /** BK-6: the newest verified archive was not copied off-site. */
+    public const OFFSITE_FAILED = 'offsite_failed';
+    /** BK-6: a destination is set but cannot be used (library missing, host key changed). */
+    public const OFFSITE_UNAVAILABLE = 'offsite_unavailable';
 
     /**
      * @param KeyService|null    $keys
@@ -61,6 +66,8 @@ final class DashboardStatus
                 ($latest->status ?? null) === Archive::STATUS_BROKEN,
                 BackupNotifier::mailEnabled(),
                 self::staleHours(),
+                ($lastOk->offsite ?? null) === Archive::OFFSITE_FAILED,
+                self::offsiteUnavailable(),
             ),
             'job' => $this->activeJob(),
         ];
@@ -73,9 +80,11 @@ final class DashboardStatus
      * @param bool     $lastBroken Whether the newest finished archive failed its check.
      * @param bool     $mail
      * @param int      $staleHours
+     * @param bool     $offsiteFailed      The newest verified archive was not copied off-site.
+     * @param bool     $offsiteUnavailable The destination is set but cannot be used.
      * @return list<string> Warning codes, most urgent first.
      */
-    public static function warnings(bool $enabled, bool $setUp, ?int $ageHours, bool $lastBroken, bool $mail, int $staleHours): array
+    public static function warnings(bool $enabled, bool $setUp, ?int $ageHours, bool $lastBroken, bool $mail, int $staleHours, bool $offsiteFailed = false, bool $offsiteUnavailable = false): array
     {
         if (!$enabled) {
             return [self::DISABLED];
@@ -88,8 +97,34 @@ final class DashboardStatus
             $ageHours === null ? self::NO_BACKUP : null,
             $ageHours !== null && $ageHours >= $staleHours ? self::STALE : null,
             $lastBroken ? self::LAST_BROKEN : null,
+            $offsiteUnavailable ? self::OFFSITE_UNAVAILABLE : null,
+            $offsiteFailed && !$offsiteUnavailable ? self::OFFSITE_FAILED : null,
             $mail ? null : self::MAIL_OFF,
         ]));
+    }
+
+    /**
+     * @return bool A destination is set whose type is missing its library, or whose server key
+     *              no longer matches the pinned one (last test).
+     *
+     * @aidlc-unit backup-storage
+     * @aidlc-story US-backup-storage-sftp, US-backup-storage-s3-compatible
+     */
+    private static function offsiteUnavailable(): bool
+    {
+        try {
+            $config = new DestinationConfig;
+            $current = $config->current();
+            if ($current === null) {
+                return false;
+            }
+            $type = (new DestinationRegistry)->type($current['type']);
+            $error = $config->report()?->error;
+
+            return $type === null || !$type->available() || in_array($error, [DestinationFailure::HOST_KEY_CHANGED, DestinationFailure::UNAVAILABLE], true);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**

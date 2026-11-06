@@ -6,6 +6,7 @@ use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\BackupSecret;
 use GP247\Core\Backup\Domain\PackFormat;
+use GP247\Core\Backup\Domain\RemoteLayout;
 use GP247\Core\Backup\Domain\RestoreRefused;
 use GP247\Core\Backup\Infrastructure\Format\ArchiveReader;
 use GP247\Core\Backup\Infrastructure\Format\ResumableUnpacker;
@@ -29,6 +30,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class ImportService
 {
+    /** Most files an archive at the external destination may have to be fetched back. */
+    private const MAX_REMOTE_FILES = 20_000;
+
     private KeyService $keys;
     private LocalVault $vault;
     private ArchiveRepository $archives;
@@ -108,6 +112,94 @@ final class ImportService
         }
 
         return ['job_id' => $jobId, 'archive_id' => $peek['archive_id']];
+    }
+
+    /**
+     * Bring an archive back from the external destination (US-backup-storage-fetch-remote): its
+     * header comes now — enough to unwrap the data key with the password or recovery key, so the
+     * job never keeps the password — and the import job copies the other files in slices ("fetch"
+     * phase), then checks the signature and every hash before the archive enters the catalogue.
+     *
+     * @param string               $archiveId
+     * @param BackupSecret         $secret
+     * @param array<string, mixed> $options created_by.
+     * @param OffsiteService|null  $offsite
+     * @return array{job_id: int, archive_id: string}
+     * @throws RestoreRefused  feature_disabled | already_in_catalogue | not_found | already_running | disk_space
+     * @throws ArchiveRejected When the header is not an archive header.
+     * @throws \GP247\Core\Backup\Domain\WrongBackupSecret
+     * @throws \GP247\Core\Backup\Domain\DestinationFailure
+     *
+     * @aidlc-unit backup-storage
+     * @aidlc-story US-backup-storage-fetch-remote
+     */
+    public function startFromRemote(string $archiveId, #[\SensitiveParameter] BackupSecret $secret, array $options = [], ?OffsiteService $offsite = null): array
+    {
+        if (!BackupFeature::enabled()) {
+            throw new RestoreRefused(RestoreRefused::FEATURE_DISABLED);
+        }
+        if (!RemoteLayout::isArchiveId($archiveId)) {
+            throw new RestoreRefused(RestoreRefused::NOT_FOUND, 'archive id');
+        }
+        if ($this->archives->find($archiveId) !== null || is_dir($this->vault->archiveDir($archiveId))) {
+            throw new RestoreRefused(RestoreRefused::ALREADY_IN_CATALOGUE, $archiveId, ['archive_id' => $archiveId]);
+        }
+        $offsite ??= new OffsiteService(null, null, $this->jobs, $this->archives);
+        $remote = $offsite->remoteArchive($archiveId);
+        if ($remote === null || !$remote->complete()) {
+            throw new RestoreRefused(RestoreRefused::NOT_FOUND, 'not at the destination');
+        }
+        // WHY a ceiling: the file list comes from the destination, not from the signed manifest
+        // (checked only after the copy); a tampered destination must not make the job download
+        // an endless list. 20 000 parts of 16 MiB is far beyond any real archive.
+        if (count($remote->files) > self::MAX_REMOTE_FILES) {
+            throw new ArchiveRejected(ArchiveRejected::HEADER_INVALID, 'too many files at the destination');
+        }
+        if ($remote->files[RemoteLayout::HEADER] > ArchiveReader::MAX_HEADER_BYTES) {
+            throw new ArchiveRejected(ArchiveRejected::HEADER_INVALID, 'header size');
+        }
+        $this->assertSpace($remote->bytes());
+        $site = RemoteLayout::siteKey();
+        $dir = $this->vault->incomingDir() . DIRECTORY_SEPARATOR . 'r' . bin2hex(random_bytes(8));
+        try {
+            if (!@mkdir($dir, 0700) && !is_dir($dir)) {
+                throw new \RuntimeException('Cannot create the fetch folder.');
+            }
+            $header = $offsite->destination()->read(RemoteLayout::path($site, $archiveId, RemoteLayout::HEADER));
+            $bytes = (string) stream_get_contents($header, ArchiveReader::MAX_HEADER_BYTES + 1);
+            fclose($header);
+            if (strlen($bytes) !== $remote->files[RemoteLayout::HEADER] || file_put_contents($dir . DIRECTORY_SEPARATOR . RemoteLayout::HEADER, $bytes) === false) {
+                throw new ArchiveRejected(ArchiveRejected::HEADER_INVALID, 'header size');
+            }
+            if (ArchiveReader::peek($dir)['archive_id'] !== $archiveId) {
+                throw new ArchiveRejected(ArchiveRejected::HEADER_INVALID, 'archive id');
+            }
+            $opened = ArchiveReader::dataKeyFromHeader($dir, $secret, $this->keys);
+            $files = $remote->files;
+            unset($files[RemoteLayout::HEADER]);
+            $cursor = [
+                'phase' => 'fetch',
+                'source' => null,
+                'owned' => false,
+                'remote' => true,
+                'dir' => $dir,
+                'fetch' => ['files' => $files, 'order' => RemoteLayout::uploadOrder(array_keys($files)), 'i' => 0, 'site' => $site],
+                'archive_id' => $archiveId,
+                'dek' => base64_encode($opened['dek']),
+                'dek_wrapped' => $opened['header']['dek'],
+                'key_id' => $opened['header']['key_id'],
+                'started' => now()->getTimestamp(),
+                'step' => 0,
+                'created_by' => isset($options['created_by']) ? mb_substr((string) $options['created_by'], 0, 100) : null,
+            ];
+            $jobId = $this->locked(fn () => $this->jobs->create(Archive::JOB_IMPORT, null, $cursor));
+        } catch (\Throwable $e) {
+            ResumableUnpacker::clean($dir);
+
+            throw $e;
+        }
+
+        return ['job_id' => $jobId, 'archive_id' => $archiveId];
     }
 
     /**

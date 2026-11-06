@@ -100,6 +100,8 @@ class CoreServiceProvider extends ServiceProvider
         \GP247\Core\Backup\Console\BackupImport::class,
         \GP247\Core\Backup\Console\BackupRestore::class,
         \GP247\Core\Backup\Console\BackupExportSql::class,
+        // Bolt BK-6: the external destination from the command line.
+        \GP247\Core\Backup\Console\BackupOffsite::class,
         // WHY: Info stays in the runtime tier — it reads gp247_* helpers
         // (gp247_composer_get_package_installed / gp247_extension_*) that are only
         // loaded after the installed-gate, so it cannot run pre-install.

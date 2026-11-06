@@ -70,12 +70,15 @@ final class SliceContext
 
     /**
      * @param array<string, mixed> $cursor
+     * @param bool                 $progress False when nothing moved forward (a failure about to be
+     *                                       counted): the attempt counter is kept, so a job that keeps
+     *                                       failing at the same point ends after its allowed attempts.
      * @return void
      * @throws LeaseLost When another slice took over or the job was cancelled.
      */
-    public function save(#[\SensitiveParameter] array $cursor): void
+    public function save(#[\SensitiveParameter] array $cursor, bool $progress = true): void
     {
-        if (!$this->jobs->saveCursor($this->jobId, $this->owner, $cursor, true, now()->addSeconds($this->leaseSeconds))) {
+        if (!$this->jobs->saveCursor($this->jobId, $this->owner, $cursor, $progress, now()->addSeconds($this->leaseSeconds))) {
             throw new LeaseLost;
         }
         $this->lastSave = microtime(true);

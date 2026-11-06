@@ -117,6 +117,16 @@ final class VerifyStep
                 $values['verified_at'] = now();
             }
             $this->archives->update((string) $job->archive_id, $values);
+            if ($archiveStatus === Archive::STATUS_OK) {
+                // Only a verified archive is copied out (BK-6): queued in the same transaction,
+                // so an "ok" archive is never left without its copy when a destination is set.
+                try {
+                    (new OffsiteService(null, null, $this->jobs, $this->archives))->queueNew((string) $job->archive_id);
+                } catch (\Throwable $e) {
+                    // A good archive stays good: the copy can be started again from the backup screen.
+                    BackupLog::failure('Off-site copy of archive ' . $job->archive_id . ' not queued: ' . class_basename($e));
+                }
+            }
         });
     }
 }

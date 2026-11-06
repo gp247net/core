@@ -10,11 +10,13 @@ use GP247\Core\Backup\Application\BackupNotifier;
 use GP247\Core\Backup\Application\DashboardStatus;
 use GP247\Core\Backup\Application\DataGroupRegistry;
 use GP247\Core\Backup\Application\ImportService;
+use GP247\Core\Backup\Application\OffsiteService;
 use GP247\Core\Backup\Application\RestoreService;
 use GP247\Core\Backup\Application\UploadSession;
 use GP247\Core\Backup\Http\UploadController;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\ArchiveRejected;
+use GP247\Core\Backup\Domain\DestinationFailure;
 use GP247\Core\Backup\Domain\BackupSecret;
 use GP247\Core\Backup\Domain\RestorePlan;
 use GP247\Core\Backup\Domain\RestoreRefused;
@@ -25,6 +27,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Http\MaintenanceModeBypassCookie;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -42,7 +45,9 @@ use Livewire\Component;
  * site that made it); an archive whose origin cannot be verified needs its own confirmation; the
  * whole-database level offers the post-incident mode.
  *
- * @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-admin-step-up-auth, US-backup-restore-import-archive, US-backup-restore-post-incident-mode
+ * BK-6: archives at the external destination can be listed and brought back (fetch + import).
+ *
+ * @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-admin-step-up-auth, US-backup-restore-import-archive, US-backup-restore-post-incident-mode, US-backup-storage-fetch-remote
  * @aidlc-adr backup-restore_shadow-table-swap
  */
 class BackupRestore extends Component
@@ -74,6 +79,9 @@ class BackupRestore extends Component
     /** Fingerprint of the plan the preview in the session belongs to. */
     public ?string $previewFor = null;
     public ?int $jobId = null;
+    /** @var list<array<string, mixed>>|null BK-6: archives found at the external destination (names, sizes, times only). */
+    #[Locked]
+    public ?array $remoteArchives = null;
 
     /**
      * @return void
@@ -261,6 +269,74 @@ class BackupRestore extends Component
     }
 
     /**
+     * List this site's archives at the external destination — names, sizes and times only, no
+     * backup password needed (US-backup-storage-fetch-remote).
+     *
+     * @return void
+     *
+     * @aidlc-unit backup-storage
+     * @aidlc-story US-backup-storage-fetch-remote
+     */
+    public function listRemote(): void
+    {
+        $this->authorizeRestore('remote_list');
+        try {
+            $this->remoteArchives = array_map(fn ($a) => $a->toArray(), (new OffsiteService)->remoteArchives());
+        } catch (DestinationFailure $e) {
+            $this->remoteArchives = null;
+            BackupAudit::record('remote_list', BackupAudit::FAILED, ['reason' => $e->reason]);
+            $this->notice('admin.backup.offsite.error.' . $e->reason, 'error');
+
+            return;
+        }
+        BackupAudit::record('remote_list', BackupAudit::OK, ['status' => (string) count($this->remoteArchives)]);
+    }
+
+    /**
+     * Bring one archive back from the external destination with the password / recovery key typed
+     * above; it is copied in slices, then checked like any import before it can be restored.
+     *
+     * @param string $archiveId
+     * @return void
+     *
+     * @aidlc-unit backup-storage
+     * @aidlc-story US-backup-storage-fetch-remote
+     */
+    public function fetchRemote(string $archiveId): void
+    {
+        $this->authorizeRestore('fetch');
+        if (!$this->requireStepUp('fetchRemote', [$archiveId])) {
+            return;
+        }
+        try {
+            $started = (new ImportService)->startFromRemote($archiveId, $this->secret(), ['created_by' => (string) admin()->user()->username]);
+        } catch (RestoreRefused $e) {
+            $this->refused('fetch', $e->reason, ['archive_id' => $archiveId]);
+
+            return;
+        } catch (WrongBackupSecret $e) {
+            $this->refused('fetch', 'wrong_secret', ['archive_id' => $archiveId]);
+
+            return;
+        } catch (ArchiveRejected $e) {
+            $this->refused('fetch', 'archive_rejected', ['archive_id' => $archiveId]);
+
+            return;
+        } catch (DestinationFailure $e) {
+            BackupAudit::record('fetch', BackupAudit::FAILED, ['archive_id' => $archiveId, 'reason' => $e->reason]);
+            $this->notice('admin.backup.offsite.error.' . $e->reason, 'error');
+
+            return;
+        } finally {
+            $this->restoreSecret = '';
+        }
+        $this->jobId = (int) $started['job_id'];
+        BackupAudit::record('fetch_start', BackupAudit::OK, ['archive_id' => $archiveId, 'job_id' => $this->jobId]);
+        $this->notice('admin.backup.remote.started');
+        $this->dispatch('gp247-backup-run');
+    }
+
+    /**
      * Put back the tables the last restore replaced (while they are kept).
      *
      * @return void
@@ -328,6 +404,7 @@ class BackupRestore extends Component
             'job' => (new DashboardStatus)->activeJob(),
             'lastImport' => $this->lastImport(),
             'uploadMaxBytes' => UploadSession::maxBytes(),
+            'offsiteConfigured' => (new OffsiteService)->configured(),
             'stepUpNeedsCode' => $this->stepUpOpen && $this->stepUpNeedsCode(),
             'tickUrl' => gp247_route_admin('admin.backup.restore_tick'),
         ])->layout('gp247-admin::layouts.admin', [
@@ -340,7 +417,7 @@ class BackupRestore extends Component
      */
     protected function stepUpActions(): array
     {
-        return ['preview', 'start', 'undo', 'prepareUpload', 'importUpload'];
+        return ['preview', 'start', 'undo', 'prepareUpload', 'importUpload', 'fetchRemote'];
     }
 
     /**

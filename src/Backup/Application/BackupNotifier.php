@@ -84,6 +84,26 @@ class BackupNotifier
     }
 
     /**
+     * The copy to the external destination failed; the local archive is kept.
+     *
+     * @param string $archiveId
+     * @param string $reason  Fixed reason code.
+     * @param string $partial cleaned | lifecycle | none | unknown — what happened to the half-copied folder.
+     * @return bool
+     *
+     * @aidlc-unit backup-storage
+     * @aidlc-story US-backup-storage-s3-compatible, US-backup-storage-chunked-upload
+     */
+    public function offsiteFailed(string $archiveId, string $reason, string $partial): bool
+    {
+        return $this->send('offsite_failed', [
+            'archive' => $archiveId,
+            'error' => mb_substr($reason, 0, 100),
+            'partial' => gp247_language_render('admin.backup.offsite.partial.' . (in_array($partial, ['cleaned', 'lifecycle', 'none'], true) ? $partial : 'unknown')),
+        ]);
+    }
+
+    /**
      * @param string                $event
      * @param array<string, string> $facts Replacements for the language strings.
      * @return bool

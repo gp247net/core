@@ -28,6 +28,10 @@
       "livewire/livewire": "^4.4.8"
   },
 
+  "suggest": {
+      "league/flysystem-sftp-v3": "Copy backups to an SFTP server (Backup → Settings → External destination)"
+  },
+
   "autoload": {
       "psr-4": {
          "GP247\\Core\\": "src/"

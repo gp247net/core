@@ -13,6 +13,7 @@ use GP247\Core\Backup\Application\DataGroupRegistry;
 use GP247\Core\Backup\Application\PostIncidentChecklist;
 use GP247\Core\Backup\Application\DownloadTokenService;
 use GP247\Core\Backup\Application\KeyService;
+use GP247\Core\Backup\Application\OffsiteService;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\BackupKeyError;
@@ -20,6 +21,7 @@ use GP247\Core\Backup\Domain\BackupNotSetUp;
 use GP247\Core\Backup\Domain\BackupRefused;
 use GP247\Core\Backup\Domain\BackupScope;
 use GP247\Core\Backup\Domain\BackupSecret;
+use GP247\Core\Backup\Domain\OffsiteRefused;
 use GP247\Core\Backup\Domain\WrongBackupSecret;
 use GP247\Core\Backup\Livewire\Concerns\ConfirmsStepUp;
 use GP247\Core\Backup\Livewire\Concerns\RendersNotices;
@@ -242,6 +244,32 @@ class BackupDashboard extends Component
     }
 
     /**
+     * Copy a verified archive to the external destination (again) — after a failure, or one made
+     * before the destination was set (US-backup-storage-chunked-upload). No re-confirmation: it
+     * only sends the encrypted archive to the place the administrator configured.
+     *
+     * @param string $archiveId
+     * @return void
+     *
+     * @aidlc-unit backup-storage
+     * @aidlc-story US-backup-storage-chunked-upload, US-backup-storage-s3-compatible
+     */
+    public function pushOffsite(string $archiveId): void
+    {
+        BackupAccess::authorize(BackupAccess::CREATE, 'offsite_push', ['archive_id' => $archiveId]);
+        try {
+            $jobId = (new OffsiteService)->retry($archiveId);
+        } catch (OffsiteRefused $e) {
+            BackupAudit::record('offsite_push', BackupAudit::REFUSED, ['archive_id' => $archiveId, 'reason' => $e->reason]);
+            $this->notice('admin.backup.offsite.refused.' . $e->reason, 'error');
+
+            return;
+        }
+        BackupAudit::record('offsite_push', BackupAudit::OK, ['archive_id' => $archiveId, 'job_id' => $jobId]);
+        $this->notice('admin.backup.offsite.pushed');
+    }
+
+    /**
      * @param string $archiveId
      * @return void
      */
@@ -344,6 +372,7 @@ class BackupDashboard extends Component
                 'download' => BackupAccess::allows(BackupAccess::DOWNLOAD),
                 'restore' => BackupAccess::allows(BackupAccess::RESTORE),
                 'settings' => BackupAccess::allows(BackupAccess::SETTINGS),
+                'offsite' => (new OffsiteService)->configured(),
             ],
             'staleHours' => DashboardStatus::staleHours(),
             'postIncident' => PostIncidentChecklist::pending(),
