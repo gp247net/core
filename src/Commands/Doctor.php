@@ -123,6 +123,10 @@ class Doctor extends GP247Command
         // Event log for ERP sync whose lazy cleaning does not run (no requests). Read-only.
         $checks[] = $this->apiEventRetentionCheck();
 
+        // Tasks left by a post-incident restore (US-backup-restore-post-incident-mode): shown
+        // until an Administrator marks them done on the backup screen. Never `fail`.
+        $checks[] = $this->backupPostIncidentCheck($dbOk);
+
         // Security rows shared with the dashboard "System alerts" block (one source of logic).
         // Never `fail` — the exit code stays driven by the environment checks above.
         array_push($checks, ...$this->securityChecks($installed, $dbOk));
@@ -140,6 +144,27 @@ class Doctor extends GP247Command
             return $this->respondFailure('checks_failed', 'One or more environment checks failed', ['checks' => $checks]);
         }
         return $this->respondSuccess(['checks' => $checks]);
+    }
+
+    /**
+     * Tasks a post-incident restore left to the site owner, until marked done.
+     *
+     * @param bool $dbOk The database answered.
+     * @return array{name: string, status: string, detail: string, items?: array<int, string>}
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-post-incident-mode
+     */
+    protected function backupPostIncidentCheck(bool $dbOk): array
+    {
+        $pending = $dbOk ? \GP247\Core\Backup\Application\PostIncidentChecklist::pending() : null;
+        if ($pending === null) {
+            return $this->check('backup_post_incident_pending', 'pass', 'none');
+        }
+
+        return $this->check('backup_post_incident_pending', 'warn', 'after the post-incident restore of ' . (string) ($pending['at'] ?? '')
+            . ': put a new GP247_ENCRYPTION_KEY in .env (old one to GP247_ENCRYPTION_PREVIOUS_KEYS), run php artisan gp247:encryption-key-rotate, reinstall the code, change database / hosting passwords, then mark it done on the backup screen',
+            array_map('strval', \GP247\Core\Backup\Application\PostIncidentChecklist::TASKS));
     }
 
     /**

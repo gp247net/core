@@ -9,7 +9,7 @@ use RuntimeException;
  * screen and the CLI can explain it in the user's language (BK-4 / BK-5); the message is for logs.
  *
  * @aidlc-unit backup-restore
- * @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-restore-version-compatibility
+ * @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-restore-version-compatibility, US-backup-restore-cli-restore, US-backup-restore-import-archive, US-backup-restore-post-incident-mode
  * @aidlc-adr backup-restore_shadow-table-swap
  */
 final class RestoreRefused extends RuntimeException
@@ -33,6 +33,18 @@ final class RestoreRefused extends RuntimeException
     public const DRIVER_UNSUPPORTED = 'driver_unsupported';
     public const NOT_FOUND = 'not_found';
     public const NOT_CANCELLABLE = 'not_cancellable';
+    // Bolt BK-5: archives brought in, files, post-incident mode, CLI.
+    public const ORIGIN_UNVERIFIED = 'origin_unverified';
+    public const FILES_NOT_ALLOWED = 'files_not_allowed';
+    public const FILE_GROUP_UNKNOWN = 'file_group_unknown';
+    public const INTERACTIVE_ONLY = 'interactive_only';
+    public const ALREADY_IN_CATALOGUE = 'already_in_catalogue';
+    public const POST_INCIDENT_LEVEL = 'post_incident_level';
+    public const UPLOAD_TOO_LARGE = 'upload_too_large';
+    public const UPLOAD_OFFSET = 'upload_offset';
+    public const UPLOAD_UNKNOWN = 'upload_unknown';
+    public const DISK_SPACE = 'disk_space';
+    public const CONFIRMATION_REQUIRED = 'confirmation_required';
 
     /**
      * @param string               $reason  One of the constants.

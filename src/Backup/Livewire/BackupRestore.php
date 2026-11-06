@@ -9,7 +9,10 @@ use GP247\Core\Backup\Application\BackupFeature;
 use GP247\Core\Backup\Application\BackupNotifier;
 use GP247\Core\Backup\Application\DashboardStatus;
 use GP247\Core\Backup\Application\DataGroupRegistry;
+use GP247\Core\Backup\Application\ImportService;
 use GP247\Core\Backup\Application\RestoreService;
+use GP247\Core\Backup\Application\UploadSession;
+use GP247\Core\Backup\Http\UploadController;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\BackupSecret;
@@ -35,7 +38,11 @@ use Livewire\Component;
  * data, which must not travel in the component snapshot nor reach the operation log.
  *
  * @aidlc-unit backup-admin
- * @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-admin-step-up-auth
+ * BK-5: a `.gp247bak` file can be uploaded (in pieces, then imported with the password of the
+ * site that made it); an archive whose origin cannot be verified needs its own confirmation; the
+ * whole-database level offers the post-incident mode.
+ *
+ * @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-admin-step-up-auth, US-backup-restore-import-archive, US-backup-restore-post-incident-mode
  * @aidlc-adr backup-restore_shadow-table-swap
  */
 class BackupRestore extends Component
@@ -59,6 +66,10 @@ class BackupRestore extends Component
     public string $restoreSecret = '';
     public bool $restoreWithRecovery = false;
     public string $confirmText = '';
+    /** The person confirmed restoring an archive whose origin cannot be verified. */
+    public bool $acceptUnverified = false;
+    /** Whole database only: end sessions, revoke tokens, require new passwords afterwards. */
+    public bool $postIncident = false;
 
     /** Fingerprint of the plan the preview in the session belongs to. */
     public ?string $previewFor = null;
@@ -81,7 +92,7 @@ class BackupRestore extends Component
      */
     public function updated(string $property): void
     {
-        if (in_array(explode('.', $property)[0], ['archiveId', 'level', 'groups', 'undeleteTable'], true)) {
+        if (in_array(explode('.', $property)[0], ['archiveId', 'level', 'groups', 'undeleteTable', 'acceptUnverified', 'postIncident'], true)) {
             $this->forgetPreview();
         }
     }
@@ -97,7 +108,7 @@ class BackupRestore extends Component
         }
         try {
             $plan = $this->plan(forPreview: true);
-            $preview = $this->service()->preview($plan, $this->secret(), $this->operator());
+            $preview = $this->service()->preview($plan, $this->secret(), $this->operator(), $this->options());
         } catch (RestoreRefused $e) {
             $this->refused('restore_preview', $e->reason, ['archive_id' => $this->archiveId, 'level' => $this->level]);
 
@@ -145,7 +156,7 @@ class BackupRestore extends Component
             $started = $this->service()->start($this->plan(), $this->secret(), [
                 'operator' => $this->operator(),
                 'created_by' => (string) $admin->username,
-            ]);
+            ] + $this->options());
         } catch (RestoreRefused $e) {
             $this->refused('restore', $e->reason, ['archive_id' => $this->archiveId, 'level' => $this->level]);
 
@@ -171,6 +182,81 @@ class BackupRestore extends Component
         BackupAudit::record('restore', BackupAudit::OK, ['archive_id' => $this->archiveId, 'level' => $this->level, 'job_id' => $this->jobId]);
         app(BackupNotifier::class)->restoreStarted($this->archiveId, $this->level, (string) $admin->username);
         $this->notice('admin.backup.restore.started');
+        $this->dispatch('gp247-backup-run');
+    }
+
+    /**
+     * Begin an upload of a `.gp247bak` file; the browser then sends it in pieces to the upload
+     * route and calls importUpload().
+     *
+     * @param int $size Bytes of the chosen file.
+     * @return array{id: string, url: string, chunk: int}|null Null when refused (notice shown) or
+     *                                                          when the sign-in must be re-confirmed first.
+     *
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    public function prepareUpload(int $size): ?array
+    {
+        $this->authorizeRestore('upload');
+        if (!$this->requireStepUp('prepareUpload', [$size])) {
+            return null;
+        }
+        try {
+            $id = (new UploadSession)->begin($size, (string) admin()->user()->id, (string) session()->getId());
+        } catch (RestoreRefused $e) {
+            $this->refused('upload', $e->reason);
+
+            return null;
+        }
+        BackupAudit::record('upload', BackupAudit::OK, ['size' => $size]);
+
+        return ['id' => $id, 'url' => gp247_route_admin(UploadController::ROUTE, ['upload' => $id]), 'chunk' => UploadSession::chunkBytes()];
+    }
+
+    /**
+     * The upload is complete: open it with the password / recovery key typed above (of the site
+     * that made it) and start the import job (unpack, signature or "unverified", full check).
+     *
+     * @param string $uploadId
+     * @return void
+     *
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    public function importUpload(string $uploadId): void
+    {
+        $this->authorizeRestore('import');
+        if (!$this->requireStepUp('importUpload', [$uploadId])) {
+            return;
+        }
+        $uploads = new UploadSession;
+        $adminId = (string) admin()->user()->id;
+        try {
+            $path = $uploads->complete($uploadId, $adminId);
+            $started = (new ImportService)->start($path, true, $this->secret(), ['created_by' => (string) admin()->user()->username]);
+        } catch (RestoreRefused $e) {
+            // A wrong / busy moment keeps the upload for another try; a file that can never be
+            // imported goes (ImportService already removed it).
+            if ($e->reason === RestoreRefused::ALREADY_IN_CATALOGUE) {
+                $uploads->discard($uploadId, $adminId);
+            }
+            $this->refused('import', $e->reason);
+
+            return;
+        } catch (WrongBackupSecret $e) {
+            $this->refused('import', 'wrong_secret');
+
+            return;
+        } catch (ArchiveRejected $e) {
+            $uploads->discard($uploadId, $adminId);
+            $this->refused('import', 'archive_rejected');
+
+            return;
+        }
+        $uploads->forget($uploadId);
+        $this->restoreSecret = '';
+        $this->jobId = (int) $started['job_id'];
+        BackupAudit::record('import_start', BackupAudit::OK, ['archive_id' => $started['archive_id'], 'job_id' => $this->jobId]);
+        $this->notice('admin.backup.import.started');
         $this->dispatch('gp247-backup-run');
     }
 
@@ -240,6 +326,8 @@ class BackupRestore extends Component
             'last' => $service->last(),
             'undoPoint' => $service->undoPoint(),
             'job' => (new DashboardStatus)->activeJob(),
+            'lastImport' => $this->lastImport(),
+            'uploadMaxBytes' => UploadSession::maxBytes(),
             'stepUpNeedsCode' => $this->stepUpOpen && $this->stepUpNeedsCode(),
             'tickUrl' => gp247_route_admin('admin.backup.restore_tick'),
         ])->layout('gp247-admin::layouts.admin', [
@@ -252,7 +340,27 @@ class BackupRestore extends Component
      */
     protected function stepUpActions(): array
     {
-        return ['preview', 'start', 'undo'];
+        return ['preview', 'start', 'undo', 'prepareUpload', 'importUpload'];
+    }
+
+    /**
+     * @return array<string, bool> Options of the BK-5 confirmations, passed to preview and start.
+     */
+    private function options(): array
+    {
+        return ['accept_unverified' => $this->acceptUnverified, 'post_incident' => $this->postIncident && $this->level === RestorePlan::FULL];
+    }
+
+    /**
+     * @return array{status: string, archive_id: string|null, origin: string|null, error: string|null}|null
+     *         Latest import (upload or command line), for the result line.
+     */
+    private function lastImport(): ?array
+    {
+        $id = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'backup_job')
+            ->where('type', Archive::JOB_IMPORT)->orderByDesc('id')->value('id');
+
+        return $id === null ? null : (new ImportService)->result((int) $id);
     }
 
     /**
@@ -302,7 +410,7 @@ class BackupRestore extends Component
      */
     private function fingerprint(): string
     {
-        return hash('sha256', json_encode([$this->archiveId, $this->level, array_values($this->groups), $this->undeleteTable, (string) admin()->user()?->id]));
+        return hash('sha256', json_encode([$this->archiveId, $this->level, array_values($this->groups), $this->undeleteTable, (string) admin()->user()?->id, $this->options()]));
     }
 
     /**

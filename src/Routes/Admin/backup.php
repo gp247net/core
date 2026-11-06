@@ -2,6 +2,7 @@
 
 use GP247\Core\Backup\Http\DownloadController;
 use GP247\Core\Backup\Http\TickController;
+use GP247\Core\Backup\Http\UploadController;
 use GP247\Core\Backup\Livewire\BackupDashboard;
 use GP247\Core\Backup\Livewire\BackupRestore;
 use GP247\Core\Backup\Livewire\BackupSettings;
@@ -20,5 +21,9 @@ Route::group(['prefix' => 'backup'], function () {
         ->name('admin.backup.download');
     Route::get('restore', gp247_namespace(BackupRestore::class))->name('admin.backup.restore');
     Route::post('restore/tick', gp247_namespace(TickController::class))->name(TickController::ROUTE_RESTORE);
+    // BK-5: pieces of a .gp247bak upload (begun by the restore screen after re-confirmation).
+    Route::post('restore/upload/{upload}', gp247_namespace(UploadController::class))
+        ->where('upload', '[0-9a-f]{32}')
+        ->name(UploadController::ROUTE);
     Route::get('settings', gp247_namespace(BackupSettings::class))->name('admin.backup.settings');
 });

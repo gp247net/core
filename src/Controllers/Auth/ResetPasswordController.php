@@ -132,6 +132,10 @@ class ResetPasswordController extends RootAdminController
     protected function setUserPassword($user, $password)
     {
         $user->password = gp247_password_hash($password);
+        // A new password chosen through a reset link also ends a post-incident "change it" flag.
+        if (!empty($user->password_change_required)) {
+            $user->password_change_required = 0;
+        }
     }
 
     protected function guard()

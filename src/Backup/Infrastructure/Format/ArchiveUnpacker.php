@@ -10,7 +10,8 @@ use GP247\Core\Backup\Domain\PackFormat;
  * archive may hold are accepted, each once and in order, with the size limits of the archive
  * reader; a missing end entry, a wrong entry count or hash, or trailing bytes reject the file and
  * leave nothing in the target directory. What is unpacked is still checked by ArchiveReader
- * (signature, hashes, AES-GCM) before any of it is trusted. Wired to uploads in BK-5.
+ * (signature, hashes, AES-GCM) before any of it is trusted. One pass (tests, tools); the import
+ * job goes through ResumableUnpacker, which shares the checks below.
  *
  * @aidlc-unit backup-admin
  * @aidlc-story US-backup-admin-signed-download
@@ -19,6 +20,9 @@ use GP247\Core\Backup\Domain\PackFormat;
 final class ArchiveUnpacker
 {
     private const CHUNK = 1_048_576;
+
+    /** Most parts a packed archive may hold (16 MiB each ⇒ 1 TiB); bounds the work of a crafted file. */
+    public const MAX_PARTS = 65_536;
 
     /**
      * @param string $file   Packed file.
@@ -82,9 +86,16 @@ final class ArchiveUnpacker
      * @param string|null  $lastPart Previous part name (parts come in ascending order).
      * @return void
      * @throws ArchiveRejected
+     * @internal Shared with ResumableUnpacker so both accept exactly the same files.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive
      */
-    private static function checkEntry(int $type, string $name, int $size, int $expected, array $written, ?string $lastPart): void
+    public static function checkEntry(int $type, string $name, int $size, int $expected, array $written, ?string $lastPart): void
     {
+        if ($type === PackFormat::PART && (int) substr($name, 5, 6) > self::MAX_PARTS) {
+            throw new ArchiveRejected(ArchiveRejected::PACK_CORRUPT, 'too many parts');
+        }
         $limit = match ($type) {
             PackFormat::HEADER => ArchiveReader::MAX_HEADER_BYTES,
             PackFormat::MANIFEST => ArchiveReader::MAX_MANIFEST_BYTES,
@@ -103,8 +114,9 @@ final class ArchiveUnpacker
      * @param int              $expected
      * @return void
      * @throws ArchiveRejected
+     * @internal Shared with ResumableUnpacker.
      */
-    private static function checkEnd($in, \HashContext $hash, int $count, int $expected): void
+    public static function checkEnd($in, \HashContext $hash, int $count, int $expected): void
     {
         $nameLength = unpack('n', self::read($in, 2, null))[1];
         $size = unpack('J', self::read($in, 8, null))[1];
@@ -127,8 +139,9 @@ final class ArchiveUnpacker
      * @param \HashContext|null $hash
      * @return string Exactly $length bytes.
      * @throws ArchiveRejected pack_truncated
+     * @internal Shared with ResumableUnpacker.
      */
-    private static function read($in, int $length, ?\HashContext $hash): string
+    public static function read($in, int $length, ?\HashContext $hash): string
     {
         $out = '';
         while (strlen($out) < $length) {

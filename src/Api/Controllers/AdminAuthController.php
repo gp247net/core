@@ -92,6 +92,11 @@ class AdminAuthController extends RootAdminController
         if (!$this->guard()->attempt($credentials)) {
             return ApiErrorResponder::respond(401, 'unauthenticated', 'Unauthorized');
         }
+        // After a post-incident restore the (possibly stolen) old password opens nothing until a
+        // new one is chosen on the admin screen (US-backup-restore-post-incident-mode).
+        if (!empty($this->guard()->user()->password_change_required)) {
+            return ApiErrorResponder::respond(403, 'password_change_required', 'Choose a new password on the admin screen first');
+        }
 
         return $this->guard()->user();
     }

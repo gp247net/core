@@ -66,6 +66,11 @@ final class RestoreWatchdog
                 $ended[] = (int) $job->id;
             }
         }
+        foreach ($this->jobs->activeOfType(Archive::JOB_IMPORT) as $job) {
+            if ($this->endImportIfStale($job)) {
+                $ended[] = (int) $job->id;
+            }
+        }
 
         $released = false;
         $guard = app(MaintenanceGuard::class);
@@ -76,6 +81,35 @@ final class RestoreWatchdog
         }
 
         return ['ended' => $ended, 'maintenance_released' => $released];
+    }
+
+    /**
+     * An import nobody drives any more (the tab was closed) would block every backup and restore:
+     * once its data key outlived its window it is ended and its unpacked copy removed.
+     *
+     * @param object $job Active import job.
+     * @return bool It was ended.
+     *
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    private function endImportIfStale(object $job): bool
+    {
+        try {
+            $cursor = $this->jobs->cursor($job);
+        } catch (\Throwable $e) {
+            $cursor = [];
+        }
+        if ($cursor !== [] && now()->getTimestamp() - (int) ($cursor['started'] ?? 0) <= RestoreStep::KEY_TTL_SECONDS) {
+            return false;
+        }
+        $owner = bin2hex(random_bytes(16));
+        if (!$this->jobs->acquire((int) $job->id, $owner, now()->addSeconds(self::LEASE_SECONDS))
+            || !$this->jobs->finish((int) $job->id, $owner, Archive::JOB_FAILED, 'import: key_expired')) {
+            return false;
+        }
+        (new ImportStep($this->jobs, new \GP247\Core\Backup\Infrastructure\Store\ArchiveRepository, new KeyService, app(LocalVault::class)))->abort($cursor);
+
+        return true;
     }
 
     /**

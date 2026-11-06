@@ -23,6 +23,8 @@ final class Archive
     public const REASON_MANUAL = 'manual';
     public const REASON_SCHEDULED = 'scheduled';
     public const REASON_PRE_CHANGE = 'pre_change:';
+    /** Archive brought in from a file or an upload (BK-5); its date is the original one. */
+    public const REASON_IMPORT = 'import';
 
     public const STATUS_RUNNING = 'running';
     public const STATUS_VERIFYING = 'verifying';

@@ -10,6 +10,7 @@ use GP247\Core\Backup\Application\BackupFeature;
 use GP247\Core\Backup\Application\BackupService;
 use GP247\Core\Backup\Application\DashboardStatus;
 use GP247\Core\Backup\Application\DataGroupRegistry;
+use GP247\Core\Backup\Application\PostIncidentChecklist;
 use GP247\Core\Backup\Application\DownloadTokenService;
 use GP247\Core\Backup\Application\KeyService;
 use GP247\Core\Backup\Domain\Archive;
@@ -345,11 +346,29 @@ class BackupDashboard extends Component
                 'settings' => BackupAccess::allows(BackupAccess::SETTINGS),
             ],
             'staleHours' => DashboardStatus::staleHours(),
+            'postIncident' => PostIncidentChecklist::pending(),
             'stepUpNeedsCode' => $this->stepUpOpen && $this->stepUpNeedsCode(),
             'tickUrl' => gp247_route_admin('admin.backup.tick'),
         ])->layout('gp247-admin::layouts.admin', [
             'title' => gp247_language_render('admin.backup.title'),
         ]);
+    }
+
+    /**
+     * The tasks left by a post-incident restore are done (Administrator).
+     *
+     * @return void
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-post-incident-mode
+     */
+    public function markPostIncidentDone(): void
+    {
+        $this->authorizeAdministrator('post_incident_done');
+        if (PostIncidentChecklist::markDone((string) admin()->user()->username)) {
+            BackupAudit::record('post_incident_done', BackupAudit::OK);
+            $this->notice('admin.backup.post_incident.marked_done');
+        }
     }
 
     /**

@@ -4,11 +4,12 @@
     the confirmation → follow the job → undo while the old tables are kept.
 
     @aidlc-unit backup-admin
-    @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database
+    @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-restore-import-archive, US-backup-restore-post-incident-mode
     @aidlc-adr backup-restore_shadow-table-swap
 
     Variables: $enabled, $archives (Collection), $selected (row|null), $groups (key => DataGroup),
-    $preview (array|null), $last (array|null), $undoPoint (array|null), $job (array|null), $stepUpNeedsCode, $tickUrl.
+    $preview (array|null), $last (array|null), $undoPoint (array|null), $job (array|null), $stepUpNeedsCode, $tickUrl,
+    $lastImport (array|null), $uploadMaxBytes (int) — BK-5.
 --}}
 @php($inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100')
 <div class="space-y-6" data-testid="backup-restore-page">
@@ -27,15 +28,23 @@
         <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-restore-last">{{ gp247_language_render('admin.backup.restore.last', ['status' => gp247_language_render('admin.backup.restore.status_' . preg_replace('/[^a-z_]/', '', (string) ($last['status'] ?? ''))), 'archive' => (string) ($last['archive_id'] ?? '')]) }}</p>
     @endif
 
-    @if ($job && $job['type'] === 'restore')
-        <x-gp247::card :title="gp247_language_render('admin.backup.job.restore')" data-testid="backup-restore-job">
+    @if ($job && in_array($job['type'], ['restore', 'import'], true))
+        <x-gp247::card :title="gp247_language_render('admin.backup.job.' . $job['type'])" data-testid="backup-restore-job">
             <p class="text-sm text-gray-700 dark:text-gray-200">
                 @if ($job['percent'] !== null){{ $job['percent'] }}% · @endif{{ $job['phase'] }}
             </p>
-            <x-gp247::button size="sm" variant="secondary" class="mt-2" wire:click="cancelRestore" data-testid="backup-restore-cancel">{{ gp247_language_render('admin.backup.job.cancel') }}</x-gp247::button>
+            @if ($job['type'] === 'restore')
+                <x-gp247::button size="sm" variant="secondary" class="mt-2" wire:click="cancelRestore" data-testid="backup-restore-cancel">{{ gp247_language_render('admin.backup.job.cancel') }}</x-gp247::button>
+            @endif
         </x-gp247::card>
     @endif
-    @include('gp247-admin::backup.partials.runner', ['tickUrl' => $tickUrl, 'active' => $job && $job['type'] === 'restore'])
+    @include('gp247-admin::backup.partials.runner', ['tickUrl' => $tickUrl, 'active' => $job && in_array($job['type'], ['restore', 'import'], true)])
+    @if ($lastImport && $lastImport['status'] !== 'running')
+        <p class="text-sm {{ $lastImport['status'] === 'done' ? 'text-gray-600 dark:text-gray-300' : 'text-red-600' }}" data-testid="backup-restore-last-import">
+            {{ gp247_language_render('admin.backup.import.last_' . ($lastImport['status'] === 'done' ? 'done' : 'failed'), ['archive' => (string) ($lastImport['archive_id'] ?? ''), 'reason' => (string) ($lastImport['error'] ?? '')]) }}
+            @if (($lastImport['origin'] ?? null) === 'unverified') · {{ gp247_language_render('admin.backup.origin.unverified_short') }} @endif
+        </p>
+    @endif
 
     <x-gp247::card :title="gp247_language_render('admin.backup.restore.title')" :subtitle="gp247_language_render('admin.backup.restore.subtitle')">
         <x-slot:actions>
@@ -62,6 +71,27 @@
                 </select>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.backup.restore.level_' . $level . '_help') }}</p>
             </div>
+
+            @if (($selected && $selected->origin === 'unverified') || (($preview['origin']['origin'] ?? null) === 'unverified'))
+                <div style="grid-column: 1 / -1">
+                    <x-gp247::alert type="warning" data-testid="backup-restore-origin-unverified">{{ gp247_language_render('admin.backup.origin.unverified') }}</x-gp247::alert>
+                    <label class="mt-2 inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                        <x-gp247::checkbox wire:model.live="acceptUnverified" data-testid="backup-restore-accept-unverified" />
+                        {{ gp247_language_render('admin.backup.origin.accept') }}
+                    </label>
+                </div>
+            @endif
+            @if ($level === 'full')
+                <div style="grid-column: 1 / -1">
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                        <x-gp247::checkbox wire:model.live="postIncident" data-testid="backup-restore-post-incident" />
+                        {{ gp247_language_render('admin.backup.post_incident.option') }}
+                    </label>
+                    @if ($postIncident)
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" data-testid="backup-restore-post-incident-help">{{ gp247_language_render('admin.backup.post_incident.option_help') }}</p>
+                    @endif
+                </div>
+            @endif
 
             @if ($level === 'replace')
                 <div class="grid grid-cols-2 gap-2" style="grid-column: 1 / -1" data-testid="backup-restore-groups">
@@ -94,6 +124,9 @@
     @if ($preview)
         <x-gp247::card :title="gp247_language_render('admin.backup.restore.preview_title')" data-testid="backup-restore-preview-result">
             <div class="space-y-4">
+                @if (!empty($preview['post_incident']))
+                    <x-gp247::alert type="warning" data-testid="backup-restore-post-incident-preview">{{ gp247_language_render('admin.backup.post_incident.preview') }}</x-gp247::alert>
+                @endif
                 @foreach ((array) ($preview['refusals'] ?? []) as $refusal)
                     <x-gp247::alert type="error" data-testid="backup-restore-refusal-{{ $refusal }}">{{ gp247_language_render('admin.backup.refused.' . $refusal) }}</x-gp247::alert>
                 @endforeach
@@ -169,6 +202,47 @@
             </div>
         </x-gp247::card>
     @endif
+
+    {{-- Bring in a .gp247bak file (US-backup-restore-import-archive): sent in small pieces, then
+         opened with the password / recovery key typed above — of the site that made it. --}}
+    <x-gp247::card :title="gp247_language_render('admin.backup.import.title')" :subtitle="gp247_language_render('admin.backup.import.subtitle', ['max' => (string) intdiv($uploadMaxBytes, 1048576)])" data-testid="backup-restore-upload">
+        <div wire:ignore
+            x-data="{
+                file: null, sent: 0, total: 0, busy: false, error: '',
+                max: @js($uploadMaxBytes),
+                csrf: @js(csrf_token()),
+                async upload() {
+                    if (!this.file || this.busy) return;
+                    this.error = '';
+                    if (this.file.size > this.max) { this.error = 'upload_too_large'; return; }
+                    this.busy = true;
+                    try {
+                        const plan = await $wire.prepareUpload(this.file.size);
+                        if (!plan) { this.busy = false; return; }
+                        this.total = this.file.size; this.sent = 0;
+                        let retries = 0;
+                        while (this.sent < this.total) {
+                            const piece = this.file.slice(this.sent, Math.min(this.total, this.sent + plan.chunk));
+                            const r = await fetch(plan.url, { method: 'POST', credentials: 'same-origin', body: piece, headers: { 'X-CSRF-TOKEN': this.csrf, 'X-Upload-Offset': String(this.sent), 'Content-Type': 'application/octet-stream', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                            const d = await r.json().catch(() => ({}));
+                            if (r.status === 409 && typeof d.received === 'number' && retries++ < 3) { this.sent = d.received; continue; }
+                            if (!r.ok) { this.error = d.error || 'upload_failed'; break; }
+                            this.sent = d.received; retries = 0;
+                        }
+                        if (this.sent === this.total && !this.error) { await $wire.importUpload(plan.id); }
+                    } catch (e) { this.error = 'upload_failed'; }
+                    this.busy = false;
+                }
+            }" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <p class="text-sm text-gray-600 dark:text-gray-300" style="grid-column: 1 / -1">{{ gp247_language_render('admin.backup.import.help') }}</p>
+            <input type="file" accept=".gp247bak" x-on:change="file = $event.target.files[0] || null" class="{{ $inputCls }}" data-testid="backup-restore-upload-file" />
+            <div class="flex items-center gap-2">
+                <x-gp247::button x-on:click="upload()" x-bind:disabled="!file || busy" :disabled="!$enabled" data-testid="backup-restore-upload-start">{{ gp247_language_render('admin.backup.import.start') }}</x-gp247::button>
+                <span class="text-xs text-gray-500 dark:text-gray-400" x-show="busy" x-text="total ? Math.floor(100 * sent / total) + '%' : ''" data-testid="backup-restore-upload-progress"></span>
+            </div>
+            <p class="text-sm text-red-600" x-show="error" x-text="@js(gp247_language_render('admin.backup.import.upload_failed')) + ' (' + error + ')'" data-testid="backup-restore-upload-error" style="grid-column: 1 / -1"></p>
+        </div>
+    </x-gp247::card>
 
     @include('gp247-admin::backup.partials.step-up')
 </div>

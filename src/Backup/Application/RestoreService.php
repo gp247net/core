@@ -3,6 +3,7 @@
 namespace GP247\Core\Backup\Application;
 
 use GP247\Core\Backup\Domain\Archive;
+use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\BackupSecret;
 use GP247\Core\Backup\Domain\RestorePlan;
 use GP247\Core\Backup\Domain\RestoreRefused;
@@ -30,7 +31,7 @@ use Illuminate\Support\Facades\DB;
  * ends) — never the password nor the site private key.
  *
  * @aidlc-unit backup-restore
- * @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-restore-version-compatibility
+ * @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-restore-version-compatibility, US-backup-restore-cli-restore, US-backup-restore-post-incident-mode
  * @aidlc-adr backup-restore_shadow-table-swap
  */
 final class RestoreService
@@ -75,15 +76,18 @@ final class RestoreService
      * @param RestorePlan          $plan
      * @param BackupSecret         $secret   Backup password or recovery key.
      * @param array<string, mixed> $operator ['id', 'username'] of the admin restoring.
-     * @return array<string, mixed> See RestorePlanner::inspect(); undelete adds "undelete" (candidates).
+     * @param array<string, mixed> $options  accept_unverified (bool), post_incident (bool) — see start().
+     * @return array<string, mixed> See RestorePlanner::inspect(); undelete adds "undelete" (candidates);
+     *                              BK-5 adds "origin" and "post_incident".
      * @throws RestoreRefused
      */
-    public function preview(RestorePlan $plan, #[\SensitiveParameter] BackupSecret $secret, array $operator = []): array
+    public function preview(RestorePlan $plan, #[\SensitiveParameter] BackupSecret $secret, array $operator = [], array $options = []): array
     {
         [$archive, $dir] = $this->source($plan);
-        $reader = ArchiveReader::open($dir, $secret, $this->keys);
+        $origin = $this->archiveOrigin($archive, $dir);
+        $reader = ArchiveReader::open($dir, $secret, $this->keys, $origin['origin']);
 
-        return $this->inspect($plan, $reader, $archive, $operator)['preview'];
+        return $this->withBk5Notes($this->inspect($plan, $reader, $archive, $operator)['preview'], $plan, $origin, $options);
     }
 
     /**
@@ -91,7 +95,9 @@ final class RestoreService
      *
      * @param RestorePlan          $plan
      * @param BackupSecret         $secret
-     * @param array<string, mixed> $options operator (['id', 'username']), created_by.
+     * @param array<string, mixed> $options operator (['id', 'username']), created_by;
+     *                                      accept_unverified: the person confirmed restoring an archive whose origin cannot be verified;
+     *                                      post_incident: full level only — sessions, tokens, passwords after the tables are in place.
      * @return array{job_id: int, preview: array, maintenance_secret: string|null}
      *         maintenance_secret: bypass secret of the maintenance mode of a full restore — the admin
      *         screen turns it into the cookie of the person restoring (BK-4), never logs it.
@@ -101,10 +107,11 @@ final class RestoreService
     {
         (new ShadowJanitor($this->jobs, $this->ledger, $this->registry))->sweep();
         [$archive, $dir] = $this->source($plan);
-        $dek = ArchiveReader::dataKey($dir, $secret, $this->keys);
-        $reader = ArchiveReader::openWithDataKey($dir, $dek, $this->keys->signingKey());
+        $origin = $this->archiveOrigin($archive, $dir);
+        $dek = ArchiveReader::dataKey($dir, $secret, $this->keys, $origin['origin']);
+        $reader = ArchiveReader::openWithDataKey($dir, $dek, $origin['origin'] === ArchiveReader::ORIGIN_SITE ? $this->keys->signingKey() : null, $origin['origin']);
         $inspected = $this->inspect($plan, $reader, $archive, (array) ($options['operator'] ?? []));
-        $preview = $inspected['preview'];
+        $preview = $this->withBk5Notes($inspected['preview'], $plan, $origin, $options);
         if ($preview['refusals'] !== []) {
             throw new RestoreRefused($preview['refusals'][0], '', ['preview' => $preview]);
         }
@@ -129,6 +136,8 @@ final class RestoreService
             'created' => false,
             'expected' => [],
             'maintenance_secret' => $maintenanceSecret,
+            'origin' => $origin['origin'],
+            'post_incident' => !empty($options['post_incident']),
             'created_by' => isset($options['created_by']) ? mb_substr((string) $options['created_by'], 0, 100) : null,
         ];
 
@@ -260,6 +269,54 @@ final class RestoreService
         RestorePlanner::assertSource($plan, $archive);
 
         return [$archive, $this->vault->archiveDir($plan->archiveId)];
+    }
+
+    /**
+     * How the archive's origin can be checked here. A catalogue archive of this site whose
+     * signature cannot be checked because the signing key is unreadable (the site lost the key it
+     * was encrypted with) is treated as "unverified"; a signature that does NOT match on an
+     * archive of this site means the file was changed — refused, never downgraded.
+     *
+     * @param object $archive Catalogue row.
+     * @param string $dir
+     * @return array{origin: string, reason: string|null}
+     * @throws ArchiveRejected signature_mismatch
+     *
+     * @aidlc-story US-backup-restore-import-archive, US-backup-restore-cli-restore
+     */
+    public function archiveOrigin(object $archive, string $dir): array
+    {
+        return ArchiveOrigin::of($archive, $dir, $this->keys);
+    }
+
+    /**
+     * Origin warning, post-incident notes and the refusals they bring (BK-5).
+     *
+     * @param array<string, mixed>                       $preview
+     * @param RestorePlan                                $plan
+     * @param array{origin: string, reason: string|null} $origin
+     * @param array<string, mixed>                       $options
+     * @return array<string, mixed>
+     *
+     * @aidlc-story US-backup-restore-import-archive, US-backup-restore-post-incident-mode
+     */
+    private function withBk5Notes(array $preview, RestorePlan $plan, array $origin, array $options): array
+    {
+        $postIncident = !empty($options['post_incident']);
+        $preview['origin'] = $origin;
+        $preview['post_incident'] = $postIncident ? [
+            'steps' => ['sessions', 'remember', 'tokens', 'password'],
+            'tasks' => PostIncidentChecklist::TASKS,
+        ] : null;
+        if ($origin['origin'] === ArchiveReader::ORIGIN_UNVERIFIED && empty($options['accept_unverified'])) {
+            $preview['refusals'][] = RestoreRefused::ORIGIN_UNVERIFIED;
+        }
+        if ($postIncident && $plan->level !== RestorePlan::FULL) {
+            $preview['refusals'][] = RestoreRefused::POST_INCIDENT_LEVEL;
+        }
+        $preview['refusals'] = array_values(array_unique($preview['refusals']));
+
+        return $preview;
     }
 
     /**

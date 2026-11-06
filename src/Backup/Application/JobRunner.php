@@ -35,6 +35,7 @@ final class JobRunner
     private BackupStep $backupStep;
     private VerifyStep $verifyStep;
     private RestoreStep $restoreStep;
+    private ImportStep $importStep;
 
     /**
      * @param JobRepository|null     $jobs
@@ -58,6 +59,7 @@ final class JobRunner
         $this->backupStep = new BackupStep($this->jobs, $this->archives, $keys, $this->vault);
         $this->verifyStep = new VerifyStep($this->jobs, $this->archives, $keys, $this->vault, $retention);
         $this->restoreStep = new RestoreStep($this->jobs, $keys, $this->vault, new RestoreLedger);
+        $this->importStep = new ImportStep($this->jobs, $this->archives, $keys, $this->vault);
     }
 
     /**
@@ -100,6 +102,7 @@ final class JobRunner
                     Archive::JOB_BACKUP => $this->backupStep->run($job, $slice),
                     Archive::JOB_VERIFY => $this->verifyStep->run($job, $slice),
                     Archive::JOB_RESTORE => $this->restoreStep->run($job, $slice),
+                    Archive::JOB_IMPORT => $this->importStep->run($job, $slice),
                     default => throw new \RuntimeException('Unknown job type.'),
                 };
             } catch (LeaseLost $e) {
@@ -126,7 +129,7 @@ final class JobRunner
                 return $this->result('running', $job);
             }
             $this->announce($job);
-            $next = $job->archive_id === null || $job->type === Archive::JOB_RESTORE ? null : ($this->jobs->activeFor((string) $job->archive_id)[0] ?? null);
+            $next = $job->archive_id === null || self::isSiteJob($job) ? null : ($this->jobs->activeFor((string) $job->archive_id)[0] ?? null);
             if ($next === null || microtime(true) >= $deadline) {
                 return $this->result($next === null ? $this->outcome($job) : 'running', $job);
             }
@@ -156,7 +159,7 @@ final class JobRunner
      */
     private function fail(object $job, string $owner, string $error): void
     {
-        $restore = $job->type === Archive::JOB_RESTORE;
+        $restore = self::isSiteJob($job);
         // Read again, and before finish() clears it: the slice that just failed may have moved
         // the restore on (up to the rename) since the row this runner holds was fetched.
         $cursor = $restore ? $this->restoreCursor($this->jobs->find((int) $job->id) ?? $job) : [];
@@ -174,7 +177,13 @@ final class JobRunner
         if (!$ended) {
             return;
         }
-        if ($restore) {
+        if ($job->type === Archive::JOB_IMPORT) {
+            try {
+                $this->importStep->abort($cursor);
+            } catch (\Throwable $e) {
+                BackupLog::failure('Import job ' . $job->id . ' could not be cleaned up: ' . self::describe($e));
+            }
+        } elseif ($restore) {
             try {
                 $this->restoreStep->abort($job, $cursor, $error);
             } catch (\Throwable $e) {
@@ -227,7 +236,7 @@ final class JobRunner
      */
     private function leaseLost(object $job): array
     {
-        if ($job->type === Archive::JOB_RESTORE) {
+        if (self::isSiteJob($job)) {
             return $this->result('busy', $job);
         }
         $archive = $job->archive_id === null ? null : $this->archives->find((string) $job->archive_id);
@@ -246,7 +255,7 @@ final class JobRunner
      */
     private function outcome(object $job): string
     {
-        if ($job->type === Archive::JOB_RESTORE) {
+        if (self::isSiteJob($job)) {
             $status = $this->jobs->find((int) $job->id)->status ?? $job->status;
 
             return match (true) {
@@ -266,8 +275,23 @@ final class JobRunner
     }
 
     /**
+     * A restore or an import: its outcome is the job's status, and it never marks a catalogue
+     * archive broken when it fails.
+     *
      * @param object $job
-     * @return array<string, mixed> Cursor of a restore job, empty when unreadable.
+     * @return bool
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    private static function isSiteJob(object $job): bool
+    {
+        return in_array($job->type, [Archive::JOB_RESTORE, Archive::JOB_IMPORT], true);
+    }
+
+    /**
+     * @param object $job
+     * @return array<string, mixed> Cursor of a restore or import job, empty when unreadable.
      */
     private function restoreCursor(object $job): array
     {
@@ -289,6 +313,9 @@ final class JobRunner
         try {
             (new ShadowJanitor($this->jobs))->sweepExpired();
             (new RestoreWatchdog($this->jobs))->sweep();
+            // BK-5 leftovers: copies of overwritten files past their keep time, stale uploads.
+            (new FileRestoreService(null, $this->vault))->sweep();
+            (new UploadSession($this->vault))->sweep();
         } catch (\Throwable $e) {
             BackupLog::failure('Clean-up of restore copies failed: ' . self::describe($e));
         }

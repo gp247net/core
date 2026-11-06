@@ -57,10 +57,16 @@ class LocalVault
         if ($this->resolved !== null) {
             return $this->resolved;
         }
-        $root = $this->root ?? $this->configuredRoot();
+        $root = $this->root ?? $this->configuredOrDiscoveredRoot();
         self::assertOutsideWebRoot($root);
         self::ensureDirectory($root);
-        if ($this->root === null && self::configValue(self::CONFIG_PATH) === '') {
+        try {
+            $default = $this->root === null && self::configValue(self::CONFIG_PATH) === '';
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Configuration unreadable: the folder was found on disk under the default layout.
+            $default = $this->root === null;
+        }
+        if ($default) {
             // Default layout: also protect the shared parent (storage/app/private/gp247-backup).
             self::ensureDirectory(dirname($root));
         }
@@ -103,6 +109,87 @@ class LocalVault
             }
         }
         @rmdir($dir);
+    }
+
+    /**
+     * Folder for packed files being uploaded and archives being unpacked (BK-5). Inside the vault,
+     * so it shares the vault's protection; its entries are never ULID-named archive folders.
+     *
+     * @return string
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive, US-backup-restore-cli-restore
+     */
+    public function incomingDir(): string
+    {
+        $dir = $this->root() . DIRECTORY_SEPARATOR . 'incoming';
+        self::ensureDirectory($dir);
+
+        return $dir;
+    }
+
+    /**
+     * Folder that keeps the previous version of the files a restore overwrote (BK-5).
+     *
+     * @param int $jobId
+     * @return string Created.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive, US-backup-restore-cli-restore
+     */
+    public function restoreFilesDir(int $jobId): string
+    {
+        $parent = $this->root() . DIRECTORY_SEPARATOR . 'restore-files';
+        self::ensureDirectory($parent);
+        $dir = $parent . DIRECTORY_SEPARATOR . $jobId;
+        if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
+            throw new RuntimeException('Cannot create the restore copy directory.');
+        }
+
+        return $dir;
+    }
+
+    /**
+     * Move an unpacked, verified archive folder into the vault under its id.
+     *
+     * @param string $source    Folder inside incomingDir().
+     * @param string $archiveId
+     * @return void
+     * @throws RuntimeException When the id is already used or the folder cannot be moved.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive, US-backup-restore-cli-restore
+     */
+    public function adopt(string $source, string $archiveId): void
+    {
+        $target = $this->archiveDir($archiveId);
+        $incoming = self::normalise(realpath($this->incomingDir()) ?: $this->incomingDir());
+        if (!str_starts_with(self::normalise(realpath($source) ?: $source), $incoming . '/')) {
+            throw new RuntimeException('Only an unpacked upload can be adopted.');
+        }
+        if (file_exists($target) || !@rename($source, $target)) {
+            throw new RuntimeException('Cannot move the archive into the vault.');
+        }
+    }
+
+    /**
+     * @return list<string> ULID-named archive folders present in the vault.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive, US-backup-restore-cli-restore
+     */
+    public function archiveIds(): array
+    {
+        $ids = [];
+        foreach (scandir($this->root()) ?: [] as $entry) {
+            $path = $this->root() . DIRECTORY_SEPARATOR . $entry;
+            if (preg_match('/^[0-9A-Z]{26}$/D', $entry) === 1 && is_dir($path) && !is_link($path)) {
+                $ids[] = $entry;
+            }
+        }
+        sort($ids);
+
+        return $ids;
     }
 
     /**
@@ -195,6 +282,28 @@ class LocalVault
         }
 
         return array_values(array_unique($roots));
+    }
+
+    /**
+     * The configured vault, or — when the configuration cannot be read (damaged admin_config,
+     * BK-5 recovery from the command line) — the one default vault folder found on disk.
+     *
+     * @return string
+     * @throws RuntimeException When neither is available.
+     */
+    private function configuredOrDiscoveredRoot(): string
+    {
+        try {
+            return $this->configuredRoot();
+        } catch (\Illuminate\Database\QueryException $e) {
+            $base = storage_path('app' . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'gp247-backup');
+            $found = array_values(array_filter(@scandir($base) ?: [], fn ($d) => preg_match('/^[a-z0-9]{24}$/D', $d) === 1 && is_dir($base . DIRECTORY_SEPARATOR . $d)));
+            if (count($found) !== 1) {
+                throw new RuntimeException('The backup folder is not known: the configuration cannot be read.', 0, $e);
+            }
+
+            return $base . DIRECTORY_SEPARATOR . $found[0];
+        }
     }
 
     /**

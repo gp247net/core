@@ -32,7 +32,9 @@ use RuntimeException;
  *   refresh     configuration memo / caches cleared;
  *   update      (older archive) gp247:update in-process — run at most once, its failure reported;
  *   apply       (undelete) missing rows + child rows in one transaction, no renaming;
- *   finish      maintenance off, undo point + result recorded, job done.
+ *   finish      maintenance off, undo point + result recorded, job done; then, in post-incident
+ *               mode (full level), sessions end, tokens are revoked, new passwords are required —
+ *               last, after the data update, so ending the restoring admin's own session stops nothing.
  *
  * Before the rename nothing on the site has changed: any failure drops the shadows. The rename
  * is atomic, so once it happened the restore is applied: a later failure (caches, data update)
@@ -177,10 +179,12 @@ final class RestoreStep
         if (now()->getTimestamp() - (int) ($cursor['started'] ?? 0) > self::KEY_TTL_SECONDS) {
             throw new RestoreAborted('key_expired');
         }
+        $origin = ArchiveOrigin::normalise((string) ($cursor['origin'] ?? ''));
         $reader = ArchiveReader::openWithDataKey(
             $this->vault->archiveDir((string) $job->archive_id),
             (string) base64_decode((string) $cursor['dek'], true),
-            $this->keys->signingKey()
+            $origin === ArchiveReader::ORIGIN_SITE ? $this->keys->signingKey() : null,
+            $origin
         );
         // The header must be the one the restore was started on (same key, same wrapped data key).
         $header = $reader->header();
@@ -400,6 +404,12 @@ final class RestoreStep
     {
         $this->maintenanceOff($cursor);
         $swapping = $cursor['plan']['level'] !== RestorePlan::UNDELETE;
+        $postIncident = !empty($cursor['post_incident']) && $cursor['plan']['level'] === RestorePlan::FULL;
+        if ($postIncident) {
+            // Written first: a request dying inside the steps still leaves the reminder (screen, doctor).
+            $cursor['post_incident_result'] = [['step' => 'all', 'status' => 'failed', 'count' => 0, 'detail' => 'interrupted']];
+            PostIncidentChecklist::open((int) $job->id, $cursor['post_incident_result']);
+        }
         DB::connection(GP247_DB_CONNECTION)->transaction(function () use ($job, $slice, $cursor, $swapping) {
             if (!$this->jobs->finish((int) $job->id, $slice->owner, Archive::JOB_DONE)) {
                 throw new LeaseLost;
@@ -410,8 +420,29 @@ final class RestoreStep
             $this->ledger->recordLast($this->entry($job, $cursor, 'done', null));
         });
         $cursor['phase'] = 'done';
+        if ($postIncident) {
+            $this->postIncident($job, $cursor);
+        }
 
         return true;
+    }
+
+    /**
+     * Post-incident steps, after the job ended (nothing of the restore depends on the session of
+     * the person restoring any more). Each step is idempotent; the result goes to the checklist
+     * and the restore result.
+     *
+     * @param object               $job
+     * @param array<string, mixed> $cursor
+     * @return void
+     *
+     * @aidlc-story US-backup-restore-post-incident-mode
+     */
+    private function postIncident(object $job, #[\SensitiveParameter] array &$cursor): void
+    {
+        $cursor['post_incident_result'] = app(PostIncidentService::class)->run();
+        PostIncidentChecklist::open((int) $job->id, $cursor['post_incident_result']);
+        $this->ledger->recordLast($this->entry($job, $cursor, 'done', null));
     }
 
     /**
@@ -484,6 +515,8 @@ final class RestoreStep
             'compatibility' => (string) ($cursor['compatibility'] ?? ''),
             'update' => $cursor['update'] ?? null,
             'undelete' => $cursor['undelete'] ?? null,
+            'origin' => (string) ($cursor['origin'] ?? ArchiveReader::ORIGIN_SITE),
+            'post_incident' => $cursor['post_incident_result'] ?? null,
             'undo_replaced' => (array) ($cursor['undo_replaced'] ?? []),
             'swapped_at' => $cursor['swapped_at'] ?? null,
             'finished_at' => now()->toIso8601String(),

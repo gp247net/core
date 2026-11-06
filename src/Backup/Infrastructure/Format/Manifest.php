@@ -14,6 +14,9 @@ use GP247\Core\Backup\Domain\ArchiveRejected;
  */
 final class Manifest
 {
+    /** Dates written by the engine: now()->toIso8601String() / ISO 8601 with "Z". */
+    public const DATE_PATTERN = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/D';
+
     public const FORMAT_MAJOR = 1;
     public const FORMAT_MINOR = 1;
 
@@ -31,7 +34,8 @@ final class Manifest
         $format = $manifest['format'] ?? null;
         self::check(is_array($format) && ($format['major'] ?? null) === self::FORMAT_MAJOR && is_int($format['minor'] ?? null), 'format');
         self::check(($manifest['archive_id'] ?? null) === $archiveId, 'archive id');
-        self::check(is_string($manifest['created_at'] ?? null), 'created_at');
+        // A strict ISO-8601 date: the value is shown, stored and written into exports.
+        self::check(is_string($manifest['created_at'] ?? null) && preg_match(self::DATE_PATTERN, $manifest['created_at']) === 1, 'created_at');
         self::check(in_array($manifest['compression'] ?? null, ['gzip', 'none'], true), 'compression');
         self::check(is_array($manifest['meta'] ?? null), 'meta');
 

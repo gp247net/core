@@ -56,9 +56,10 @@ final class ArchiveActions
         $archive = $this->finished($archiveId);
         $dir = $this->vault->archiveDir((string) $archive->id);
         $header = json_decode((string) @file_get_contents($dir . '/header.json'), true);
-        $dek = ArchiveReader::dataKey($dir, $secret, $this->keys);
+        $origin = ArchiveOrigin::of($archive, $dir, $this->keys)['origin'];
+        $dek = ArchiveReader::dataKey($dir, $secret, $this->keys, $origin);
 
-        return DB::connection(GP247_DB_CONNECTION)->transaction(function () use ($archive, $header, $dek) {
+        return DB::connection(GP247_DB_CONNECTION)->transaction(function () use ($archive, $header, $dek, $origin) {
             if ($this->jobs->activeFor((string) $archive->id) !== []) {
                 throw new BackupRefused(BackupRefused::ALREADY_RUNNING);
             }
@@ -67,8 +68,30 @@ final class ArchiveActions
                 'dek' => base64_encode($dek),
                 'dek_wrapped' => is_array($header) ? ($header['dek'] ?? []) : [],
                 'key_id' => is_array($header) ? (string) ($header['key_id'] ?? '') : '',
+                'origin' => $origin,
             ]);
         });
+    }
+
+    /**
+     * Open a finished archive with the backup password or recovery key, checked the way its
+     * origin allows (an archive brought in from another site: data integrity only).
+     *
+     * @param string       $archiveId
+     * @param BackupSecret $secret
+     * @return ArchiveReader
+     * @throws BackupRefused not_found
+     * @throws \GP247\Core\Backup\Domain\ArchiveRejected
+     * @throws \GP247\Core\Backup\Domain\WrongBackupSecret
+     *
+     * @aidlc-story US-backup-admin-cli, US-backup-engine-safe-format
+     */
+    public function open(string $archiveId, #[\SensitiveParameter] BackupSecret $secret): ArchiveReader
+    {
+        $archive = $this->finished($archiveId);
+        $dir = $this->vault->archiveDir((string) $archive->id);
+
+        return ArchiveReader::open($dir, $secret, $this->keys, ArchiveOrigin::of($archive, $dir, $this->keys)['origin']);
     }
 
     /**

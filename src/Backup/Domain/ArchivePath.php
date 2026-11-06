@@ -44,7 +44,8 @@ final class ArchivePath
             return false;
         }
         foreach (explode('/', $path) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
+            // WHY trailing dot / space too: Windows strips them, so "..." or "a." name another entry.
+            if ($segment === '' || $segment === '.' || $segment === '..' || $segment !== rtrim($segment, '. ')) {
                 return false;
             }
         }

@@ -72,6 +72,8 @@ class LoginController extends RootAdminController
 
         if ($this->guard()->attempt($credentials, $remember)) {
             LoginThrottle::succeeded($request, 'admin', $subject);
+            // When this session signed in: a post-incident restore ends sessions older than it.
+            $request->session()->put(\GP247\Core\Backup\Application\PostIncidentChecklist::SESSION_AUTH_AT, now()->getTimestamp());
             if (function_exists('gp247_event_admin_login')) {
                 gp247_event_admin_login(admin()->user());
             }
@@ -151,6 +153,15 @@ class LoginController extends RootAdminController
                 ->withErrors($validator)
                 ->withInput();
         }
+        // WHY: after a post-incident restore the account may only continue with a NEW password.
+        $mustChange = !empty($user->password_change_required);
+        // WHY the cleaned value: it is the one hashed below; comparing the raw input would let
+        // "old<b></b>" pass and store the old password again.
+        if ($mustChange && (empty($data['password']) || \Illuminate\Support\Facades\Hash::check((string) $data['password'], (string) $user->password))) {
+            return redirect()->back()
+                ->withErrors(['password' => gp247_language_render('admin.password_change_required')])
+                ->withInput();
+        }
         //Edit
 
         $dataUpdate = [
@@ -165,6 +176,9 @@ class LoginController extends RootAdminController
             $dataUpdate['password'] = gp247_password_hash($data['password']);
         }
         $dataUpdate = gp247_clean($dataUpdate, [], true);
+        if ($data['password'] && $mustChange) {
+            $dataUpdate['password_change_required'] = 0;
+        }
         $user->update($dataUpdate);
 
         return redirect(gp247_route_admin('admin.home'))->with('success', gp247_language_render('action.edit_success'));

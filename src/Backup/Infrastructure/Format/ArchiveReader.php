@@ -12,7 +12,7 @@ use GP247\Core\Backup\Infrastructure\Crypto\FrameCipher;
 
 /**
  * Opens an archive of format 1. Order is fixed and has no bypass: header shape → format →
- * header signature (site signing key) → manifest hash → unlock with password / recovery key →
+ * header signature (site signing key; skipped only for ORIGIN_UNVERIFIED) → manifest hash → unlock with password / recovery key →
  * data key → manifest. Rows of a segment are handed out only after its part hash, every frame
  * and the segment hash have been checked. Restore must call verify() before applying anything.
  *
@@ -24,6 +24,17 @@ final class ArchiveReader
 {
     public const MAX_HEADER_BYTES = 65_536;
     public const MAX_MANIFEST_BYTES = 33_554_432;
+
+    /** Header signed with this site's signing key. */
+    public const ORIGIN_SITE = 'site';
+
+    /**
+     * Header whose signature cannot be checked here (an archive brought from another server, or
+     * a site that lost the key the signing key was encrypted with): only data integrity
+     * (AES-GCM frames, part / segment hashes) is checked — ADR backup-engine_tamper-evidence
+     * decision 3. Callers must warn and ask for a separate confirmation.
+     */
+    public const ORIGIN_UNVERIFIED = 'unverified';
     private const HEADER_KEYS = ['format', 'archive_id', 'key_id', 'created_at', 'dek', 'private_key', 'manifest_frames', 'manifest_sha256', 'hmac'];
 
     /** @var array<int, true> Parts whose file hash matched. */
@@ -47,13 +58,14 @@ final class ArchiveReader
      * @param string       $dir    Archive directory.
      * @param BackupSecret $secret Backup password or recovery key.
      * @param KeyService   $keys   Site key service (signing key, key ring).
+     * @param string       $origin ORIGIN_SITE (signature required) or ORIGIN_UNVERIFIED.
      * @return self
      * @throws ArchiveRejected   When the archive fails a check.
      * @throws WrongBackupSecret When the secret does not open it.
      */
-    public static function open(string $dir, #[\SensitiveParameter] BackupSecret $secret, KeyService $keys): self
+    public static function open(string $dir, #[\SensitiveParameter] BackupSecret $secret, KeyService $keys, string $origin = self::ORIGIN_SITE): self
     {
-        $header = self::signedHeader($dir, $keys->signingKey());
+        $header = self::signedHeader($dir, self::keyFor($origin, $keys), $origin);
 
         return self::withDataKey($dir, $header, self::unwrap($header, $secret, $keys));
     }
@@ -66,13 +78,84 @@ final class ArchiveReader
      * @param string       $dir
      * @param BackupSecret $secret Backup password or recovery key.
      * @param KeyService   $keys
+     * @param string       $origin ORIGIN_SITE or ORIGIN_UNVERIFIED.
      * @return string 32-byte data key.
      * @throws ArchiveRejected
      * @throws WrongBackupSecret
      */
-    public static function dataKey(string $dir, #[\SensitiveParameter] BackupSecret $secret, KeyService $keys): string
+    public static function dataKey(string $dir, #[\SensitiveParameter] BackupSecret $secret, KeyService $keys, string $origin = self::ORIGIN_SITE): string
     {
-        return self::unwrap(self::signedHeader($dir, $keys->signingKey()), $secret, $keys);
+        return self::unwrap(self::signedHeader($dir, self::keyFor($origin, $keys), $origin), $secret, $keys);
+    }
+
+    /**
+     * The data key of an archive whose header is all that is on disk yet (an upload being
+     * unpacked). Nothing is trusted from this: the import checks the signature, the manifest
+     * and every part with this key before the archive enters the catalogue.
+     *
+     * @param string       $dir    Folder holding header.json.
+     * @param BackupSecret $secret Password or recovery key of the site that made the archive.
+     * @param KeyService   $keys
+     * @return array{dek: string, header: array<string, mixed>}
+     * @throws ArchiveRejected
+     * @throws WrongBackupSecret
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    public static function dataKeyFromHeader(string $dir, #[\SensitiveParameter] BackupSecret $secret, KeyService $keys): array
+    {
+        $header = self::readHeader($dir);
+
+        return ['dek' => self::unwrap($header, $secret, $keys), 'header' => $header];
+    }
+
+    /**
+     * Whether this site's signing key signed the archive. Reading the header needs no secret.
+     *
+     * @param string      $dir
+     * @param string|null $signingKey Site signing key (null = unavailable).
+     * @return string ORIGIN_SITE or ORIGIN_UNVERIFIED.
+     * @throws ArchiveRejected When the header itself is malformed.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    public static function originOf(string $dir, #[\SensitiveParameter] ?string $signingKey): string
+    {
+        $header = self::readHeader($dir);
+
+        return $signingKey !== null && HeaderSignature::verify($header, $signingKey) ? self::ORIGIN_SITE : self::ORIGIN_UNVERIFIED;
+    }
+
+    /**
+     * The header as written, shape-checked but NOT authenticated — for listing archives found in
+     * the vault without a catalogue row (id, date, key id). Never a basis for trusting anything.
+     *
+     * @param string $dir
+     * @return array{archive_id: string, created_at: string, key_id: string}
+     * @throws ArchiveRejected
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    public static function peek(string $dir): array
+    {
+        $header = self::readHeader($dir);
+
+        return ['archive_id' => $header['archive_id'], 'created_at' => $header['created_at'], 'key_id' => $header['key_id']];
+    }
+
+    /**
+     * @param string     $origin
+     * @param KeyService $keys
+     * @return string|null
+     */
+    private static function keyFor(string $origin, KeyService $keys): ?string
+    {
+        // WHY not read at all for an unverified archive: on a damaged site the key ring rows may
+        // be unreadable, and the signature is not checked anyway.
+        return $origin === self::ORIGIN_UNVERIFIED ? null : $keys->signingKey();
     }
 
     /**
@@ -101,16 +184,17 @@ final class ArchiveReader
      * @param string      $dir        Archive directory.
      * @param string      $dek        Archive data key (32 bytes).
      * @param string|null $signingKey Site signing key.
+     * @param string      $origin     ORIGIN_SITE (signature required) or ORIGIN_UNVERIFIED.
      * @return self
      * @throws ArchiveRejected
      */
-    public static function openWithDataKey(string $dir, #[\SensitiveParameter] string $dek, #[\SensitiveParameter] ?string $signingKey): self
+    public static function openWithDataKey(string $dir, #[\SensitiveParameter] string $dek, #[\SensitiveParameter] ?string $signingKey, string $origin = self::ORIGIN_SITE): self
     {
         if (strlen($dek) !== Ecies::DEK_BYTES) {
             throw new ArchiveRejected(ArchiveRejected::KEY_MISMATCH);
         }
 
-        return self::withDataKey($dir, self::signedHeader($dir, $signingKey), $dek);
+        return self::withDataKey($dir, self::signedHeader($dir, $signingKey, $origin), $dek);
     }
 
     /**
@@ -118,17 +202,23 @@ final class ArchiveReader
      *
      * @param string      $dir
      * @param string|null $signingKey
+     * @param string      $origin ORIGIN_UNVERIFIED skips ONLY the signature; every other check stays.
      * @return array<string, mixed>
      * @throws ArchiveRejected
      */
-    private static function signedHeader(string $dir, #[\SensitiveParameter] ?string $signingKey): array
+    private static function signedHeader(string $dir, #[\SensitiveParameter] ?string $signingKey, string $origin = self::ORIGIN_SITE): array
     {
         $header = self::readHeader($dir);
-        if ($signingKey === null) {
-            throw new ArchiveRejected(ArchiveRejected::SIGNATURE_UNAVAILABLE);
-        }
-        if (!HeaderSignature::verify($header, $signingKey)) {
-            throw new ArchiveRejected(ArchiveRejected::SIGNATURE_MISMATCH);
+        if ($origin !== self::ORIGIN_UNVERIFIED) {
+            if ($origin !== self::ORIGIN_SITE) {
+                throw new \InvalidArgumentException('Unknown archive origin.');
+            }
+            if ($signingKey === null) {
+                throw new ArchiveRejected(ArchiveRejected::SIGNATURE_UNAVAILABLE);
+            }
+            if (!HeaderSignature::verify($header, $signingKey)) {
+                throw new ArchiveRejected(ArchiveRejected::SIGNATURE_MISMATCH);
+            }
         }
         $manifestPath = $dir . '/manifest.bin';
         if (!is_file($manifestPath) || !hash_equals($header['manifest_sha256'], (string) hash_file('sha256', $manifestPath))) {
@@ -413,7 +503,7 @@ final class ArchiveReader
         $valid = ($header['format'] ?? null) === Manifest::FORMAT_MAJOR
             && is_string($header['archive_id'] ?? null) && preg_match('/^[0-9A-Z]{26}$/D', $header['archive_id']) === 1
             && is_string($header['key_id'] ?? null) && preg_match('/^[0-9a-f]{32}$/D', $header['key_id']) === 1
-            && is_string($header['created_at'] ?? null)
+            && is_string($header['created_at'] ?? null) && preg_match(Manifest::DATE_PATTERN, $header['created_at']) === 1
             && is_array($header['dek'] ?? null)
             && is_array($header['private_key'] ?? null)
             && is_array($header['private_key']['password'] ?? null) && is_array($header['private_key']['recovery'] ?? null)

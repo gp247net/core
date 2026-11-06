@@ -26,6 +26,8 @@ return new class extends Migration
             $table->string('avatar', 255)->nullable();
             $table->integer('status')->default(1)->comment('O: Lock, 1: Active');
             $table->string('remember_token', 100)->nullable();
+            // Set by a post-incident restore: a new password is chosen at the next sign-in.
+            $table->boolean('password_change_required')->default(false);
             $table->timestamps();
         });
 

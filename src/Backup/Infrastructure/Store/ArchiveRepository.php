@@ -40,6 +40,18 @@ final class ArchiveRepository
     }
 
     /**
+     * @param int $limit
+     * @return list<object> Every catalogue row, newest first (command line listing).
+     *
+     * @aidlc-unit backup-admin
+     * @aidlc-story US-backup-admin-cli
+     */
+    public function newestFirst(int $limit = 500): array
+    {
+        return $this->table()->orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get()->all();
+    }
+
+    /**
      * @param string $id
      * @return object|null
      */

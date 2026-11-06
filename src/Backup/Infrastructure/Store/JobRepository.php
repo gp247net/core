@@ -176,6 +176,22 @@ final class JobRepository
     }
 
     /**
+     * Record which archive a job produced (an import learns its archive id only at the end).
+     *
+     * @param int    $id
+     * @param string $owner Lease owner.
+     * @param string $archiveId
+     * @return bool
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    public function attachArchive(int $id, string $owner, string $archiveId): bool
+    {
+        return $this->owned($id, $owner)->update(['archive_id' => $archiveId, 'updated_at' => now()]) === 1;
+    }
+
+    /**
      * @return bool A job that writes (backup / restore / import) is pending or running.
      */
     public function hasActiveWriteJob(): bool

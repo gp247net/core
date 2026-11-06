@@ -34,6 +34,10 @@ class ApiAdminActive
         if (!$user instanceof AdminUser || (int) $user->status !== 1) {
             return ApiErrorResponder::unauthenticated();
         }
+        // A token made before a post-incident restore flagged the account works no more.
+        if (!empty($user->password_change_required)) {
+            return ApiErrorResponder::respond(403, 'password_change_required', 'Choose a new password on the admin screen first');
+        }
         ApiAdminLog::record($request, $user);
 
         return $next($request);

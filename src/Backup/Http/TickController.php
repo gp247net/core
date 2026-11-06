@@ -64,7 +64,7 @@ class TickController
      */
     private function jobFor(bool $restore): ?object
     {
-        $types = $restore ? [Archive::JOB_RESTORE] : [Archive::JOB_BACKUP, Archive::JOB_VERIFY];
+        $types = $restore ? [Archive::JOB_RESTORE, Archive::JOB_IMPORT] : [Archive::JOB_BACKUP, Archive::JOB_VERIFY];
         foreach ($types as $type) {
             $jobs = (new JobRepository)->activeOfType($type);
             if ($jobs !== []) {

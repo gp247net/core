@@ -30,7 +30,9 @@ final class CountRetentionPolicy implements RetentionPolicy
         $remove = [];
 
         foreach ($archives as $archive) {
-            if ((bool) $archive->pinned) {
+            // WHY imported archives are never removed by the keep rule: they carry their original
+            // date, so they would be the "oldest" and go first — the person deletes them by hand.
+            if ((bool) $archive->pinned || (string) $archive->reason === Archive::REASON_IMPORT) {
                 continue;
             }
             $class = Archive::isPreChange((string) $archive->reason) ? 'pre_change' : 'regular';

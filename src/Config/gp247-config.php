@@ -88,6 +88,16 @@ return [
         'step_up_seconds' => 300,
         // Seconds a download link stays valid (single use); capped at 300.
         'download_link_seconds' => 300,
+        // Bolt BK-5. Largest .gp247bak accepted from the backup screen (it arrives in small
+        // pieces, so the host's upload limit does not matter; the disk needs twice this size).
+        'upload_max_bytes' => (int) env('GP247_BACKUP_UPLOAD_MAX_MB', 2048) * 1024 * 1024,
+        // Bytes of one uploaded piece (64 KiB – 8 MiB; below the usual 2 MB upload limit).
+        'upload_chunk_bytes' => 1024 * 1024,
+        // Hours the previous version of files overwritten by a file restore is kept in the vault.
+        'restore_files_keep_hours' => 24,
+        // Extra extensions never written into the upload folder by a restore (added to the
+        // built-in list: php*, phtml, phar, cgi, pl, py, sh, asp*, jsp, shtml, ht*, ini…).
+        'blocked_upload_extensions' => [],
     ],
 
     'admin' => [

@@ -10,13 +10,31 @@
 
     Variables: $enabled, $setUp (bool), $status (DashboardStatus::summary()), $archives (paginator|null),
     $groups (key => DataGroup), $fileGroups (list), $can (create/download/restore/settings), $staleHours,
-    $stepUpNeedsCode, $tickUrl.
+    $stepUpNeedsCode, $tickUrl, $postIncident (open checklist|null — BK-5).
 --}}
 @php($inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100')
 @php($job = $status['job'])
 <div class="space-y-6" data-testid="backup-dashboard-page">
     @if ($notice)
         <x-gp247::alert :type="$noticeType" data-testid="backup-dashboard-notice">{{ $notice }}</x-gp247::alert>
+    @endif
+
+    {{-- Tasks a post-incident restore left to the site owner (US-backup-restore-post-incident-mode) --}}
+    @if ($postIncident)
+        <x-gp247::alert type="warning" data-testid="backup-post-incident">
+            <p class="font-medium">{{ gp247_language_render('admin.backup.post_incident.pending_title') }}</p>
+            <ul class="mt-2 list-disc list-inside space-y-1 text-sm">
+                @foreach (\GP247\Core\Backup\Application\PostIncidentChecklist::TASKS as $task)
+                    <li data-testid="backup-post-incident-task-{{ $task }}">{{ gp247_language_render('admin.backup.post_incident.task_' . $task, \GP247\Core\Backup\Application\PostIncidentChecklist::ROTATE_VARIABLES + [
+                        'command' => \GP247\Core\Backup\Application\PostIncidentChecklist::ROTATE_COMMAND,
+                        'doctor' => \GP247\Core\Backup\Application\PostIncidentChecklist::DOCTOR_COMMAND,
+                    ]) }}</li>
+                @endforeach
+            </ul>
+            @if ($can['settings'])
+                <div class="mt-2"><x-gp247::button size="sm" variant="secondary" wire:click="markPostIncidentDone" data-testid="backup-post-incident-done">{{ gp247_language_render('admin.backup.post_incident.mark_done') }}</x-gp247::button></div>
+            @endif
+        </x-gp247::alert>
     @endif
 
     @if (!$enabled)

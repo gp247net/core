@@ -53,7 +53,13 @@ final class VerifyStep
         $dek = base64_decode((string) ($cursor['dek'] ?? ''), true);
 
         try {
-            $reader = ArchiveReader::openWithDataKey($this->vault->archiveDir($archiveId), (string) $dek, $this->keys->signingKey());
+            $unverified = ArchiveOrigin::normalise((string) ($cursor['origin'] ?? '')) === ArchiveReader::ORIGIN_UNVERIFIED;
+            $reader = ArchiveReader::openWithDataKey(
+                $this->vault->archiveDir($archiveId),
+                (string) $dek,
+                $unverified ? null : $this->keys->signingKey(),
+                $unverified ? ArchiveReader::ORIGIN_UNVERIFIED : ArchiveReader::ORIGIN_SITE
+            );
             // The header must carry the data key wrapped for the site key it was made with —
             // otherwise the data checks out but no password could ever open the archive.
             $header = $reader->header();

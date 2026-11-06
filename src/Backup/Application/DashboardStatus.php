@@ -44,8 +44,11 @@ final class DashboardStatus
     {
         $now ??= now();
         $table = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'backup_archive');
-        $lastOk = $table->clone()->where('status', Archive::STATUS_OK)->orderByDesc('created_at')->orderByDesc('id')->first();
-        $latest = $table->clone()->whereIn('status', [Archive::STATUS_OK, Archive::STATUS_BROKEN])->orderByDesc('created_at')->orderByDesc('id')->first();
+        // WHY not imported archives: they were made elsewhere (or earlier) — they say nothing about
+        // how recent this site's own backups are.
+        $own = fn () => $table->clone()->where('reason', '!=', Archive::REASON_IMPORT);
+        $lastOk = $own()->where('status', Archive::STATUS_OK)->orderByDesc('created_at')->orderByDesc('id')->first();
+        $latest = $own()->whereIn('status', [Archive::STATUS_OK, Archive::STATUS_BROKEN])->orderByDesc('created_at')->orderByDesc('id')->first();
         $age = $lastOk === null ? null : (int) floor(Carbon::parse($lastOk->created_at)->diffInMinutes($now, true) / 60);
 
         return [
