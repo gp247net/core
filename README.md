@@ -74,6 +74,9 @@ GP247 3.x
 
 
 ## Quick Installation Guide
+
+> 📘 **Full installation guide** — choosing a package set (S-Cart, GP247 CMS, core only), hosting without a command line, adding front/shop to an existing site, troubleshooting: [Installing GP247 and S-Cart](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/install.md).
+
 - **Step 1**: Prepare the Laravel source
 
   Refer to the command: 
@@ -154,6 +157,8 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
 >`php artisan gp247:info`
 
 **Update gp247**
+
+> 📘 **Full guide:** [Updating GP247 and S-Cart](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/update.md) · site still on 2.x: [Upgrading to the 3.x line](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/upgrade.md).
 
 Update the package using the command: 
 >`composer update gp247/core`
