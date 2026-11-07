@@ -61,6 +61,12 @@ final class AlertLanguage
                 'ja' => 'サイトが完全には HTTPS で動作していません（APP_URL またはセッション Cookie の secure 設定）。',
             ],
             'admin.alerts.https_ok' => ['en' => 'HTTPS and secure session cookie', 'vi' => 'HTTPS và cookie phiên secure', 'ja' => 'HTTPS とセキュアなセッション Cookie'],
+            'admin.alerts.trusted_proxies' => [
+                'en' => 'TRUSTED_PROXIES trusts every visitor — anyone can fake their IP address, getting around login limits and IP rules.',
+                'vi' => 'TRUSTED_PROXIES đang tin mọi người truy cập — ai cũng giả được địa chỉ IP, vượt qua giới hạn đăng nhập và luật chặn IP.',
+                'ja' => 'TRUSTED_PROXIES がすべての訪問者を信頼しています。誰でも IP アドレスを偽装でき、ログイン制限や IP ルールを回避できます。',
+            ],
+            'admin.alerts.trusted_proxies_ok' => ['en' => 'Only declared proxies are trusted', 'vi' => 'Chỉ tin proxy đã khai báo', 'ja' => '宣言済みのプロキシのみを信頼しています'],
             'admin.alerts.default_admin_password' => [
                 'en' => 'The account "admin" still signs in with the default password "admin".',
                 'vi' => 'Tài khoản "admin" vẫn đăng nhập được bằng mật khẩu mặc định "admin".',
