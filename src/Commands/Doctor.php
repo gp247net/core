@@ -16,6 +16,7 @@ use GP247\Core\Support\Health\MfaEnabledCheck;
 use GP247\Core\Support\Health\PasswordPolicyCheck;
 use GP247\Core\Support\Health\SecretDecryptableCheck;
 use GP247\Core\Support\Health\SupportLineCheck;
+use GP247\Core\Support\Health\TrustedProxiesCheck;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use GP247\Core\Support\TemplateSourceAudit;
@@ -498,6 +499,7 @@ class Doctor extends GP247Command
         foreach ([
             new AppDebugCheck,
             new HttpsCheck,
+            new TrustedProxiesCheck,
             new DefaultAdminPasswordCheck,
             new PasswordPolicyCheck,
             new MfaEnabledCheck,

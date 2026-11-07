@@ -219,6 +219,7 @@ class CoreServiceProvider extends ServiceProvider
         foreach ([
             \GP247\Core\Support\Health\AppDebugCheck::class,
             \GP247\Core\Support\Health\HttpsCheck::class,
+            \GP247\Core\Support\Health\TrustedProxiesCheck::class,
             \GP247\Core\Support\Health\DefaultAdminPasswordCheck::class,
             \GP247\Core\Support\Health\PasswordPolicyCheck::class,
             \GP247\Core\Support\Health\LoginFailuresCheck::class,
