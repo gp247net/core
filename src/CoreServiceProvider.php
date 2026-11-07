@@ -401,12 +401,49 @@ class CoreServiceProvider extends ServiceProvider
     }
 
     /**
+     * Never trust X-Forwarded-Host / X-Forwarded-Prefix, even from a declared proxy.
+     * The host of every generated URL then comes from the real Host header, so a
+     * forwarded header cannot point a password-reset link at another domain. Which
+     * proxies are trusted is still the site's TRUSTED_PROXIES (config/trustedproxy.php);
+     * set here, in the package, so running sites receive it through `composer update`.
+     *
+     * Only the two bits are removed from the header set already in force: a site that
+     * chose its own set in bootstrap/app.php (`->trustProxies(headers: …)`, applied
+     * before providers register) keeps the rest of its choice.
+     *
+     * @return void
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-forwarded-host-ignored
+     * @aidlc-adr compat-foundation_forwarded-header-trust
+     */
+    protected function restrictTrustedProxyHeaders(): void
+    {
+        $current = (new \ReflectionProperty(\Illuminate\Http\Middleware\TrustProxies::class, 'alwaysTrustHeaders'))->getValue();
+        // WHY: null means "middleware default", which is every X-Forwarded-* header.
+        $headers = is_int($current) && $current > 0
+            ? $current
+            : \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR
+                | \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST
+                | \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT
+                | \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO
+                | \Illuminate\Http\Request::HEADER_X_FORWARDED_PREFIX
+                | \Illuminate\Http\Request::HEADER_X_FORWARDED_AWS_ELB;
+
+        $headers &= ~(\Illuminate\Http\Request::HEADER_X_FORWARDED_HOST | \Illuminate\Http\Request::HEADER_X_FORWARDED_PREFIX);
+        // WHY: 0 would make the middleware fall back to its default (host included).
+        \Illuminate\Http\Middleware\TrustProxies::withHeaders($headers ?: \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR);
+    }
+
+    /**
      * Register services.
      *
      * @return void
      */
     public function register()
     {
+        $this->restrictTrustedProxyHeaders();
+
         // admin-shell-rbac (ADR-001/002/005, merged 20260708T160000): container
         // bindings for the authorization core. Not gated on gp247-installed.txt -
         // no DB access here, same as Core's other bindings below.
