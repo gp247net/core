@@ -14,6 +14,7 @@ use GP247\Core\Backup\Application\PostIncidentChecklist;
 use GP247\Core\Backup\Application\DownloadTokenService;
 use GP247\Core\Backup\Application\KeyService;
 use GP247\Core\Backup\Application\OffsiteService;
+use GP247\Core\Backup\Application\ScheduleClock;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\BackupKeyError;
@@ -364,6 +365,7 @@ class BackupDashboard extends Component
             'enabled' => BackupFeature::enabled(),
             'setUp' => $setUp,
             'status' => (new DashboardStatus)->summary(),
+            'rpo' => (new ScheduleClock)->rpo(),
             'archives' => $setUp ? $this->archives() : null,
             'groups' => (new DataGroupRegistry)->groups(),
             'fileGroups' => array_keys((array) config('gp247-config.backup.file_groups', [])),

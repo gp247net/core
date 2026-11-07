@@ -92,6 +92,9 @@ final class FetchStep
             throw $e;
         }
         $cursor['phase'] = 'open';
+        // WHY: the one-hour limit of the data key counts from here (ImportStep::keyExpired), so
+        // a large archive that took long to come back still has its full hour to be checked.
+        $cursor['fetched_at'] = now()->getTimestamp();
         unset($cursor['fetch']);
 
         return true;

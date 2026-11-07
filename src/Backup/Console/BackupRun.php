@@ -4,6 +4,9 @@ namespace GP247\Core\Backup\Console;
 
 use GP247\Core\Backup\Application\BackupService;
 use GP247\Core\Backup\Application\JobRunner;
+use GP247\Core\Backup\Application\ScheduleClock;
+use GP247\Core\Backup\Application\ScheduleSettings;
+use GP247\Core\Backup\Application\StaleAlert;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\BackupNotSetUp;
 use GP247\Core\Backup\Domain\BackupRefused;
@@ -16,10 +19,11 @@ use GP247\Core\Console\GP247Command;
  * one database snapshot (archive marked "consistent" on MySQL / MariaDB), no time budget,
  * verification included. `--job=<id>` finishes a job started elsewhere (e.g. from the admin).
  *
- * Other backup commands (list, verify, pin, delete, restore, key) come with BK-5.
+ * `--scheduled` (BK-7) is the scheduled backup: what it holds comes from Backup → Settings
+ * (ScheduleSettings), reason "scheduled"; Laravel's scheduler runs it in "cron" mode.
  *
  * @aidlc-unit backup-engine
- * @aidlc-story US-backup-engine-resumable-run, US-backup-engine-full-backup, US-backup-engine-selective-backup, US-backup-engine-quick-snapshot
+ * @aidlc-story US-backup-engine-resumable-run, US-backup-engine-full-backup, US-backup-engine-selective-backup, US-backup-engine-quick-snapshot, US-backup-admin-schedule
  * @aidlc-adr backup-engine_sliced-job-runner
  */
 class BackupRun extends GP247Command
@@ -32,6 +36,7 @@ class BackupRun extends GP247Command
         {--exclude-logs : Leave the log tables out of a full backup}
         {--reason=manual : manual | scheduled | pre_change:<operation>}
         {--job= : Finish an existing backup job instead of starting one}
+        {--scheduled : The scheduled backup (kind from Backup > Settings; nothing runs when the schedule is off)}
         {--json}';
 
     /** @var string */
@@ -42,21 +47,32 @@ class BackupRun extends GP247Command
      */
     protected function handleGp247(): int
     {
+        if ($this->option('scheduled') && ScheduleSettings::read()['mode'] === ScheduleSettings::MODE_OFF) {
+            return $this->respondSuccess(['archive_id' => null, 'status' => 'schedule_off']);
+        }
         try {
             if ($this->option('job') !== null) {
                 $result = (new JobRunner)->runToEnd((int) $this->option('job'));
             } else {
-                $created = (new BackupService)->create($this->scope(), (string) $this->option('reason'), [
+                if ($this->option('scheduled')) {
+                    (new ScheduleClock)->markTried();
+                }
+                $created = (new BackupService)->create($this->scope(), $this->option('scheduled') ? Archive::REASON_SCHEDULED : (string) $this->option('reason'), [
                     'via' => BackupService::VIA_CLI,
                     'created_by' => 'cli',
                 ]);
                 $result = (new JobRunner)->runToEnd($created['job_id']);
             }
         } catch (BackupNotSetUp $e) {
+            $this->staleCheck();
+
             return $this->respondFailure('not_set_up', 'No backup password is set up yet: set it up in Admin > Backup first.');
         } catch (BackupRefused $e) {
+            $this->staleCheck();
+
             return $this->respondFailure($e->reason, $e->getMessage(), self::safeContext($e->context));
         }
+        $this->staleCheck();
 
         $archive = $result['archive_id'] === null ? null : (new ArchiveRepository)->find($result['archive_id']);
         $data = [
@@ -83,6 +99,9 @@ class BackupRun extends GP247Command
      */
     private function scope(): BackupScope
     {
+        if ($this->option('scheduled')) {
+            return ScheduleSettings::scope(ScheduleSettings::read()['kind']);
+        }
         $groups = (array) $this->option('group');
 
         return match ((string) $this->option('kind')) {
@@ -91,6 +110,19 @@ class BackupRun extends GP247Command
             Archive::KIND_FULL => BackupScope::full((bool) $this->option('exclude-logs')),
             default => throw new BackupRefused(BackupRefused::SCOPE_EMPTY, 'unknown kind'),
         };
+    }
+
+    /**
+     * A scheduled run is one of the moments the "too old" e-mail can go out (no cron, no visit
+     * ⇒ nothing else would send it).
+     *
+     * @return void
+     */
+    private function staleCheck(): void
+    {
+        if ($this->option('scheduled')) {
+            (new StaleAlert)->sendIfDue();
+        }
     }
 
     /**

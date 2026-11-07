@@ -237,6 +237,7 @@ class CoreServiceProvider extends ServiceProvider
             \GP247\Core\Support\Health\SupportLineCheck::class,
             \GP247\Core\Support\Health\ExtensionDataPendingCheck::class,
             \GP247\Core\Support\Health\ExtensionAssetsCheck::class,
+            \GP247\Core\Backup\Infrastructure\VaultExposedCheck::class,
         ] as $alertCheck) {
             \GP247\Core\AdminShell\Support\AdminAlertRegistry::register($alertCheck);
         }
@@ -363,6 +364,8 @@ class CoreServiceProvider extends ServiceProvider
                 echo $msg;
                 exit;
             }
+
+            $this->registerBackupHooks();
 
             // admin-shell-rbac (ADR-001/002/005, merged 20260708T160000): the admin
             // route group and persistent middleware depend on the `admin`
@@ -531,6 +534,35 @@ class CoreServiceProvider extends ServiceProvider
         }
 
         $this->registerMailQueueScheduler();
+
+        // Backup schedule, "cron" mode (BK-7): only resolved by schedule:run / schedule:list, and
+        // the registrar itself checks the mode and the feature switch (US-backup-admin-schedule).
+        $this->callAfterResolving(\Illuminate\Console\Scheduling\Schedule::class, static function ($schedule) {
+            \GP247\Core\Backup\Infrastructure\ScheduleRegistrar::register($schedule);
+        });
+    }
+
+    /**
+     * Seams the backup area plugs into (BK-7): the "before change" snapshot, the header beacon of
+     * the "when an admin visits" schedule. Registered without a database query — each one checks
+     * the feature switch only when it is actually used, so a site with the feature off pays
+     * nothing on the storefront and gets an empty marker in the admin header.
+     *
+     * @return void
+     *
+     * @aidlc-unit backup-admin
+     * @aidlc-story US-backup-admin-schedule, US-backup-engine-pre-change-snapshot
+     * @aidlc-adr system-cli_pre-change-registry
+     */
+    protected function registerBackupHooks(): void
+    {
+        $preChange = (array) config('gp247-config.core.pre_change', []);
+        $preChange[] = ['key' => \GP247\Core\Backup\Application\PreChangeGuard::KEY, 'callback' => [\GP247\Core\Backup\Application\PreChangeGuard::class, 'check']];
+        config(['gp247-config.core.pre_change' => $preChange]);
+
+        $widgets = (array) config('gp247-config.admin.header_widgets', []);
+        $widgets[] = \GP247\Core\Backup\Livewire\BackupBeaconWidget::class;
+        config(['gp247-config.admin.header_widgets' => $widgets]);
     }
 
     /**

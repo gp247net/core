@@ -38,6 +38,9 @@ final class ImportStep
     /** Kinds a brought-in archive may keep; anything else is catalogued as "imported". */
     private const KINDS = [Archive::KIND_SNAPSHOT, Archive::KIND_SELECTIVE, Archive::KIND_FULL];
 
+    /** Ceiling of the "fetch" phase (copy back from the external destination), seconds. */
+    public const FETCH_TTL_SECONDS = 6 * 3600;
+
     /**
      * @param JobRepository     $jobs
      * @param ArchiveRepository $archives
@@ -65,7 +68,7 @@ final class ImportStep
     {
         $cursor = $this->jobs->cursor($job);
         try {
-            if (now()->getTimestamp() - (int) ($cursor['started'] ?? 0) > RestoreStep::KEY_TTL_SECONDS) {
+            if (self::keyExpired($cursor)) {
                 throw new RestoreAborted('key_expired');
             }
             $reader = null;
@@ -96,6 +99,27 @@ final class ImportStep
         }
 
         return true;
+    }
+
+    /**
+     * The unwrapped data key of an import is usable for one hour (RestoreStep::KEY_TTL_SECONDS).
+     * An archive copied back from the external destination (phase "fetch") gets its own ceiling
+     * of FETCH_TTL_SECONDS for the transfer, and the hour starts once the copy is complete
+     * (BK-7, ⚑ #6) — a large archive on a slow link is not lost to the clock.
+     *
+     * @param array<string, mixed> $cursor Import cursor.
+     * @return bool
+     *
+     * @aidlc-story US-backup-restore-import-archive, US-backup-storage-fetch-remote
+     */
+    public static function keyExpired(#[\SensitiveParameter] array $cursor): bool
+    {
+        $now = now()->getTimestamp();
+        if (($cursor['phase'] ?? null) === 'fetch') {
+            return $now - (int) ($cursor['started'] ?? 0) > self::FETCH_TTL_SECONDS;
+        }
+
+        return $now - (int) ($cursor['fetched_at'] ?? $cursor['started'] ?? 0) > RestoreStep::KEY_TTL_SECONDS;
     }
 
     /**

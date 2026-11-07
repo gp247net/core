@@ -99,7 +99,7 @@ final class RestoreWatchdog
         } catch (\Throwable $e) {
             $cursor = [];
         }
-        if ($cursor !== [] && now()->getTimestamp() - (int) ($cursor['started'] ?? 0) <= RestoreStep::KEY_TTL_SECONDS) {
+        if ($cursor !== [] && !ImportStep::keyExpired($cursor)) {
             return false;
         }
         $owner = bin2hex(random_bytes(16));

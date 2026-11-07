@@ -68,6 +68,19 @@ final class KeyService
     }
 
     /**
+     * @return int|null Unix time the current key pair was created (set up or last changed), null when unknown.
+     *
+     * @aidlc-story US-backup-admin-schedule
+     */
+    public function setUpAt(): ?int
+    {
+        $value = (string) $this->store->get(self::CREATED_AT);
+        $time = $value === '' ? false : strtotime($value);
+
+        return $time === false ? null : $time;
+    }
+
+    /**
      * Create the site key pair, wrap it with the password and a new recovery key, create the
      * signing key. The recovery key is returned once and never stored in clear.
      *

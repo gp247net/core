@@ -128,6 +128,13 @@ class Doctor extends GP247Command
         // until an Administrator marks them done on the backup screen. Never `fail`.
         $checks[] = $this->backupPostIncidentCheck($dbOk);
 
+        // Backup area (US-backup-admin-doctor-checks): set up, newest verified backup, schedule,
+        // folder reachable over the web (the only one that may `fail`), destination, tables
+        // outside every data group, mail. Feature off ⇒ one `pass` row.
+        if ($installed && $dbOk) {
+            array_push($checks, ...(new \GP247\Core\Backup\Application\BackupDoctor)->rows());
+        }
+
         // Security rows shared with the dashboard "System alerts" block (one source of logic).
         // Never `fail` — the exit code stays driven by the environment checks above.
         array_push($checks, ...$this->securityChecks($installed, $dbOk));

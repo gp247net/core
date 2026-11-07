@@ -38,6 +38,9 @@
         </form>
     </x-gp247::card>
 
+    {{-- BK-7: when scheduled backups run and what they hold, its own component. --}}
+    <livewire:gp247-backup::backup-schedule-settings />
+
     {{-- BK-6: one external destination (S3-compatible / SFTP), its own component. --}}
     <livewire:gp247-backup::backup-destination-settings />
 

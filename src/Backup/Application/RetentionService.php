@@ -51,16 +51,22 @@ final class RetentionService
     {
         $archives = $this->archives->okNewestFirst();
         // WHY: the contract is enforced here too, so a third-party policy cannot remove the
-        // last good archive, a pinned one, or one whose off-site copy is not done.
+        // last good archive, a pinned one, or the newest one whose off-site copy is not done.
         $protected = [];
         $known = [];
-        // An archive a restore is reading from must stay until that restore ends.
-        foreach ($this->jobs->activeArchiveIds(Archive::JOB_RESTORE) as $id) {
-            $protected[$id] = true;
+        // An archive a restore is reading from, or an off-site copy is sending, must stay until
+        // that job ends.
+        foreach ([Archive::JOB_RESTORE, Archive::JOB_UPLOAD] as $type) {
+            foreach ($this->jobs->activeArchiveIds($type) as $id) {
+                $protected[$id] = true;
+            }
         }
+        // WHY only the newest uncopied archive (BK-7, ⚑ #7): enough to copy it out when the
+        // destination is back, without letting a long outage fill the disk.
+        $newestUncopied = CountRetentionPolicy::newestUncopied($archives);
         foreach ($archives as $i => $archive) {
             $known[(string) $archive->id] = true;
-            if ($i === 0 || (bool) $archive->pinned || in_array($archive->offsite, ['pending', 'failed'], true)) {
+            if ($i === 0 || (bool) $archive->pinned || ($newestUncopied !== null && $archive->id === $newestUncopied)) {
                 $protected[(string) $archive->id] = true;
             }
         }

@@ -38,6 +38,23 @@ class BackupNotifier
     }
 
     /**
+     * The newest good backup is older than the "too old" limit (or there is none yet).
+     *
+     * @param int|null $ageHours Age of the newest good backup; null = none.
+     * @param string   $mode     Schedule mode (off | visit | cron) — the mail says why it may be late.
+     * @return bool
+     *
+     * @aidlc-story US-backup-admin-schedule
+     */
+    public function stale(?int $ageHours, string $mode): bool
+    {
+        return $this->send('stale', [
+            'hours' => $ageHours === null ? '—' : (string) $ageHours,
+            'mode' => gp247_language_render('admin.backup.schedule.mode.' . (in_array($mode, ScheduleSettings::MODES, true) ? $mode : ScheduleSettings::MODE_OFF)),
+        ]);
+    }
+
+    /**
      * @param object $archive  Catalogue row.
      * @param string $username Admin who downloaded.
      * @return bool

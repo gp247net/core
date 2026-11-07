@@ -8,7 +8,7 @@
     @aidlc-story US-backup-admin-dashboard, US-backup-admin-permissions, US-backup-engine-key-setup
     @aidlc-adr backup-admin_step-up-and-signed-download
 
-    Variables: $enabled, $setUp (bool), $status (DashboardStatus::summary()), $archives (paginator|null),
+    Variables: $enabled, $setUp (bool), $status (DashboardStatus::summary()), $rpo (ScheduleClock::rpo()), $archives (paginator|null),
     $groups (key => DataGroup), $fileGroups (list), $can (create/download/restore/settings), $staleHours,
     $stepUpNeedsCode, $tickUrl, $postIncident (open checklist|null — BK-5).
 --}}
@@ -104,7 +104,11 @@
                             {{ gp247_language_render('admin.backup.status.none') }}
                         @endif
                     </p>
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.backup.status.rpo_note') }}</p>
+                    {{-- BK-7: the recovery point the schedule really gives (US-backup-admin-schedule). --}}
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" data-testid="backup-rpo">{{ gp247_language_render('admin.backup.schedule.rpo.' . $rpo['mode'], ['hours' => $rpo['hours'], 'at' => $rpo['at']]) }}</p>
+                    @if ($rpo['cron_missed'])
+                        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300" data-testid="backup-rpo-cron-missed">{{ gp247_language_render('admin.backup.schedule.cron_missed') }}</p>
+                    @endif
                 </div>
                 <div class="space-y-1">
                     @foreach ($status['warnings'] as $warning)

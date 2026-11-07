@@ -8,7 +8,9 @@ use GP247\Core\Backup\Domain\Archive;
  * Keep the N newest successful archives: one count for manual / scheduled archives (7 by
  * default), another for snapshots taken before a risky change (3 by default). Pinned archives
  * are outside both counts and never removed; the newest successful archive is always kept;
- * archives still waiting for (or failing) their off-site copy are kept and counted.
+ * so is the newest archive still waiting for (or failing) its off-site copy — enough to copy it
+ * out once the destination is back (BK-7, ⚑ #7). Older uncopied archives follow the counts, so a
+ * destination down for weeks cannot fill the disk.
  *
  * @aidlc-unit backup-engine
  * @aidlc-story US-backup-engine-retention
@@ -27,6 +29,7 @@ final class CountRetentionPolicy implements RetentionPolicy
         ];
         $kept = ['regular' => 0, 'pre_change' => 0];
         $newest = $archives[0]->id ?? null;
+        $newestUncopied = self::newestUncopied($archives);
         $remove = [];
 
         foreach ($archives as $archive) {
@@ -36,8 +39,7 @@ final class CountRetentionPolicy implements RetentionPolicy
                 continue;
             }
             $class = Archive::isPreChange((string) $archive->reason) ? 'pre_change' : 'regular';
-            $protected = $archive->id === $newest
-                || in_array($archive->offsite ?? Archive::OFFSITE_NONE, [Archive::OFFSITE_PENDING, Archive::OFFSITE_FAILED], true);
+            $protected = $archive->id === $newest || ($newestUncopied !== null && $archive->id === $newestUncopied);
             if ($protected || $kept[$class] < $limits[$class]) {
                 $kept[$class]++;
                 continue;
@@ -46,5 +48,23 @@ final class CountRetentionPolicy implements RetentionPolicy
         }
 
         return $remove;
+    }
+
+    /**
+     * @param list<object> $archives Successful archives, newest first.
+     * @return mixed Id of the newest archive whose off-site copy is pending or failed, null when none.
+     *
+     * @aidlc-unit backup-engine
+     * @aidlc-story US-backup-engine-retention
+     */
+    public static function newestUncopied(array $archives): mixed
+    {
+        foreach ($archives as $archive) {
+            if (in_array($archive->offsite ?? Archive::OFFSITE_NONE, [Archive::OFFSITE_PENDING, Archive::OFFSITE_FAILED], true)) {
+                return $archive->id;
+            }
+        }
+
+        return null;
     }
 }
