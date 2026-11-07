@@ -37,6 +37,7 @@ use GP247\Core\Commands\Doctor;
 use GP247\Core\Commands\Info;
 use GP247\Core\Middleware\Localization;
 use GP247\Core\Middleware\Fingerprint;
+use GP247\Core\Middleware\NotInstalledNotice;
 use GP247\Core\Api\Middleware\ApiConnection;
 use GP247\Core\Api\Middleware\ForceJsonResponse;
 use GP247\Core\Middleware\Authenticate;
@@ -188,16 +189,22 @@ class CoreServiceProvider extends ServiceProvider
 
         $this->initial();
 
-        // WHY: the installer route must be reachable before gp247-installed.txt exists
-        // so new deployments can run the web wizard without CLI access (US-DEP-001).
-        if (file_exists($installRoute = __DIR__.'/Routes/install.php')) {
-            $this->loadRoutesFrom($installRoute);
+        $installed = NotInstalledNotice::installed();
+
+        // A site not installed yet answers every web request with "run php artisan
+        // gp247:install" — first in the global stack, so sessions, routing, cache and
+        // the database never run before install (US-DEP-not-installed-notice,
+        // NFR-AVAIL-pre-install-boot-safe). Installing is CLI-only: the web installer
+        // was removed (ADR installer-deploy_remove-web-installer).
+        if (!$installed && !$this->app->runningInConsole()) {
+            $this->app->make(\Illuminate\Contracts\Http\Kernel::class)
+                ->prependMiddleware(NotInstalledNotice::class);
         }
 
         // WHY: merged from AdminShellServiceProvider (modification 20260708T160000).
-        // Must stay outside the gp247-installed.txt gate below because the
-        // installer wizard itself (route registered unconditionally above) is a
-        // Livewire component rendering `gp247-admin::` views (ADR-002 update).
+        // Outside the gp247-installed.txt gate below: registering view/component
+        // namespaces needs no database, and keeping them here lets bootstrap-tier
+        // commands render admin views before install (ADR-002 update).
         $this->loadViewsFrom(__DIR__.'/Views/admin', 'gp247-admin');
         // `<x-gp247::button>` resolves under the `gp247-admin` namespace above.
         Blade::anonymousComponentNamespace('gp247-admin::components', 'gp247');
@@ -235,9 +242,9 @@ class CoreServiceProvider extends ServiceProvider
         }
 
         // Administrators are one account group of the Password policy screen, registered
-        // through the same seam shop / plugins use; outside the installed gate because the
-        // web installer checks the first password against this group's defaults
-        // (US-admin-shell-password-policy-audiences).
+        // through the same seam shop / plugins use; outside the installed gate because
+        // `gp247:install` checks the first password against this group's defaults before
+        // any database exists (US-admin-shell-password-policy-audiences).
         \GP247\Core\Support\Password\PasswordPolicyRegistry::register(\GP247\Core\Support\Password\PasswordAudience::admin());
 
         // Failed sign-ins of every auth guard (admin, storefront, API, plugins) reach one
@@ -269,7 +276,11 @@ class CoreServiceProvider extends ServiceProvider
 
             // Webhook retries ride on ordinary requests (no cron or worker): one cache
             // read, and the sends run after the response (US-api-sync-webhook-delivery).
-            $this->app->booted(fn () => \GP247\Core\Api\Sync\WebhookDispatcher::kickIfDue());
+            // WHY installed-only: before install the cache store may be a database table
+            // that does not exist yet (core 3.10.3 crashed every request of a fresh site).
+            if ($installed) {
+                $this->app->booted(fn () => \GP247\Core\Api\Sync\WebhookDispatcher::kickIfDue());
+            }
 
             // A maintenance mode left by a restore that can no longer finish is turned off on the
             // next request — shared hosts have no command line for `php artisan up` (BK-3).
@@ -501,20 +512,6 @@ class CoreServiceProvider extends ServiceProvider
                 new AdminActionAuthorizer(),
             );
         });
-
-        // Installer bootstrap: before gp247-installed.txt exists, the DB may not
-        // be migrated yet, so a `sessions` table (needed by SESSION_DRIVER=database)
-        // won't exist either. Livewire reads/writes the session on every request,
-        // including the installer wizard's own Step 1 AJAX round-trip - force the
-        // file driver until installation completes so the wizard isn't blocked by
-        // the very migration it exists to run. Reverts automatically once
-        // InstallerWizard::runInstall() writes the flag file. The marker lives on
-        // the `local` disk (storage/app/private by default) like every other check
-        // of it - a hard-coded storage/app path never matched, which forced the
-        // file driver on installed sites too.
-        if (!\Illuminate\Support\Facades\Storage::disk('local')->exists('gp247-installed.txt')) {
-            config(['session.driver' => 'file']);
-        }
 
         //Note the order of precedence.
         //The previous config can be used in the following configg

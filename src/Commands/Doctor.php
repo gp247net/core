@@ -38,8 +38,8 @@ class Doctor extends GP247Command
     /** @var string */
     protected $description = 'Check the environment for running/installing GP247';
 
-    /** Lowest PHP the platform boots on — mirrors `php` in this package's composer.json. */
-    private const MIN_PHP_VERSION = '8.3.0';
+    /** Lowest PHP the platform boots on — mirrors `php` in this package's composer.json (the only copy of this floor). */
+    public const MIN_PHP_VERSION = '8.3.0';
 
     /**
      * @return int

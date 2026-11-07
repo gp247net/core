@@ -92,7 +92,9 @@ final class WebhookDispatcher
                 self::schedule();
             }
         } catch (\Throwable $e) {
-            gp247_report($e);
+            // WHY: this runs on ordinary requests; reporting must not depend on the
+            // gp247_* helpers being loaded, or a cache failure becomes a fatal error.
+            function_exists('gp247_report') ? gp247_report($e) : report($e);
         }
     }
 

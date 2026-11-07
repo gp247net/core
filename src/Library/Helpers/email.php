@@ -90,7 +90,7 @@ if (!function_exists('gp247_mail_process_send') && !in_array('gp247_mail_process
  * Configured origin for links sent by e-mail, for the store serving the request:
  * - a store with its own domain ⇒ that domain;
  * - the root store ⇒ APP_URL, unless APP_URL still points at the local machine
- *   (localhost / 127.0.0.1 / ::1 — the .env.example default, which the web installer
+ *   (localhost / 127.0.0.1 / ::1 — the .env.example default, which `gp247:install`
  *   does not change), then the root store's domain saved at install time.
  * The scheme is APP_URL's; with a local APP_URL it is the request's (X-Forwarded-Proto
  * is only trusted from a declared proxy). Without a usable domain: APP_URL.

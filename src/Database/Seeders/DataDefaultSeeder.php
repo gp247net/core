@@ -9,11 +9,11 @@ use GP247\Core\Support\Password\PasswordAudience;
 class DataDefaultSeeder extends Seeder
 {
     /**
-     * Id of the administrator account this seeder creates. The web installer
-     * looks it up to hand it the credentials the site owner entered.
+     * Id of the administrator account this seeder creates. Kept as the stable
+     * handle for that account (the web installer that used it was removed).
      *
      * @aidlc-unit installer-deploy
-     * @aidlc-story US-DEP-001
+     * @aidlc-story US-CLI-003
      */
     public const SEED_ADMIN_ID = 'AU-AAAAA';
 

@@ -13,7 +13,7 @@ use Illuminate\Validation\Rules\Password;
  * Values are the site-wide (GLOBAL) `admin_config` rows `<group>_password_*`; a missing row
  * falls back to the group's default. Rows are read straight from the table (not through the
  * request-cached config helpers) so a value saved a moment ago applies at once, and so the
- * class also works before the site is installed (the web installer uses defaults()).
+ * class also works before the site is installed (`gp247:install` uses defaults()).
  *
  * @aidlc-unit admin-shell
  * @aidlc-story US-admin-shell-password-policy-single-source, US-admin-shell-password-policy-audiences
