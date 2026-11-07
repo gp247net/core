@@ -74,6 +74,9 @@ GP247 3.x
 
 
 ## クイックインストールガイド
+
+> 📘 **インストールの詳しいガイド** — インストール構成の選び方（S-Cart、GP247 CMS、core のみ）、コマンドラインのないホスティング、既存サイトへの front/shop 追加、トラブルシューティング：[GP247 と S-Cart のインストール](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/install_ja.md)。
+
 - **ステップ 1**：Laravel のソースを用意します
 
   参考コマンド：
@@ -152,6 +155,8 @@ GP247 3.x
 >`php artisan gp247:info`
 
 **gp247 のアップデート**
+
+> 📘 **詳しいガイド：**[GP247 と S-Cart の更新](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/update_ja.md) · 2.x 系のサイト：[3.x 系へのアップグレード](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/upgrade_ja.md)。
 
 次のコマンドでパッケージをアップデートします：
 >`composer update gp247/core`

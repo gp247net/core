@@ -74,6 +74,9 @@ GP247 3.x
 
 
 ## Hướng dẫn cài đặt nhanh
+
+> 📘 **Hướng dẫn cài đặt đầy đủ** — chọn bộ cài (S-Cart, GP247 CMS, chỉ core), hosting không có dòng lệnh, thêm front/shop vào site đang có, xử lý sự cố: [Cài đặt GP247 và S-Cart](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/install_vi.md).
+
 - **Bước 1**: Chuẩn bị source Laravel
 
   Tham khảo lệnh: 
@@ -153,6 +156,8 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
 >`php artisan gp247:info`
 
 **Cập nhật gp247**
+
+> 📘 **Hướng dẫn đầy đủ:** [Cập nhật GP247 và S-Cart](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/update_vi.md) · site còn ở dòng 2.x: [Nâng cấp lên dòng 3.x](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/upgrade_vi.md).
 
 Cập nhật gói bằng lệnh: 
 >`composer update gp247/core`
