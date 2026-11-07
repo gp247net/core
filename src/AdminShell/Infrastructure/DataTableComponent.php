@@ -28,8 +28,9 @@ use Livewire\WithPagination;
 abstract class DataTableComponent extends GP247AdminComponent
 {
     use WithPagination;
+    use ListSearch;
 
-    /** @var string Free-text search applied across searchable() columns. */
+    /** @var string Free-text search applied across searchable() columns (raw box value; the query uses searchKeyword()). */
     public string $keyword = '';
 
     /** @var string Currently sorted column (empty = defaultSort()). */
@@ -283,15 +284,7 @@ abstract class DataTableComponent extends GP247AdminComponent
             $query->with($this->relations());
         }
 
-        if ($this->keyword !== '' && $this->searchable() !== []) {
-            $needle = '%' . $this->keyword . '%';
-            $columns = $this->searchable();
-            $query->where(function ($w) use ($columns, $needle): void {
-                foreach ($columns as $i => $column) {
-                    $i === 0 ? $w->where($column, 'like', $needle) : $w->orWhere($column, 'like', $needle);
-                }
-            });
-        }
+        $this->applyKeywordSearch($query, $this->searchable());
 
         if ($this->sortField !== '' && array_key_exists($this->sortField, $this->columns())) {
             $query->orderBy($this->sortField, $this->sortDir);

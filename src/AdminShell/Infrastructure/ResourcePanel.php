@@ -26,8 +26,9 @@ abstract class ResourcePanel extends GP247AdminComponent
 {
     use WithPagination;
     use SyncsEditQuery;
+    use ListSearch;
 
-    /** @var string Free-text search. */
+    /** @var string Free-text search (raw box value; the query uses searchKeyword()). */
     public string $keyword = '';
 
     /** @var string Current sort column (empty = default). */
@@ -446,16 +447,7 @@ abstract class ResourcePanel extends GP247AdminComponent
     protected function filteredQuery()
     {
         $query = $this->baseQuery();
-
-        if ($this->keyword !== '' && $this->searchable() !== []) {
-            $needle = '%' . $this->keyword . '%';
-            $columns = $this->searchable();
-            $query->where(function ($w) use ($columns, $needle): void {
-                foreach ($columns as $i => $column) {
-                    $i === 0 ? $w->where($column, 'like', $needle) : $w->orWhere($column, 'like', $needle);
-                }
-            });
-        }
+        $this->applyKeywordSearch($query, $this->searchable());
 
         return $query;
     }

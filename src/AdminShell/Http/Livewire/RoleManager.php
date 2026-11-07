@@ -52,6 +52,21 @@ class RoleManager extends ResourcePanel
     }
 
     /**
+     * Language keys naming the searched columns (shown in the search box).
+     *
+     * @return array<string, string>
+     *
+     * @aidlc-story US-admin-shell-list-search-scope-hint
+     */
+    protected function searchLabels(): array
+    {
+        return [
+            'name' => 'admin.role.name',
+            'slug' => 'admin.role.slug',
+        ];
+    }
+
+    /**
      * @return array<int, string>
      */
     protected function sortableColumns(): array

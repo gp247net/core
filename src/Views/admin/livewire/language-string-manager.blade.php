@@ -45,17 +45,13 @@
             </select>
         </div>
 
-        {{-- Keyword search --}}
+        {{-- Keyword search: the label above the box names the searched columns
+             (a hint line under it would break the bottom-aligned filter row). --}}
         <div class="flex flex-1 flex-col gap-1">
-            <label class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {{ gp247_language_render('admin.language_manager.code') }}
+            <label class="text-xs font-medium text-gray-500 dark:text-gray-400" data-testid="admin-shell-list-search-hint">
+                {{ $this->searchHint() }}
             </label>
-            <div class="relative">
-                <i class="fas fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                <input type="search" wire:model.live.debounce.300ms="keyword"
-                    placeholder="{{ gp247_language_render('admin.language.search_place') }}"
-                    class="w-full rounded-lg border border-gray-300 bg-white py-1.5 pl-8 pr-3 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-400">
-            </div>
+            <x-gp247::search-box :placeholder="$this->searchPlaceholder()" />
         </div>
 
         {{-- Add new --}}

@@ -53,6 +53,20 @@ class HomeLayoutList extends DataTableComponent
     }
 
     /**
+     * Language keys naming the searched columns (shown in the search box).
+     *
+     * @return array<string, string>
+     *
+     * @aidlc-story US-admin-shell-list-search-scope-hint
+     */
+    protected function searchLabels(): array
+    {
+        return [
+            'view' => 'admin.admin_home_layout.view',
+        ];
+    }
+
+    /**
      * @return array{0: string, 1: string}
      */
     protected function defaultSort(): array

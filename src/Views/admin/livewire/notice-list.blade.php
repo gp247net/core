@@ -11,7 +11,7 @@
     Variables: $rows (AdminNotice paginator), $sortField, $sortDir, $selected.
 --}}
 <div>
-    <x-gp247::list-toolbar :placeholder="gp247_language_render('admin.notice.content')"
+    <x-gp247::list-toolbar :placeholder="$this->searchPlaceholder()" :hint="$this->searchHint()"
         :selected-count="count($selected)" :bulk-confirm="gp247_language_render('action.delete_confirm')">
         <x-slot:actions>
             <x-gp247::button variant="secondary" size="sm" wire:click="markRead">

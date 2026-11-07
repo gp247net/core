@@ -10,7 +10,7 @@
     Variables: $rows (AdminHome paginator).
 --}}
 <div>
-    <x-gp247::list-toolbar :placeholder="gp247_language_render('admin.admin_home_layout.view')"
+    <x-gp247::list-toolbar :placeholder="$this->searchPlaceholder()" :hint="$this->searchHint()"
         :selected-count="count($selected)" :bulk-confirm="gp247_language_render('action.delete_confirm')">
         <x-slot:actions>
             <x-gp247::button href="{{ gp247_route_admin('admin_home_layout.create') }}" wire:navigate size="sm">
@@ -19,7 +19,7 @@
         </x-slot:actions>
     </x-gp247::list-toolbar>
 
-    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.no_records') : null">
+    <x-gp247::table :empty="$rows->isEmpty() ? $this->searchEmptyMessage() : null">
         <x-slot:head>
             <tr>
                 <th class="w-10 px-4 py-3"></th>

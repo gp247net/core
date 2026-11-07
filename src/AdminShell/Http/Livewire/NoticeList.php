@@ -58,6 +58,18 @@ class NoticeList extends DataTableComponent
     }
 
     /**
+     * @return array<string, string>
+     */
+    protected function searchLabels(): array
+    {
+        return [
+            'content' => 'admin.notice.content',
+            'type' => 'admin.notice.type',
+            'type_id' => 'admin.notice.type_id',
+        ];
+    }
+
+    /**
      * @return array<int, string>
      */
     protected function relations(): array
@@ -104,15 +116,7 @@ class NoticeList extends DataTableComponent
             ->where('admin_id', $this->currentAdminId())
             ->with($this->relations());
 
-        if ($this->keyword !== '') {
-            $needle = '%' . $this->keyword . '%';
-            $columns = $this->searchable();
-            $query->where(function ($w) use ($columns, $needle): void {
-                foreach ($columns as $i => $column) {
-                    $i === 0 ? $w->where($column, 'like', $needle) : $w->orWhere($column, 'like', $needle);
-                }
-            });
-        }
+        $this->applyKeywordSearch($query, $this->searchable());
 
         if ($this->sortField !== '' && array_key_exists($this->sortField, $this->columns())) {
             $query->orderBy($this->sortField, $this->sortDir);

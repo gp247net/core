@@ -14,9 +14,9 @@
       - $columns (array<string,string>): field => label map.
 --}}
 <div>
-    <x-gp247::list-toolbar :selected-count="count($selected)" />
+    <x-gp247::list-toolbar :placeholder="$this->searchPlaceholder()" :hint="$this->searchHint()" :selected-count="count($selected)" />
 
-    <x-gp247::table :empty="$rows->isEmpty() ? gp247_language_render('admin.no_records') : null">
+    <x-gp247::table :empty="$rows->isEmpty() ? $this->searchEmptyMessage() : null">
         <x-slot:head>
             <tr>
                 <th class="w-10 px-4 py-3"></th>

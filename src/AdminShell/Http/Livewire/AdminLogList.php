@@ -54,6 +54,21 @@ class AdminLogList extends DataTableComponent
     }
 
     /**
+     * Language keys naming the searched columns (shown in the search box).
+     *
+     * @return array<string, string>
+     *
+     * @aidlc-story US-admin-shell-list-search-scope-hint
+     */
+    protected function searchLabels(): array
+    {
+        return [
+            'ip' => 'admin.log.ip',
+            'path' => 'admin.log.path',
+        ];
+    }
+
+    /**
      * Eager-load the acting admin user so the table avoids N+1 lookups.
      *
      * @return array<int, string>

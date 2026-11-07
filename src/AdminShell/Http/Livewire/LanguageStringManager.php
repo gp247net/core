@@ -4,6 +4,7 @@ namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
 use GP247\Core\AdminShell\Infrastructure\HasValidationLabels;
+use GP247\Core\AdminShell\Infrastructure\ListSearch;
 use GP247\Core\Models\AdminLanguage;
 use GP247\Core\Models\Languages;
 use Illuminate\Contracts\View\View;
@@ -23,6 +24,7 @@ class LanguageStringManager extends GP247AdminComponent
 {
     use WithPagination;
     use HasValidationLabels;
+    use ListSearch;
 
     protected ?string $permission = 'admin_language';
 
@@ -46,6 +48,29 @@ class LanguageStringManager extends GP247AdminComponent
     public string $position = '';
     public string $keyword  = '';
     protected int  $perPage = 50;
+
+    /**
+     * Columns matched by the keyword filter.
+     *
+     * @return array<int, string>
+     *
+     * @aidlc-story US-admin-shell-list-search-trim, US-admin-shell-list-search-scope-hint
+     */
+    protected function searchable(): array
+    {
+        return ['code', 'text'];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function searchLabels(): array
+    {
+        return [
+            'code' => 'admin.language_manager.code',
+            'text' => 'admin.language_manager.text',
+        ];
+    }
 
     public bool  $showAdd = false;
     /** @var array<string, string> */
@@ -177,10 +202,7 @@ class LanguageStringManager extends GP247AdminComponent
 
         $rows = Languages::where('location', $langCode)
             ->when($this->position, fn ($q) => $q->where('position', $this->position))
-            ->when($this->keyword,  fn ($q) => $q->where(function ($q): void {
-                $q->where('code', 'like', '%' . $this->keyword . '%')
-                  ->orWhere('text', 'like', '%' . $this->keyword . '%');
-            }))
+            ->tap(fn ($q) => $this->applyKeywordSearch($q, $this->searchable()))
             ->orderBy('position')
             ->orderBy('code')
             ->paginate($this->perPage);
