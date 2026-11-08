@@ -172,37 +172,126 @@ class InstallAll extends GP247Command
     {
         $done = [];
         Install::$lastAdmin = null;
-        foreach ($steps as $command) {
-            $this->info('==> ' . $command);
-
-            // WHY: confirmation was already obtained here, so force core-install
-            // to skip its own prompt / already-installed refusal (avoids a nested
-            // second prompt). front/shop-install expose no --force option.
-            $args = $command === 'gp247:core-install' ? ['--force' => 1] : [];
-            if ($command === 'gp247:core-install' && $this->option('admin-password') !== null) {
-                $args['--admin-password'] = (string) $this->option('admin-password');
+        // WHY: the front/shop/mcp installs print hundreds of lines; the password shown only once must
+        // come after all of them, so core-install leaves the sign-in details to this command (US-CLI-003).
+        Install::$deferWelcome = true;
+        try {
+            foreach ($steps as $command) {
+                $code = $this->runStep($command);
+                if ($code !== Command::SUCCESS) {
+                    return $this->failAfterSteps($command, $done);
+                }
+                $done[] = $command;
             }
+        } catch (\Throwable $e) {
+            // WHY here and not in the base handler: the administrator may already have a password
+            // nobody has seen; it must be shown before the command exits. Laravel's report(): this
+            // command runs pre-install, where the gp247_* helpers are not loaded.
+            report($e);
 
-            $code = in_array($command, self::FRESH_PROCESS_STEPS, true)
-                ? $this->runInFreshProcess($command)
-                : $this->runArtisan($command, $args);
-            if ($code !== Command::SUCCESS) {
-                return $this->respondFailure('step_failed', 'Step failed: ' . $command, [
-                    'completed' => $done,
-                    'failed'    => $command,
-                ]);
-            }
-            $done[] = $command;
+            return $this->failAfterSteps($command ?? '', $done, $e->getMessage());
+        } finally {
+            Install::$deferWelcome = false;
         }
 
-        $data = ['completed' => $done];
-        // WHY: core-install runs nested without --json, so its result (the administrator and a
-        // generated password, once) is handed over in-process and returned here (US-CLI-003).
+        $this->showSignIn();
+
+        return $this->respondSuccess($this->withAdmin(['completed' => $done]));
+    }
+
+    /**
+     * Run one install step with the arguments it needs.
+     *
+     * @param string $command Artisan command name.
+     * @return int Exit code of the step.
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
+     */
+    private function runStep(string $command): int
+    {
+        $this->info('==> ' . $command);
+
+        // WHY: confirmation was already obtained here, so force core-install
+        // to skip its own prompt / already-installed refusal (avoids a nested
+        // second prompt). front/shop-install expose no --force option.
+        $args = $command === 'gp247:core-install' ? ['--force' => 1] : [];
+        if ($command === 'gp247:core-install' && $this->option('admin-password') !== null) {
+            $args['--admin-password'] = (string) $this->option('admin-password');
+        }
+
+        return in_array($command, self::FRESH_PROCESS_STEPS, true)
+            ? $this->runInFreshProcess($command)
+            : $this->runArtisan($command, $args);
+    }
+
+    /**
+     * Report a failed step and still hand over the administrator account when it was already set
+     * up: in human mode the error comes first and the sign-in details stay the last block; in JSON
+     * mode the details go to STDERR and the envelope (with data.admin) stays the last line.
+     *
+     * @param string             $command Step that failed.
+     * @param array<int, string> $done    Steps completed before it.
+     * @param string|null        $reason  Exception message when the step threw.
+     * @return int Command::FAILURE.
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
+     */
+    private function failAfterSteps(string $command, array $done, ?string $reason = null): int
+    {
+        $message = 'Step failed: ' . $command . ($reason !== null ? ' — ' . $reason : '');
+        $data = $this->withAdmin(['completed' => $done, 'failed' => $command]);
+
+        if ($this->isJson()) {
+            $this->showSignIn($command);
+
+            return $this->respondFailure('step_failed', $message, $data);
+        }
+
+        $code = $this->respondFailure('step_failed', $message, $data);
+        $this->showSignIn($command);
+
+        return $code;
+    }
+
+    /**
+     * Print the welcome banner with the administrator's sign-in details, once, when core-install
+     * has set up the account in this run.
+     *
+     * @param string|null $failedStep Step that failed after the account was set up, if any.
+     * @return void
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
+     */
+    private function showSignIn(?string $failedStep = null): void
+    {
+        if (Install::$lastAdmin === null) {
+            return;
+        }
+        if ($failedStep !== null) {
+            $this->warn('The administrator account was set up before ' . $failedStep . ' failed — sign in with:');
+        }
+        foreach (Install::welcomeLines(Install::$lastAdmin, $this->isJson()) as $line) {
+            $this->line($line);
+        }
+    }
+
+    /**
+     * Add the administrator to an envelope payload. core-install runs nested without --json, so its
+     * result (the administrator and a generated password, once) is handed over in-process (US-CLI-003).
+     *
+     * @param array<string, mixed> $data Payload so far.
+     * @return array<string, mixed>
+     */
+    private function withAdmin(array $data): array
+    {
         if (Install::$lastAdmin !== null) {
             $data['admin'] = ['username' => Install::$lastAdmin['username'], 'password' => Install::$lastAdmin['password']];
         }
 
-        return $this->respondSuccess($data);
+        return $data;
     }
 
     /**

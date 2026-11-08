@@ -41,6 +41,15 @@ class Install extends GP247Command
     public static ?array $lastAdmin = null;
 
     /**
+     * Set by an orchestrating command (gp247:install) while it runs this step: the sign-in details are
+     * then printed by the orchestrator after its last step, so the output of the later package installs
+     * cannot scroll a password shown only once off the screen (US-CLI-003).
+     *
+     * @var bool
+     */
+    public static bool $deferWelcome = false;
+
+    /**
      * The console command description.
      *
      * @var string
@@ -94,12 +103,39 @@ class Install extends GP247Command
     }
 
     /**
-     * Print the welcome banner after a successful install.
+     * Announce the administrator account once the install has settled it: the full banner when this
+     * command runs on its own, a pointer to the end of the output when an orchestrator prints it later.
      *
      * @param array{username: string, password: string|null, state: string} $admin
      * @return void
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
      */
-    private function welcome(array $admin)
+    protected function announceAdmin(array $admin): void
+    {
+        if (self::$deferWelcome) {
+            $this->info('---------------> Administrator account ready — the sign-in details are shown at the end of the install.');
+
+            return;
+        }
+
+        foreach (self::welcomeLines($admin, $this->isJson()) as $line) {
+            $this->line($line);
+        }
+    }
+
+    /**
+     * Lines of the welcome banner: logo, version, admin path and the administrator's sign-in details.
+     *
+     * @param array{username: string, password: string|null, state: string} $admin
+     * @param bool $json Whether the caller prints a JSON envelope (the banner then goes to STDERR).
+     * @return array<int, string>
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
+     */
+    public static function welcomeLines(array $admin, bool $json): array
     {
         $text = "
           _____  _____     ___  _  _   _____
@@ -113,13 +149,10 @@ class Install extends GP247Command
         $text .= "\n             Welcome to GP247 ".config('gp247.core');
         $text .= "\n             Admin path: yourdomain/".config('gp247-config.env.GP247_ADMIN_PREFIX')."";
         $text .= "\n             Username: ".$admin['username'];
-        $text .= "\n             Password: ".$this->passwordLine($admin);
+        $text .= "\n             Password: ".self::passwordLine($admin, $json);
         $text .= "\n";
 
-        $lines = explode("\n", $text);
-        foreach ($lines as $line) {
-            $this->line($line);
-        }
+        return explode("\n", $text);
     }
 
     /**
@@ -127,12 +160,13 @@ class Install extends GP247Command
      * password is only referred to there — the envelope carries it once (US-CLI-003).
      *
      * @param array{username: string, password: string|null, state: string} $admin
+     * @param bool $json Whether the caller prints a JSON envelope.
      * @return string
      */
-    private function passwordLine(array $admin): string
+    private static function passwordLine(array $admin, bool $json): string
     {
         if ($admin['state'] === 'generated') {
-            return $this->isJson()
+            return $json
                 ? 'generated — returned once in the JSON result (data.admin.password)'
                 : $admin['password'].'   (shown only once — save it now, then change it in the admin)';
         }
@@ -226,7 +260,7 @@ class Install extends GP247Command
 
         Storage::disk('local')->put('gp247-installed.txt', date('Y-m-d H:i:s'));
 
-        $this->welcome($admin);
+        $this->announceAdmin($admin);
 
         return $this->respondSuccess([
             'installed' => true,
