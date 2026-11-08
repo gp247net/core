@@ -257,8 +257,8 @@ final class ImportStep
         } catch (\Throwable $e) {
             // The catalogue row was not written: an imported copy goes again (a folder that was
             // already in the vault stays as it was).
-            if (!$inVault) {
-                $this->vault->deleteArchive($id);
+            if (!$inVault && !$this->vault->deleteArchive($id)) {
+                BackupLog::failure('Imported archive ' . $id . ': the folder could not be removed after a failure.');
             }
 
             throw $e;

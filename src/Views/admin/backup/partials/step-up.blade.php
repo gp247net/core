@@ -7,7 +7,10 @@
     @aidlc-story US-backup-admin-step-up-auth
 --}}
 @if ($stepUpOpen)
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="backup-step-up-dialog">
+    {{-- Removed in the browser once confirmed: an action ending in a file download is not re-rendered.
+         Removed (not hidden) so that opening the box again later gets a fresh element. --}}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="backup-step-up-dialog"
+        x-data x-on:gp247-backup-step-up-done.window="$el.remove()">
         <div class="absolute inset-0 bg-gray-900/50" wire:click="cancelStepUp"></div>
         <div class="relative w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
             <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">

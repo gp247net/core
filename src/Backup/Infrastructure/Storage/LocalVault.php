@@ -90,13 +90,21 @@ class LocalVault
      * ever touched.
      *
      * @param string $archiveId
-     * @return void
+     * @return bool True when the archive folder is no longer on disk (also when it never was);
+     *              false when something stayed — typically files the current OS user may not
+     *              remove (folder created by the web server, removed from the command line).
+     *
+     * @aidlc-story US-backup-storage-local, US-backup-admin-cli
      */
-    public function deleteArchive(string $archiveId): void
+    public function deleteArchive(string $archiveId): bool
     {
         $dir = $this->archiveDir($archiveId);
-        if (!is_dir($dir) || is_link($dir)) {
-            return;
+        if (is_link($dir)) {
+            // Never followed; the link itself is not an archive this vault wrote.
+            return false;
+        }
+        if (!is_dir($dir)) {
+            return true;
         }
         foreach (scandir($dir) ?: [] as $entry) {
             if ($entry === '.' || $entry === '..') {
@@ -109,6 +117,9 @@ class LocalVault
             }
         }
         @rmdir($dir);
+        clearstatcache(true, $dir);
+
+        return !is_dir($dir);
     }
 
     /**

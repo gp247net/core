@@ -194,8 +194,8 @@ final class JobRunner
                 BackupLog::failure('Restore job ' . $job->id . ' could not be rolled back: ' . self::describe($e));
             }
         }
-        if ($job->type === Archive::JOB_BACKUP && $job->archive_id !== null) {
-            $this->vault->deleteArchive((string) $job->archive_id);
+        if ($job->type === Archive::JOB_BACKUP && $job->archive_id !== null && !$this->vault->deleteArchive((string) $job->archive_id)) {
+            BackupLog::failure('Backup job ' . $job->id . ': the folder of the failed archive could not be removed.');
         }
         if ($job->type === Archive::JOB_UPLOAD) {
             try {
@@ -252,7 +252,9 @@ final class JobRunner
         }
         $archive = $job->archive_id === null ? null : $this->archives->find((string) $job->archive_id);
         if (($archive->status ?? null) === Archive::STATUS_CANCELLED) {
-            $this->vault->deleteArchive((string) $job->archive_id);
+            if (!$this->vault->deleteArchive((string) $job->archive_id)) {
+                BackupLog::failure('Backup job ' . $job->id . ': the folder of the cancelled archive could not be removed.');
+            }
 
             return $this->result('failed', $job);
         }

@@ -107,11 +107,15 @@ final class ArchiveActions
     }
 
     /**
-     * Remove an archive: its files, its catalogue row and its finished jobs.
+     * Remove an archive: its files first, then its finished jobs and its catalogue row. When the
+     * files cannot be removed the row stays, so the backup is still listed and can be deleted
+     * again once the folder permissions are fixed (never an invisible orphan folder).
      *
      * @param string $archiveId
      * @return void
-     * @throws BackupRefused not_found | already_running (a job still uses it)
+     * @throws BackupRefused not_found | already_running (a job still uses it) | vault_delete_failed
+     *
+     * @aidlc-story US-backup-admin-dashboard, US-backup-admin-cli
      */
     public function delete(string $archiveId): void
     {
@@ -122,7 +126,11 @@ final class ArchiveActions
         if ($this->jobs->activeFor($archiveId) !== [] || in_array($archiveId, $this->jobs->activeArchiveIds(Archive::JOB_RESTORE), true)) {
             throw new BackupRefused(BackupRefused::ALREADY_RUNNING);
         }
-        $this->vault->deleteArchive($archiveId);
+        if (!$this->vault->deleteArchive($archiveId)) {
+            BackupLog::failure('Archive ' . $archiveId . ' was not deleted: its files could not be removed from the backup folder.');
+
+            throw new BackupRefused(BackupRefused::VAULT_DELETE_FAILED);
+        }
         $this->jobs->deleteFor($archiveId);
         $this->archives->delete($archiveId);
     }

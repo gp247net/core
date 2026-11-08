@@ -54,6 +54,7 @@
                 </div>
             @else
                 <form wire:submit="changePassword" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    @include('gp247-admin::backup.partials.secret-explainer')
                     <x-gp247::input type="password" name="currentPassword" wire:model="currentPassword" autocomplete="off"
                         :label="gp247_language_render($useRecoveryForChange ? 'admin.backup.secret.recovery' : 'admin.backup.settings.current')"
                         :error="$errors->first('currentPassword')" data-testid="backup-settings-current" />

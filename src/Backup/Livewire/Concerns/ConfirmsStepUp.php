@@ -19,6 +19,9 @@ use GP247\Core\Backup\Domain\StepUpRefused;
  */
 trait ConfirmsStepUp
 {
+    /** Browser event sent once the confirmation passed; the box listens to it (partials/step-up). */
+    public const STEP_UP_DONE_EVENT = 'gp247-backup-step-up-done';
+
     public bool $stepUpOpen = false;
     public string $stepUpPassword = '';
     public string $stepUpSecretCode = '';
@@ -68,6 +71,9 @@ trait ConfirmsStepUp
         }
         $this->stepUpOpen = false;
         $this->stepUpError = null;
+        // WHY: an action that ends in a redirect to a file download (the page stays) gets no
+        // re-render, so the browser hides the box itself on this event.
+        $this->dispatch(self::STEP_UP_DONE_EVENT);
         $action = $this->stepUpAction;
         $args = $this->stepUpArgs;
         $this->stepUpAction = '';

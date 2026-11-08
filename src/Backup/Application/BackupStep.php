@@ -68,7 +68,9 @@ final class BackupStep
 
         if (!isset($cursor['writer'])) {
             // First slice (or a first slice that died before saving anything): start clean.
-            $this->vault->deleteArchive($archiveId);
+            if (!$this->vault->deleteArchive($archiveId)) {
+                BackupLog::failure('Archive ' . $archiveId . ': the folder of an earlier attempt could not be cleared.');
+            }
             $writer = ArchiveWriter::start($dir, $this->keys->keyRing(), [
                 'archive_id' => $archiveId,
                 'segment_rows' => self::pageRows(),

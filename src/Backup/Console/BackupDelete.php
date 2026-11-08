@@ -5,6 +5,7 @@ namespace GP247\Core\Backup\Console;
 use GP247\Core\Backup\Application\ArchiveActions;
 use GP247\Core\Backup\Application\BackupAudit;
 use GP247\Core\Backup\Console\Concerns\BackupCommandSupport;
+use GP247\Core\Backup\Domain\BackupRefused;
 use GP247\Core\Console\GP247Command;
 
 /**
@@ -41,7 +42,12 @@ class BackupDelete extends GP247Command
         try {
             (new ArchiveActions)->delete($id);
         } catch (\Throwable $e) {
-            BackupAudit::record('delete', BackupAudit::REFUSED, ['archive_id' => $id]);
+            BackupAudit::record('delete', BackupAudit::REFUSED, ['archive_id' => $id] + ($e instanceof BackupRefused ? ['reason' => $e->reason] : []));
+            if ($e instanceof BackupRefused && $e->reason === BackupRefused::VAULT_DELETE_FAILED) {
+                // WHY: the usual cause is a folder created by the web server, which the user running
+                // the command may not empty — say so instead of a bare reason code.
+                return $this->respondFailure($e->reason, 'Not deleted: the backup files could not be removed. Check that this user may delete files in the backup folder (the web server may own it), or delete it from the backup screen. The backup is still listed.');
+            }
 
             return $this->refusal($e);
         }

@@ -186,7 +186,9 @@ final class BackupService
         if (!$cancelled) {
             throw new BackupRefused(BackupRefused::NOT_FOUND);
         }
-        $this->vault->deleteArchive($archiveId);
+        if (!$this->vault->deleteArchive($archiveId)) {
+            BackupLog::failure('Cancelled archive ' . $archiveId . ': its folder could not be removed.');
+        }
     }
 
     /**

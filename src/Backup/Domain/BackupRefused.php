@@ -23,6 +23,8 @@ final class BackupRefused extends RuntimeException
     public const NEEDS_CONFIRMATION = 'needs_confirmation';
     public const VAULT_UNSAFE = 'vault_unsafe';
     public const NOT_FOUND = 'not_found';
+    /** The files of an archive could not be removed (permissions of the backup folder). */
+    public const VAULT_DELETE_FAILED = 'vault_delete_failed';
 
     /**
      * @param string               $reason  One of the constants.

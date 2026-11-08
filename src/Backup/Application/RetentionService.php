@@ -81,7 +81,9 @@ final class RetentionService
                 $this->jobs->deleteFor($id);
                 $this->archives->delete($id);
             });
-            $this->vault->deleteArchive($id);
+            if (!$this->vault->deleteArchive($id)) {
+                BackupLog::failure('Archive ' . $id . ' left the catalogue but its folder could not be removed (permissions of the backup folder).');
+            }
         }
         $this->forwardToOffsite($ids, $archives);
 

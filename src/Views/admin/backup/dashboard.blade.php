@@ -54,6 +54,7 @@
             @elseif ($shownRecoverySecret === null)
                 <form wire:submit="setupKey" class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <p class="text-sm text-gray-600 dark:text-gray-300" style="grid-column: 1 / -1">{{ gp247_language_render('admin.backup.setup.intro', ['min' => \GP247\Core\Backup\Application\KeyService::MIN_PASSWORD_LENGTH]) }}</p>
+                    @include('gp247-admin::backup.partials.secret-explainer')
                     <x-gp247::input type="password" name="setupPassword" wire:model="setupPassword" autocomplete="new-password"
                         :label="gp247_language_render('admin.backup.setup.password')" :error="$errors->first('setupPassword')" data-testid="backup-setup-password" />
                     <x-gp247::input type="password" name="setupPasswordConfirm" wire:model="setupPasswordConfirm" autocomplete="new-password"
