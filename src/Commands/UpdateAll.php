@@ -102,7 +102,7 @@ class UpdateAll extends GP247Command
     protected $signature = 'gp247:update
         {--overwrite-lang : Also run gp247:language-update (overwrites edited translations)}
         {--skip-pre-change : Do not ask "before change" registrants (e.g. the backup snapshot) before updating}
-        {--publish= : Re-publish assets/views by tag token, comma-separated: core-public,core-view,front-public,front-template,front-view,shop-view-admin,shop-view-front,all. Default: none. core-public and front-public are safe (compiled assets, regenerable); view/template tokens overwrite your customizations. "all" skips GP247Front targets on a site that uses another template (see command-line-reference).}';
+        {--publish= : Re-publish assets/views by tag token, comma-separated: core-public,core-view,front-public,front-template,front-view,shop-view-admin,shop-view-front,all. Default: none. core-public and front-public are safe (compiled assets, regenerable); view/template tokens overwrite your customizations. "all" skips GP247Front targets on a site that uses another template (see gp247-docs cli/cli-install-update).}';
 
     /** @var string */
     protected $description = 'Update GP247 after composer update (core [+shop], safe for live sites)';

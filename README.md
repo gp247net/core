@@ -154,8 +154,8 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
 
 > 📖 **Full command-line reference.** The commands below are the most common ones.
 > For every GP247 artisan command, its options and examples, see the official
-> reference: [English](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference.md)
-> · [Tiếng Việt](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference_vi.md).
+> reference: [English](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction.md)
+> · [Tiếng Việt](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction_vi.md).
 
 **To view GP247 version**
 

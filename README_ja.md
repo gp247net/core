@@ -153,7 +153,7 @@ GP247 3.x
 
 > 📖 **コマンドラインリファレンス（完全版）。** 以下は最もよく使うコマンドだけです。
 > GP247 のすべての artisan コマンドとそのオプション、使用例は、公式ドキュメントを
-> ご覧ください：[English](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference.md)。
+> ご覧ください：[日本語](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction_ja.md) · [English](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction.md)。
 
 **GP247 のバージョンを確認するには**
 

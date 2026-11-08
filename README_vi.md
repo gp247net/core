@@ -152,8 +152,8 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
 
 > 📖 **Tham chiếu dòng lệnh đầy đủ.** Các lệnh dưới đây chỉ là những lệnh thông
 > dụng nhất. Xem tất cả lệnh artisan của GP247 cùng tùy chọn và ví dụ trong tài
-> liệu chính thức: [Tiếng Việt](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference_vi.md)
-> · [English](https://github.com/gp247net/gp247-docs/blob/main/system/command-line-reference.md).
+> liệu chính thức: [Tiếng Việt](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction_vi.md)
+> · [English](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction.md).
 
 **Để xem phiên bản GP247**
 
