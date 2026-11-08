@@ -29,9 +29,8 @@ final class InitialAdminPassword
     public static function problem(string $plain): ?string
     {
         $policy = PasswordPolicy::defaults('admin');
-        $valid = Validator::make(['password' => $plain], ['password' => ['required', 'string', $policy->rule()]])->passes();
 
-        return $valid ? null : 'The administrator password must be ' . $policy->min() . ' to ' . $policy->max() . ' characters long.';
+        return self::meets($policy, $plain) ? null : 'The administrator password must be ' . $policy->min() . ' to ' . $policy->max() . ' characters long.';
     }
 
     /**
@@ -42,11 +41,45 @@ final class InitialAdminPassword
      */
     public static function generate(): string
     {
-        do {
-            $password = Str::password(self::LENGTH, true, true, false);
-        } while (self::problem($password) !== null);
+        return self::generateFor(PasswordPolicy::defaults('admin'));
+    }
 
-        return $password;
+    /**
+     * A random password that meets $policy — letters and digits first (easy to copy from a
+     * terminal), adding symbols only when the policy demands them.
+     *
+     * @param PasswordPolicy $policy
+     * @return string
+     * @throws \RuntimeException When no candidate meets the policy (not expected for a valid policy).
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-admin-password-reset
+     */
+    public static function generateFor(PasswordPolicy $policy): string
+    {
+        $length = max($policy->min(), min(self::LENGTH, $policy->max()));
+        foreach ([false, true] as $symbols) {
+            for ($attempt = 0; $attempt < 50; $attempt++) {
+                $password = Str::password($length, true, true, $symbols);
+                if (self::meets($policy, $password)) {
+                    return $password;
+                }
+            }
+        }
+
+        throw new \RuntimeException('Could not generate a password that meets the administrator password policy.');
+    }
+
+    /**
+     * Whether $plain passes $policy.
+     *
+     * @param PasswordPolicy $policy
+     * @param string $plain
+     * @return bool
+     */
+    public static function meets(PasswordPolicy $policy, string $plain): bool
+    {
+        return Validator::make(['password' => $plain], ['password' => ['required', 'string', $policy->rule()]])->passes();
     }
 
     /**

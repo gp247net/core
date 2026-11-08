@@ -126,6 +126,10 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
   (core [+front] [+shop]); mặc định sẽ hỏi xác nhận, thêm `--force=1` để cài
   không cần tương tác.
 
+  Khi cài xong, khối cuối cùng của lệnh in đường dẫn quản trị, tên đăng nhập
+  `admin` và một mật khẩu ngẫu nhiên. **Mật khẩu chỉ hiện một lần** — chép lại
+  ngay trước khi đóng Terminal. Muốn tự đặt: thêm `--admin-password="..."`.
+
 - **Bước 6**: Thêm xử lý lỗi
 
   Để thêm xử lý lỗi tùy chỉnh cho ứng dụng của bạn, hãy mở file `bootstrap/app.php` và thêm đoạn mã sau vào hàm `withExceptions`:

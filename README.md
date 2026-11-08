@@ -126,6 +126,11 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
   order (core [+front] [+shop]); it asks to confirm by default, add `--force=1`
   for an unattended install.
 
+  When it finishes, the last block of the output prints the admin path, the user
+  name `admin` and a random password. **The password is shown only once** — copy
+  it before you close the Terminal. To choose it yourself, add
+  `--admin-password="..."`.
+
 - **Step 6**: Add error handling
 
   To add custom error handling to your application, open the `bootstrap/app.php` file and add the following code to the `withExceptions` function:

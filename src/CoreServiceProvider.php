@@ -92,6 +92,8 @@ class CoreServiceProvider extends ServiceProvider
         UpdateAll::class,
         CacheRebuild::class,
         EncryptionKeyRotate::class,
+        // Needs the installed admin_user table, so runtime tier (US-CLI-admin-password-reset).
+        \GP247\Core\Commands\AdminPassword::class,
         \GP247\Core\Backup\Console\BackupRun::class,
         // Bolt BK-5: manage archives and restore from the command line (R3).
         \GP247\Core\Backup\Console\BackupList::class,
