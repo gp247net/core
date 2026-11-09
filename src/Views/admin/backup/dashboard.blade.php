@@ -5,11 +5,12 @@
     bundle (gp247.md §3a), logical properties for RTL.
 
     @aidlc-unit backup-admin
-    @aidlc-story US-backup-admin-dashboard, US-backup-admin-permissions, US-backup-engine-key-setup
+    @aidlc-story US-backup-admin-dashboard, US-backup-admin-permissions, US-backup-engine-key-setup, US-backup-engine-data-groups
     @aidlc-adr backup-admin_step-up-and-signed-download
 
     Variables: $enabled, $setUp (bool), $status (DashboardStatus::summary()), $rpo (ScheduleClock::rpo()), $archives (paginator|null),
-    $groups (key => DataGroup), $fileGroups (list), $can (create/download/restore/settings), $staleHours,
+    $groups (key => DataGroup), $fileGroups (list), $otherTables (int, tables only a full backup holds),
+    $can (create/download/restore/settings), $staleHours,
     $stepUpNeedsCode, $tickUrl, $postIncident (open checklist|null — BK-5).
 --}}
 @php($inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100')
@@ -139,27 +140,26 @@
                     <div class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.backup.create.snapshot') }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.backup.create.snapshot_help') }}</p>
-                        <select wire:model="snapshotGroup" class="{{ $inputCls }}" data-testid="backup-create-snapshot-group">
-                            @foreach ($groups as $key => $group)
-                                <option value="{{ $key }}">{{ gp247_language_render($group->label) === $group->label ? \Illuminate\Support\Str::headline($key) : gp247_language_render($group->label) }}</option>
-                            @endforeach
-                        </select>
+                        @php($groupHelp = collect($groups)->map(fn ($g, $k) => \GP247\Core\Backup\Livewire\GroupText::help($k, $g))->all())
+                        {{-- WHY: the description follows the choice in the browser; wire:model is deferred, so no round-trip. --}}
+                        <div x-data="{ help: {{ \Illuminate\Support\Js::from($groupHelp) }}, current: {{ \Illuminate\Support\Js::from($snapshotGroup) }} }">
+                            <select wire:model="snapshotGroup" x-on:change="current = $event.target.value" class="{{ $inputCls }}" data-testid="backup-create-snapshot-group">
+                                @foreach ($groups as $key => $group)
+                                    <option value="{{ $key }}">{{ \GP247\Core\Backup\Livewire\GroupText::label($key, $group) }}</option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-text="help[current] || ''" data-testid="backup-create-snapshot-help">{{ $groupHelp[$snapshotGroup] ?? '' }}</p>
+                        </div>
                         <x-gp247::button size="sm" wire:click="createSnapshot" data-testid="backup-create-snapshot">{{ gp247_language_render('admin.backup.create.start') }}</x-gp247::button>
                     </div>
                     <div class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.backup.create.selective') }}</p>
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="grid grid-cols-1 gap-2">
                             @foreach ($groups as $key => $group)
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                                    <x-gp247::checkbox wire:model="selectiveGroups" value="{{ $key }}" data-testid="backup-create-selective-group-{{ $key }}" />
-                                    {{ gp247_language_render($group->label) === $group->label ? \Illuminate\Support\Str::headline($key) : gp247_language_render($group->label) }}
-                                </label>
+                                @include('gp247-admin::backup.partials.group-option', ['model' => 'selectiveGroups', 'live' => false, 'value' => $key, 'label' => \GP247\Core\Backup\Livewire\GroupText::label($key, $group), 'help' => $groupHelp[$key], 'testid' => 'backup-create-selective-group-' . $key])
                             @endforeach
                             @foreach ($fileGroups as $fileGroup)
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                                    <x-gp247::checkbox wire:model="selectiveFiles" value="{{ $fileGroup }}" data-testid="backup-create-selective-files-{{ $fileGroup }}" />
-                                    {{ gp247_language_render('admin.backup.files.' . $fileGroup) }}
-                                </label>
+                                @include('gp247-admin::backup.partials.group-option', ['model' => 'selectiveFiles', 'live' => false, 'value' => $fileGroup, 'label' => gp247_language_render('admin.backup.files.' . $fileGroup), 'help' => \GP247\Core\Backup\Livewire\GroupText::fileHelp($fileGroup), 'testid' => 'backup-create-selective-files-' . $fileGroup])
                             @endforeach
                         </div>
                         <x-gp247::button size="sm" wire:click="createSelective" data-testid="backup-create-selective">{{ gp247_language_render('admin.backup.create.start') }}</x-gp247::button>
@@ -167,6 +167,10 @@
                     <div class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.backup.create.full') }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.backup.create.full_help') }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400" data-testid="backup-create-full-other">
+                            {{ gp247_language_render('admin.backup.create.full_other') }}
+                            @if ($otherTables > 0) {{ gp247_language_render('admin.backup.create.full_other_count', ['count' => $otherTables]) }} @endif
+                        </p>
                         <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                             <x-gp247::checkbox wire:model="excludeLogs" data-testid="backup-create-full-exclude-logs" />
                             {{ gp247_language_render('admin.backup.create.exclude_logs') }}
@@ -208,7 +212,7 @@
                             {{ gp247_language_render('admin.backup.kind.' . $archive->kind) }}
                             <span class="block text-xs text-gray-400">{{ gp247_language_render('admin.backup.reason.' . explode(':', (string) $archive->reason)[0]) }}</span>
                         </td>
-                        <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ implode(', ', array_merge((array) ((json_decode((string) $archive->scope, true) ?: [])['groups'] ?? []), (array) ((json_decode((string) $archive->scope, true) ?: [])['files'] ?? []))) ?: ($archive->kind === 'full' ? gp247_language_render('admin.backup.list.scope_all') : '—') }}</td>
+                        <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ \GP247\Core\Backup\Livewire\GroupText::scopeNames((array) (json_decode((string) $archive->scope, true) ?: []), $groups) ?: ($archive->kind === 'full' ? gp247_language_render('admin.backup.list.scope_all') : '—') }}</td>
                         <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ number_format(((int) $archive->size) / 1048576, 1) }} MB</td>
                         <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300" data-testid="backup-archive-where">{{ gp247_language_render('admin.backup.where.' . match ($archive->offsite) { 'done' => 'offsite', 'pending' => 'pending', 'failed' => 'failed', default => 'local' }) }}</td>
                         <td class="px-4 py-3">

@@ -7,7 +7,7 @@
     @aidlc-story US-backup-restore-table-restore, US-backup-restore-deleted-records, US-backup-restore-config-restore, US-backup-restore-full-database, US-backup-restore-import-archive, US-backup-restore-post-incident-mode
     @aidlc-adr backup-restore_shadow-table-swap
 
-    Variables: $enabled, $archives (Collection), $selected (row|null), $groups (key => DataGroup),
+    Variables: $enabled, $archives (Collection), $selected (row|null), $dataGroups (key => DataGroup; not $groups — that name is the component property holding the ticked keys),
     $preview (array|null), $last (array|null), $undoPoint (array|null), $job (array|null), $stepUpNeedsCode, $tickUrl,
     $lastImport (array|null), $uploadMaxBytes (int) — BK-5.
 --}}
@@ -94,12 +94,9 @@
             @endif
 
             @if ($level === 'replace')
-                <div class="grid grid-cols-2 gap-2" style="grid-column: 1 / -1" data-testid="backup-restore-groups">
-                    @foreach ($groups as $key => $group)
-                        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                            <x-gp247::checkbox wire:model.live="groups" value="{{ $key }}" data-testid="backup-restore-group-{{ $key }}" />
-                            {{ gp247_language_render($group->label) === $group->label ? \Illuminate\Support\Str::headline($key) : gp247_language_render($group->label) }}
-                        </label>
+                <div class="grid grid-cols-1 gap-2" style="grid-column: 1 / -1" data-testid="backup-restore-groups">
+                    @foreach ($dataGroups as $key => $group)
+                        @include('gp247-admin::backup.partials.group-option', ['model' => 'groups', 'live' => true, 'value' => $key, 'label' => \GP247\Core\Backup\Livewire\GroupText::label($key, $group), 'help' => \GP247\Core\Backup\Livewire\GroupText::help($key, $group), 'testid' => 'backup-restore-group-' . $key])
                     @endforeach
                 </div>
             @elseif ($level === 'undelete')

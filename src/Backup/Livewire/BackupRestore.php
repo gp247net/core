@@ -397,7 +397,7 @@ class BackupRestore extends Component
             'enabled' => BackupFeature::enabled(),
             'archives' => $archives,
             'selected' => $selected,
-            'groups' => (new DataGroupRegistry)->groups(),
+            'dataGroups' => (new DataGroupRegistry)->groups(),
             'preview' => $this->previewData(),
             'last' => $service->last(),
             'undoPoint' => $service->undoPoint(),

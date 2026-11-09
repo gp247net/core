@@ -28,6 +28,9 @@ final class DataGroupRegistry
 {
     private const LABEL_PREFIX = 'admin.backup.group.';
 
+    /** Description of an extension's own group that declares none (":name" = the extension name). */
+    public const EXTENSION_HELP = 'admin.backup.group_help.extension';
+
     /** @var array<string, array> */
     private array $declared;
 
@@ -75,15 +78,20 @@ final class DataGroupRegistry
      * @param string       $group    Group key ("content", "orders"…); tables of the same key are merged.
      * @param list<string> $tables   Tables without GP247_DB_PREFIX.
      * @param list<string> $excluded Tables of the caller that must never be backed up.
+     * @param string|null  $help     Language key saying, in business words, what the caller's tables hold.
      * @return void
      */
-    public static function declare(string $group, array $tables, array $excluded = []): void
+    public static function declare(string $group, array $tables, array $excluded = [], ?string $help = null): void
     {
         if (!config()->has('gp247-config.backup.data_groups')) {
             return;
         }
         $path = 'gp247-config.backup.data_groups.'.$group.'.tables';
         config([$path => self::merge((array) config($path, []), $tables)]);
+        if ($help !== null && $help !== '') {
+            $helpPath = 'gp247-config.backup.data_groups.'.$group.'.help';
+            config([$helpPath => self::merge((array) config($helpPath, []), [$help])]);
+        }
         if ($excluded) {
             config(['gp247-config.backup.excluded_tables' => self::merge((array) config('gp247-config.backup.excluded_tables', []), $excluded)]);
         }
@@ -196,9 +204,11 @@ final class DataGroupRegistry
         $claims = [];
         $members = [];
         $labels = [];
+        $help = [];
 
-        foreach ($this->declarations() as [$key, $label, $tables]) {
+        foreach ($this->declarations() as [$key, $label, $tables, $parts]) {
             $labels[$key] ??= $label;
+            $help[$key] = self::merge($help[$key] ?? [], $parts);
             foreach ($tables as $table) {
                 if (!isset($usable[$table]) && !isset($rawUsable[$table])) {
                     continue;
@@ -215,7 +225,7 @@ final class DataGroupRegistry
         $groups = [];
         foreach ($members as $key => $tables) {
             $raw = array_values(array_filter($tables, fn ($t) => !isset($usable[$t])));
-            $groups[$key] = new DataGroup($key, $labels[$key], $tables, $raw);
+            $groups[$key] = new DataGroup($key, $labels[$key], $tables, $raw, $help[$key] ?? []);
         }
 
         $unassigned = array_values(array_filter($existing, fn ($t) => isset($usable[$t]) && !isset($claims[$t])));
@@ -225,13 +235,14 @@ final class DataGroupRegistry
     }
 
     /**
-     * @return list<array{0: string, 1: string, 2: list<string>}> [group key, label, tables] in claim order.
+     * @return list<array{0: string, 1: string, 2: list<string>, 3: list<string>}> [group key, label, tables, description keys] in claim order.
      */
     private function declarations(): array
     {
         $out = [];
         foreach ($this->declared as $key => $group) {
-            $out[] = [(string) $key, (string) ($group['label'] ?? self::LABEL_PREFIX.$key), array_values((array) ($group['tables'] ?? []))];
+            $help = array_values(array_filter(array_map('strval', (array) ($group['help'] ?? [])), fn ($k) => $k !== ''));
+            $out[] = [(string) $key, (string) ($group['label'] ?? self::LABEL_PREFIX.$key), array_values((array) ($group['tables'] ?? [])), $help];
         }
 
         foreach ((array) ($this->manifestReader)() as $id => $manifest) {
@@ -240,12 +251,19 @@ final class DataGroupRegistry
                 continue;
             }
             [$type, $extKey] = array_pad(explode('/', (string) $id, 2), 2, '');
+            $ownKey = 'ext.'.strtolower($type).'.'.$extKey;
             if (isset($tables['tables'])) {
-                $key = (string) ($tables['group'] ?? 'ext.'.strtolower($type).'.'.$extKey);
-                $out[] = [$key, self::LABEL_PREFIX.$key, array_values((array) $tables['tables'])];
+                $key = (string) ($tables['group'] ?? $ownKey);
+                $help = is_string($tables['help'] ?? null) && $tables['help'] !== '' ? [$tables['help']] : [];
+                // WHY: an extension's own group would otherwise carry no description at all, while tables
+                // added to a group that already exists are described by that group's owners.
+                if (!$help && !isset($this->declared[$key])) {
+                    $help = [self::EXTENSION_HELP];
+                }
+                $out[] = [$key, self::LABEL_PREFIX.$key, array_values((array) $tables['tables']), $help];
                 continue;
             }
-            $out[] = ['ext.'.strtolower($type).'.'.$extKey, (string) ($manifest['name'] ?? $extKey), array_values($tables)];
+            $out[] = [$ownKey, (string) ($manifest['name'] ?? $extKey), array_values($tables), [self::EXTENSION_HELP]];
         }
 
         return $out;

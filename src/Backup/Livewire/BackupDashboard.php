@@ -360,6 +360,7 @@ class BackupDashboard extends Component
     {
         $this->authorizeScreen();
         $setUp = (new KeyService)->isSetUp();
+        $registry = new DataGroupRegistry;
 
         return view('gp247-admin::backup.dashboard', [
             'enabled' => BackupFeature::enabled(),
@@ -367,7 +368,8 @@ class BackupDashboard extends Component
             'status' => (new DashboardStatus)->summary(),
             'rpo' => (new ScheduleClock)->rpo(),
             'archives' => $setUp ? $this->archives() : null,
-            'groups' => (new DataGroupRegistry)->groups(),
+            'groups' => $registry->groups(),
+            'otherTables' => count($registry->unassigned()),
             'fileGroups' => array_keys((array) config('gp247-config.backup.file_groups', [])),
             'can' => [
                 'create' => BackupAccess::allows(BackupAccess::CREATE),
