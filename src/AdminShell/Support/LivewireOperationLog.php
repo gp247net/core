@@ -7,6 +7,7 @@ use GP247\Core\Middleware\LogOperation;
 use GP247\Core\Models\AdminLog;
 use Livewire\ComponentHook;
 use Livewire\Drawer\Utils;
+use Symfony\Component\HttpFoundation\File\UploadedFile as SymfonyUploadedFile;
 
 /**
  * Writes every Livewire action performed on an admin screen to the operation
@@ -22,7 +23,8 @@ use Livewire\Drawer\Utils;
  * What is written: the admin who acted, the screen they were on (Referer path,
  * else the component name), `LIVEWIRE` as the method, and as input the
  * component name, the action, its parameters and the component's public state
- * with secret-looking keys removed. Reads that are not operations (`$refresh`,
+ * with secret-looking keys removed and objects reduced to a short description
+ * (an uploaded file is its original name and size). Reads that are not operations (`$refresh`,
  * pagination) are skipped through `gp247-config.admin.admin_log_livewire_except`.
  * The row is written AFTER the action completed, so a denied or failed action
  * leaves no trace of something that did not happen.
@@ -41,6 +43,12 @@ class LivewireOperationLog extends ComponentHook
 
     /** @var int `admin_log.input` is TEXT (64 KiB); leave room for escaping. */
     public const INPUT_MAX = 60000;
+
+    /**
+     * @var int Deepest array level written; deeper branches become `{_depth_limit: true}`.
+     *          Admin state rarely goes past form.items.0.field (4).
+     */
+    public const SCRUB_MAX_DEPTH = 10;
 
     /**
      * Properties the browser changed in this same request (`wire:model` values
@@ -217,36 +225,125 @@ class LivewireOperationLog extends ComponentHook
 
     /**
      * Remove any key that names a secret (password, token, client_secret…) at
-     * every depth — the same words LogOperation drops from request input.
+     * every depth — the same words LogOperation drops from request input — and
+     * reduce objects to a short description (see describe()).
+     *
+     * WHY the depth limit: the log must never be able to break the action it
+     * records. A memory exhaustion is fatal and escapes record()'s try/catch, so
+     * recursion has a hard ceiling whatever the state looks like.
      *
      * @param array<mixed> $data
      * @param array<int, string> $except
+     * @param int $depth Nesting level of $data (0 = top level).
      * @return array<mixed>
      */
-    protected function scrub(array $data, array $except): array
+    protected function scrub(array $data, array $except, int $depth = 0): array
     {
-        $needles = array_map('strtolower', $except);
+        if ($depth >= self::SCRUB_MAX_DEPTH) {
+            return ['_depth_limit' => true];
+        }
+        $needles = array_values(array_filter(array_map('strtolower', $except), fn ($n) => $n !== ''));
         $out = [];
         foreach ($data as $key => $value) {
-            if (is_string($key)) {
-                $lower = strtolower($key);
-                $hit = false;
-                foreach ($needles as $needle) {
-                    if ($needle !== '' && str_contains($lower, $needle)) {
-                        $hit = true;
-                        break;
-                    }
-                }
-                if ($hit) {
-                    continue;
-                }
+            if (is_string($key) && $this->isSecretKey($key, $needles)) {
+                continue;
             }
             if (is_object($value)) {
-                $value = method_exists($value, 'toArray') ? $value->toArray() : (array) $value;
+                $value = $this->describe($value);
             }
-            $out[$key] = is_array($value) ? $this->scrub($value, $except) : $value;
+            $out[$key] = is_array($value) ? $this->scrub($value, $except, $depth + 1) : $value;
         }
 
         return $out;
+    }
+
+    /**
+     * @param string $key
+     * @param array<int, string> $needles Lower-cased, non-empty secret words.
+     * @return bool
+     */
+    protected function isSecretKey(string $key, array $needles): bool
+    {
+        $lower = strtolower($key);
+        foreach ($needles as $needle) {
+            if (str_contains($lower, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A loggable stand-in for an object value.
+     *
+     * WHY not `(array) $object`: the cast dumps private and protected internals
+     * (a TemporaryUploadedFile drags in its filesystem adapter and config, with
+     * reference cycles) — unbounded in size, possibly sensitive under keys that
+     * do not look secret, and the cause of the out-of-memory crash on upload
+     * screens. Only what the object chooses to expose is kept.
+     *
+     * @param object $value
+     * @return mixed Array (scrubbed further by the caller) or scalar.
+     */
+    protected function describe(object $value)
+    {
+        if ($value instanceof SymfonyUploadedFile) {
+            return ['_upload' => $this->uploadName($value), 'size' => $this->uploadSize($value)];
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format(\DateTimeInterface::ATOM);
+        }
+        if ($value instanceof \BackedEnum) {
+            return $value->value;
+        }
+        if ($value instanceof \UnitEnum) {
+            return $value->name;
+        }
+        if ($value instanceof \stdClass) {
+            return (array) $value;
+        }
+        if (method_exists($value, 'toArray')) {
+            try {
+                $array = $value->toArray();
+                if (is_array($array)) {
+                    return $array;
+                }
+            } catch (\Throwable $e) {
+                // WHY: fall through to the class name — a failing toArray() must not drop the row.
+            }
+        }
+
+        return ['_object' => get_class($value)];
+    }
+
+    /**
+     * @param SymfonyUploadedFile $file
+     * @return string The name the browser sent, cut to a sane length.
+     */
+    protected function uploadName(SymfonyUploadedFile $file): string
+    {
+        try {
+            $name = (string) $file->getClientOriginalName();
+        } catch (\Throwable $e) {
+            return '';
+        }
+
+        return mb_substr($name, 0, 255);
+    }
+
+    /**
+     * @param SymfonyUploadedFile $file
+     * @return int|null Bytes, or null when the temporary file cannot be read.
+     */
+    protected function uploadSize(SymfonyUploadedFile $file): ?int
+    {
+        try {
+            $size = $file->getSize();
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return is_int($size) ? $size : null;
     }
 }
