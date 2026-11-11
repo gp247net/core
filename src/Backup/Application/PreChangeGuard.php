@@ -89,10 +89,33 @@ final class PreChangeGuard
 
         return match ($change->operation) {
             PreChange::SYSTEM_UPDATE => ScheduleSettings::scope(ScheduleSettings::KIND_DATA),
-            PreChange::EXTENSION_UPDATE => $keep(['config', self::extensionGroup((string) ($change->scope['type'] ?? ''), (string) ($change->scope['key'] ?? ''))]),
+            PreChange::EXTENSION_UPDATE => $this->extensionScope((string) ($change->scope['type'] ?? ''), (string) ($change->scope['key'] ?? ''), $known, $keep),
             PreChange::TEMPLATE_SWITCH => $keep(['config', 'content']),
             default => null,
         };
+    }
+
+    /**
+     * The configuration and the extension's own group; an extension that declares no tables has
+     * them among the "Other" tables, so every data group and the "Other" tables are taken instead —
+     * a snapshot of the configuration alone would say "saved" without the extension's data
+     * (mod 20261110T164834, measured: no local plugin declares `dataTables`).
+     *
+     * @param string       $type
+     * @param string       $key
+     * @param list<string> $known Group keys of the registry.
+     * @param callable     $keep
+     * @return BackupScope
+     */
+    private function extensionScope(string $type, string $key, array $known, callable $keep): BackupScope
+    {
+        $group = self::extensionGroup($type, $key);
+        if (in_array($group, $known, true)) {
+            return $keep(['config', $group]);
+        }
+        $data = ScheduleSettings::scope(ScheduleSettings::KIND_DATA);
+
+        return BackupScope::selective($data->groups, [], true);
     }
 
     /**

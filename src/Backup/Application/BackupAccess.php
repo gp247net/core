@@ -43,6 +43,20 @@ final class BackupAccess
     }
 
     /**
+     * @return bool The current admin is an Administrator (false when there is none — console, guest).
+     *
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    public static function isAdministrator(): bool
+    {
+        try {
+            return app(AdminUserContract::class)->isAdministrator();
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
      * Refuse (and log the refusal) when the current admin lacks a right.
      *
      * @param string $right

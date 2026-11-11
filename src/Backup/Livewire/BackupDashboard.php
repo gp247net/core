@@ -15,6 +15,7 @@ use GP247\Core\Backup\Application\DownloadTokenService;
 use GP247\Core\Backup\Application\KeyService;
 use GP247\Core\Backup\Application\OffsiteService;
 use GP247\Core\Backup\Application\ScheduleClock;
+use GP247\Core\Backup\Application\SecretAttemptLimiter;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\BackupKeyError;
@@ -199,6 +200,18 @@ class BackupDashboard extends Component
     {
         $archiveId = (string) $this->verifyArchiveId;
         BackupAccess::authorize(BackupAccess::CREATE, 'verify', ['archive_id' => $archiveId]);
+        // Mod 20261110T164834 (D4, D6): this takes the backup password, so it is re-confirmed and its
+        // wrong tries are limited like the other places a backup secret is typed.
+        if (!$this->requireStepUp('runVerify')) {
+            return;
+        }
+        $adminId = (string) admin()->user()->id;
+        if (SecretAttemptLimiter::begin($adminId) !== null) {
+            $this->verifySecret = '';
+            $this->refused('verify', SecretAttemptLimiter::REASON, ['archive_id' => $archiveId]);
+
+            return;
+        }
         $secret = $this->verifyWithRecovery ? BackupSecret::recovery($this->verifySecret) : BackupSecret::password($this->verifySecret);
         $this->verifySecret = '';
         try {
@@ -208,6 +221,7 @@ class BackupDashboard extends Component
 
             return;
         } catch (WrongBackupSecret $e) {
+            SecretAttemptLimiter::failed($adminId);
             $this->refused('verify', 'wrong_secret', ['archive_id' => $archiveId]);
 
             return;
@@ -220,6 +234,7 @@ class BackupDashboard extends Component
 
             return;
         }
+        SecretAttemptLimiter::clear($adminId);
         $this->verifyArchiveId = null;
         BackupAudit::record('verify', BackupAudit::OK, ['archive_id' => $archiveId, 'job_id' => $jobId]);
         $this->notice('admin.backup.verify.started');
@@ -234,6 +249,10 @@ class BackupDashboard extends Component
     {
         BackupAccess::authorize(BackupAccess::CREATE, 'pin', ['archive_id' => $archiveId]);
         $row = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'backup_archive')->where('id', $archiveId)->first();
+        // Unpinning lets the keep rule remove the archive: re-confirmed (mod 20261110T164834, D6).
+        if ((bool) ($row->pinned ?? false) && !$this->requireStepUp('togglePin', [$archiveId])) {
+            return;
+        }
         try {
             (new ArchiveActions)->pin($archiveId, !(bool) ($row->pinned ?? false));
         } catch (BackupRefused $e) {
@@ -294,6 +313,10 @@ class BackupDashboard extends Component
         if ($archiveId === '' || strtoupper(trim($this->deleteConfirm)) !== substr($archiveId, -6)) {
             $this->addError('deleteConfirm', gp247_language_render('admin.backup.delete.confirm_wrong'));
 
+            return;
+        }
+        // A taken-over session must not be enough to remove the backups (mod 20261110T164834, D6).
+        if (!$this->requireStepUp('runDelete')) {
             return;
         }
         try {
@@ -409,7 +432,7 @@ class BackupDashboard extends Component
      */
     protected function stepUpActions(): array
     {
-        return ['requestDownload'];
+        return ['requestDownload', 'runVerify', 'togglePin', 'runDelete'];
     }
 
     /**

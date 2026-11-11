@@ -209,6 +209,179 @@ final class SchemaInspector
     }
 
     /**
+     * Run statements with zero dates allowed in this session (MySQL / MariaDB): a table an older
+     * site created with `DEFAULT '0000-00-00'` cannot even be copied with CREATE TABLE … LIKE under
+     * the strict default (error 1067), nor its zero dates inserted back. Only NO_ZERO_DATE and
+     * NO_ZERO_IN_DATE are lifted — strict mode stays, so a value that does not fit still fails
+     * instead of being cut silently. The previous sql_mode is put back afterwards.
+     *
+     * @param callable $statements
+     * @return mixed What $statements returns.
+     *
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public function withZeroDatesAllowed(callable $statements): mixed
+    {
+        if (!$this->isMysql()) {
+            return $statements();
+        }
+        $mode = (string) ($this->db->selectOne('SELECT @@SESSION.sql_mode AS m')->m ?? '');
+        $loose = implode(',', array_filter(explode(',', $mode), fn ($m) => !in_array(strtoupper(trim($m)), ['NO_ZERO_DATE', 'NO_ZERO_IN_DATE'], true)));
+        if ($loose === $mode) {
+            return $statements();
+        }
+        $this->db->statement('SET SESSION sql_mode = ?', [$loose]);
+        try {
+            return $statements();
+        } finally {
+            $this->db->statement('SET SESSION sql_mode = ?', [$mode]);
+        }
+    }
+
+    /**
+     * @param string $table Real name.
+     * @return int|null Next AUTO_INCREMENT value of the table (MySQL / MariaDB), null when it has none.
+     *                  Read from SHOW CREATE TABLE: information_schema may hold a cached, older value.
+     *
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public function autoIncrement(string $table): ?int
+    {
+        if (!$this->isMysql()) {
+            return null;
+        }
+        $row = (array) $this->db->selectOne('SHOW CREATE TABLE ' . $this->quote($table));
+        $ddl = (string) ($row['Create Table'] ?? '');
+
+        return preg_match('/\bAUTO_INCREMENT=(\d+)/', $ddl, $m) === 1 ? (int) $m[1] : null;
+    }
+
+    /**
+     * Give a shadow at least the next id its table would have given: restored rows end where the
+     * backup ended, and an id handed out (then deleted) before the backup must not come back.
+     *
+     * @param string $table  Real name of the table being replaced.
+     * @param string $shadow Its loaded shadow.
+     * @return void
+     *
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public function carryAutoIncrement(string $table, string $shadow): void
+    {
+        $next = $this->autoIncrement($table);
+        $current = $this->autoIncrement($shadow);
+        if ($next === null || $current === null || $next <= $current) {
+            return;
+        }
+        $this->withZeroDatesAllowed(fn () => $this->db->statement('ALTER TABLE ' . $this->quote($shadow) . ' AUTO_INCREMENT = ' . (int) $next));
+    }
+
+    /**
+     * Triggers follow their table through RENAME: after a swap they sit on the old copy. Move the
+     * site's own trigger definitions (never anything from the archive) to the table now in place.
+     *
+     * @param string $from Real name the triggers are on now.
+     * @param string $to   Real name they belong to.
+     * @return list<string> Names of triggers that could not be moved (left where they were).
+     *
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public function moveTriggers(string $from, string $to): array
+    {
+        if (!$this->isMysql()) {
+            return [];
+        }
+        $failed = [];
+        foreach ($this->triggersOn($from) as $name) {
+            try {
+                $definition = (array) $this->db->selectOne('SHOW CREATE TRIGGER ' . $this->quote($name));
+                // The stored statement names the table the trigger was created on (normally $to).
+                $sql = preg_replace('/\bON\s+`?' . preg_quote($from, '/') . '`?(\s)/i', 'ON ' . $this->quote($to) . '$1', (string) ($definition['SQL Original Statement'] ?? ''), 1);
+                $temporary = substr($name, 0, 55) . '_bkmv';
+                $temporarySql = is_string($sql) ? preg_replace('/\bTRIGGER\s+`?' . preg_quote($name, '/') . '`?/i', 'TRIGGER ' . $this->quote($temporary), $sql, 1) : null;
+                // WHY a temporary copy first: a CREATE refused after the DROP (definer rights, binlog
+                // without SUPER) would lose the site's trigger. Nothing is dropped until the copy exists.
+                if (!is_string($temporarySql) || $temporarySql === $sql || !$this->createTrigger($temporarySql)) {
+                    $failed[] = $name;
+                    continue;
+                }
+                $this->db->unprepared('DROP TRIGGER ' . $this->quote($name));
+                if ($this->createTrigger($sql)) {
+                    $this->db->unprepared('DROP TRIGGER ' . $this->quote($temporary));
+                } else {
+                    // The copy keeps the behaviour on the right table, under its temporary name.
+                    $failed[] = $name;
+                }
+            } catch (\Throwable $e) {
+                $failed[] = $name;
+            }
+        }
+
+        return $failed;
+    }
+
+    /**
+     * @param string $table Real table name.
+     * @return list<string> Names of the triggers defined on it (MySQL / MariaDB; none elsewhere).
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public function triggersOn(string $table): array
+    {
+        if (!$this->isMysql()) {
+            return [];
+        }
+
+        return array_map(
+            fn ($row) => (string) $row->n,
+            $this->db->select('SELECT TRIGGER_NAME AS n FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() AND EVENT_OBJECT_TABLE = ?', [$table])
+        );
+    }
+
+    /**
+     * @param string $sql CREATE TRIGGER statement (the site's own definition).
+     * @return bool Created — as it was, or without its DEFINER clause when the definer cannot be set
+     *              by this database user (the trigger then runs as this user, like the site's own code).
+     */
+    private function createTrigger(string $sql): bool
+    {
+        foreach ([$sql, preg_replace('/\bDEFINER\s*=\s*\S+\s+/i', '', $sql, 1)] as $statement) {
+            if (!is_string($statement)) {
+                continue;
+            }
+            try {
+                $this->db->unprepared($statement);
+
+                return true;
+            } catch (\Throwable $e) {
+                // Next form, or give up.
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $table Real name.
+     * @return array<string, int> BIT columns => bytes of their value (MySQL / MariaDB).
+     *
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public function bitColumns(string $table): array
+    {
+        if (!$this->isMysql()) {
+            return [];
+        }
+        $out = [];
+        foreach ($this->db->select("SELECT COLUMN_NAME AS c, NUMERIC_PRECISION AS p FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND DATA_TYPE = 'bit'", [$table]) as $row) {
+            $out[(string) $row->c] = max(1, intdiv((int) $row->p + 7, 8));
+        }
+
+        return $out;
+    }
+
+    /**
      * @param string $name Real table (or index) name.
      * @return string Quoted identifier for raw statements.
      * @throws \InvalidArgumentException When the name is not a safe identifier.

@@ -37,6 +37,9 @@ final class BackupDoctor
                 $keys->isSetUp()
                     ? self::row('backup_setup', 'pass', 'backup password set up')
                     : self::row('backup_setup', 'warn', 'no backup password yet — set it up in Admin > Backup (no backup can be made before)'),
+                $keys->problem() === KeyService::PROBLEM_SIGNING_KEY_PLAINTEXT
+                    ? self::row('backup_key_ring', 'fail', 'the backup signing key is stored unencrypted — someone with database access may have replaced the backup keys; no backup is made until the backup keys are reset by your developer (archives made before can still be restored with the backup password, origin unverified)')
+                    : self::row('backup_key_ring', 'pass', 'backup keys stored encrypted'),
                 $this->lastSuccess(),
                 $this->schedule(),
                 $this->vault(),

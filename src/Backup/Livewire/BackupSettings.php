@@ -8,6 +8,7 @@ use GP247\Core\Backup\Application\BackupAudit;
 use GP247\Core\Backup\Application\BackupFeature;
 use GP247\Core\Backup\Application\KeyService;
 use GP247\Core\Backup\Application\RetentionService;
+use GP247\Core\Backup\Application\SecretAttemptLimiter;
 use GP247\Core\Backup\Domain\BackupKeyError;
 use GP247\Core\Backup\Domain\BackupRefused;
 use GP247\Core\Backup\Domain\BackupSecret;
@@ -74,6 +75,11 @@ class BackupSettings extends Component
             'keepPreChange' => ['required', 'integer', 'min:1', 'max:20'],
             'vaultPath' => ['nullable', 'string', 'max:500'],
         ]);
+        // Fewer archives kept, another folder, the feature off: each can make backups disappear,
+        // so a taken-over session is not enough (mod 20261110T164834, D6).
+        if (!$this->requireStepUp('saveGeneral')) {
+            return;
+        }
         try {
             LocalVault::setCustomPath($this->vaultPath === '' ? null : $this->vaultPath);
         } catch (BackupRefused $e) {
@@ -107,10 +113,15 @@ class BackupSettings extends Component
         if (!$this->requireStepUp('changePassword')) {
             return;
         }
+        if ($this->secretThrottled('key_change')) {
+            return;
+        }
         $current = $this->useRecoveryForChange ? BackupSecret::recovery($this->currentPassword) : BackupSecret::password($this->currentPassword);
         try {
             $recovery = (new KeyService)->changePassword($current, $this->newPassword);
+            SecretAttemptLimiter::clear((string) admin()->user()->id);
         } catch (WrongBackupSecret $e) {
+            SecretAttemptLimiter::failed((string) admin()->user()->id);
             $this->addError('currentPassword', gp247_language_render('admin.backup.refused.wrong_secret'));
             BackupAudit::record('key_change', BackupAudit::REFUSED, ['reason' => 'wrong_secret']);
 
@@ -140,9 +151,14 @@ class BackupSettings extends Component
         if (!$this->requireStepUp('newRecoveryKey')) {
             return;
         }
+        if ($this->secretThrottled('recovery_key')) {
+            return;
+        }
         try {
             $recovery = (new KeyService)->regenerateRecoveryKey($this->currentPassword);
+            SecretAttemptLimiter::clear((string) admin()->user()->id);
         } catch (WrongBackupSecret $e) {
+            SecretAttemptLimiter::failed((string) admin()->user()->id);
             $this->addError('currentPassword', gp247_language_render('admin.backup.refused.wrong_secret'));
             BackupAudit::record('recovery_key', BackupAudit::REFUSED, ['reason' => 'wrong_secret']);
 
@@ -152,6 +168,23 @@ class BackupSettings extends Component
         }
         $this->shownRecoverySecret = $recovery->display();
         BackupAudit::record('recovery_key', BackupAudit::OK);
+    }
+
+    /**
+     * @param string $action Audit action.
+     * @return bool Too many wrong backup passwords lately: refused (and the typed secret dropped).
+     *
+     * @aidlc-story US-backup-admin-step-up-auth
+     */
+    private function secretThrottled(string $action): bool
+    {
+        if (SecretAttemptLimiter::begin((string) admin()->user()->id) === null) {
+            return false;
+        }
+        $this->currentPassword = '';
+        $this->refused($action, SecretAttemptLimiter::REASON);
+
+        return true;
     }
 
     /**
@@ -183,7 +216,7 @@ class BackupSettings extends Component
      */
     protected function stepUpActions(): array
     {
-        return ['changePassword', 'newRecoveryKey'];
+        return ['changePassword', 'newRecoveryKey', 'saveGeneral'];
     }
 
     /**

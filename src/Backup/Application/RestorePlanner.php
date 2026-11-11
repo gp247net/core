@@ -33,6 +33,9 @@ final class RestorePlanner
 
     private DataGroupRegistry $registry;
 
+    /** Origin of the archive being planned (ArchiveReader::ORIGIN_*), set through forOrigin(). */
+    private string $origin = ArchiveReader::ORIGIN_SITE;
+
     /**
      * @param SchemaInspector        $schema
      * @param DataGroupRegistry|null $registry
@@ -65,6 +68,12 @@ final class RestorePlanner
         foreach ($names as $name) {
             if (!isset($archiveTables[$name])) {
                 $out['not_in_archive'][] = $name;
+                continue;
+            }
+            if ($this->undeclaredRaw($name, $manifest)) {
+                // An archive of unverified origin names an unprefixed table this site never declared
+                // (another application sharing the database): never touched (mod 20261110T164834, D5).
+                $out['excluded'][] = $name;
                 continue;
             }
             $real = $this->realName($name, $manifest);
@@ -106,6 +115,9 @@ final class RestorePlanner
             (array) ($meta['packages'] ?? []),
             SiteVersions::packages()
         );
+        // Which package / extension each missing migration belongs to, so the refusal says what to
+        // update or install (mod 20261110T164834, B7).
+        $compat['missing_by_source'] = MigrationSources::group($compat['missing_on_site']);
         [$incoming, $ownFk] = $this->foreignKeys($plan, array_column($resolved['tables'], 'real'));
 
         $preview = [
@@ -303,14 +315,79 @@ final class RestorePlanner
     }
 
     /**
+     * Set by RestoreService for the archive being restored (ArchiveReader::ORIGIN_*).
+     *
+     * @param string $origin
+     * @return self
+     *
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    public function forOrigin(string $origin): self
+    {
+        $this->origin = $origin;
+
+        return $this;
+    }
+
+    /**
+     * @param string               $name     Table name in the archive.
+     * @param array<string, mixed> $manifest
+     * @return bool The archive is of unverified origin and names a table this site does not declare
+     *              as its own (see acceptsFromUnverified()).
+     */
+    private function undeclaredRaw(string $name, array $manifest): bool
+    {
+        if ($this->origin !== ArchiveReader::ORIGIN_UNVERIFIED) {
+            return false;
+        }
+        $raw = in_array($name, array_map('strval', (array) ($manifest['meta']['raw_tables'] ?? [])), true);
+
+        return !self::acceptsFromUnverified($name, $raw, (string) GP247_DB_PREFIX, $this->registry);
+    }
+
+    /**
+     * Tables an archive of unverified origin may replace. A prefixed table is this site's own; an
+     * unprefixed one may belong to another application sharing the database, so only those this site
+     * declares (and its migration table) are accepted. On a site without a prefix every table looks
+     * unprefixed: there only tables of a declared data group are accepted, never "Other" tables.
+     *
+     * @param string            $name     Table name in the archive.
+     * @param bool              $raw      The archive lists it as unprefixed (meta.raw_tables).
+     * @param string            $prefix   GP247_DB_PREFIX of this site.
+     * @param DataGroupRegistry $registry
+     * @return bool
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public static function acceptsFromUnverified(string $name, bool $raw, string $prefix, DataGroupRegistry $registry): bool
+    {
+        if ($prefix !== '' && !$raw) {
+            return true;
+        }
+        if ($name === SiteVersions::migrationsTable()) {
+            return true;
+        }
+        foreach ($registry->groups() as $group) {
+            if (in_array($name, $group->raw, true) || ($prefix === '' && in_array($name, $group->tables, true))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return array<string, true> Lower-case real names of tables a restore never replaces.
      */
     private function excludedRealNames(): array
     {
         $out = [];
         // WHY the backup tables always: replacing the backup feature's own bookkeeping would drop
-        // the very job running the restore, whatever the excluded list says.
-        foreach ([...$this->registry->excluded(), ...BackupSchema::TABLES] as $table) {
+        // the very job running the restore, whatever the excluded list says. The activity logs
+        // neither: a restore must not erase who did what (mod 20261110T164834, D3).
+        $neverReplace = array_map('strval', (array) config('gp247-config.backup.restore_never_replace', []));
+        foreach ([...$this->registry->excluded(), ...BackupSchema::TABLES, ...$neverReplace] as $table) {
             $out[strtolower(GP247_DB_PREFIX . $table)] = true;
             $out[strtolower($table)] = true;
         }

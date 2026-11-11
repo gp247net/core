@@ -20,12 +20,14 @@ final class BackupScope
      * @param list<string> $groups      Data group keys (empty for full = every group).
      * @param list<string> $files       File group keys (empty for full = every file group).
      * @param bool         $excludeLogs Full backup without the log group.
+     * @param bool         $other       Selective backup that also takes the "Other" tables (no group).
      */
     private function __construct(
         public readonly string $kind,
         public readonly array $groups,
         public readonly array $files,
         public readonly bool $excludeLogs,
+        public readonly bool $other = false,
     ) {
     }
 
@@ -43,18 +45,20 @@ final class BackupScope
     /**
      * @param list<string> $groups Data group keys.
      * @param list<string> $files  File group keys.
+     * @param bool         $other  Also the "Other" tables nobody declared — the snapshot before an
+     *                             extension update whose tables are not declared (mod 20261110T164834).
      * @return self
      * @throws BackupRefused When nothing is selected.
      */
-    public static function selective(array $groups, array $files = []): self
+    public static function selective(array $groups, array $files = [], bool $other = false): self
     {
         $groups = self::keys($groups);
         $files = self::keys($files);
-        if ($groups === [] && $files === []) {
+        if ($groups === [] && $files === [] && !$other) {
             throw new BackupRefused(BackupRefused::SCOPE_EMPTY);
         }
 
-        return new self(Archive::KIND_SELECTIVE, $groups, $files, false);
+        return new self(Archive::KIND_SELECTIVE, $groups, $files, false, $other);
     }
 
     /**
@@ -69,11 +73,11 @@ final class BackupScope
     }
 
     /**
-     * @return array{kind: string, groups: list<string>, files: list<string>, exclude_logs: bool}
+     * @return array{kind: string, groups: list<string>, files: list<string>, exclude_logs: bool, other: bool}
      */
     public function toArray(): array
     {
-        return ['kind' => $this->kind, 'groups' => $this->groups, 'files' => $this->files, 'exclude_logs' => $this->excludeLogs];
+        return ['kind' => $this->kind, 'groups' => $this->groups, 'files' => $this->files, 'exclude_logs' => $this->excludeLogs, 'other' => $this->other];
     }
 
     /**
@@ -85,7 +89,7 @@ final class BackupScope
     {
         return match ($data['kind'] ?? null) {
             Archive::KIND_SNAPSHOT => self::snapshot((string) (($data['groups'] ?? [])[0] ?? self::DEFAULT_SNAPSHOT_GROUP)),
-            Archive::KIND_SELECTIVE => self::selective((array) ($data['groups'] ?? []), (array) ($data['files'] ?? [])),
+            Archive::KIND_SELECTIVE => self::selective((array) ($data['groups'] ?? []), (array) ($data['files'] ?? []), (bool) ($data['other'] ?? false)),
             Archive::KIND_FULL => self::full((bool) ($data['exclude_logs'] ?? false)),
             default => throw new BackupRefused(BackupRefused::SCOPE_EMPTY, 'kind'),
         };

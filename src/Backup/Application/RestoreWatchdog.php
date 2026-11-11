@@ -14,6 +14,9 @@ use GP247\Core\Backup\Infrastructure\Store\RestoreLedger;
  *
  *  - a restore job whose data key window (one hour) is over and that no slice holds: ended as
  *    failed (its data key leaves the database), the site put back as far as it got;
+ *  - a restore past its load phase (no data key any more) that nobody ran for ABANDONED_SECONDS:
+ *    ended — tables not swapped yet are dropped, swapped ones stay with their undo copy, caches are
+ *    cleared, the data update is NOT run here (it is reported as skipped) — mod 20261110T164834;
  *  - an undo that died in the middle: ended, its tables kept for inspection;
  *  - a maintenance mode turned on by a restore while no restore job is active any more: off.
  *
@@ -27,6 +30,12 @@ use GP247\Core\Backup\Infrastructure\Store\RestoreLedger;
 final class RestoreWatchdog
 {
     private const LEASE_SECONDS = 120;
+
+    /** A restore past its load phase with no slice for this long is abandoned (its next steps take seconds);
+     *  longer than the lease of a command-line run (600 s), so a live CLI restore is never taken over. */
+    public const ABANDONED_SECONDS = 900;
+    /** While the data update runs (it is saved as "interrupted" just before it starts) the wait is longer. */
+    public const ABANDONED_UPDATE_SECONDS = RestoreStep::KEY_TTL_SECONDS;
 
     private JobRepository $jobs;
 
@@ -125,7 +134,8 @@ final class RestoreWatchdog
         }
         $phase = $cursor['phase'] ?? null;
         $keyExpired = isset($cursor['dek']) && now()->getTimestamp() - (int) ($cursor['started'] ?? 0) > RestoreStep::KEY_TTL_SECONDS;
-        if (!$keyExpired && $phase !== RestoreStep::UNDO_PHASE && $cursor !== []) {
+        $abandoned = self::abandonedAfterLoad($job, $cursor);
+        if (!$keyExpired && !$abandoned && $phase !== RestoreStep::UNDO_PHASE && $cursor !== []) {
             return false;
         }
         // Only a job no slice holds: acquire() fails while a lease is alive (a running undo holds one).
@@ -133,16 +143,41 @@ final class RestoreWatchdog
         if (!$this->jobs->acquire((int) $job->id, $owner, now()->addSeconds(self::LEASE_SECONDS))) {
             return false;
         }
-        $reason = $phase === RestoreStep::UNDO_PHASE ? 'undo_interrupted' : 'key_expired';
+        $reason = match (true) {
+            $phase === RestoreStep::UNDO_PHASE => 'undo_interrupted',
+            $abandoned => 'abandoned',
+            default => 'key_expired',
+        };
         if (!$this->jobs->finish((int) $job->id, $owner, Archive::JOB_FAILED, 'restore: ' . $reason)) {
             return false;
         }
         $ledger = new RestoreLedger;
+        if ($abandoned) {
+            $cursor = RestoreStep::closeAbandoned($cursor, (int) $job->id);
+        }
         if ($phase === RestoreStep::UNDO_PHASE) {
             $ledger->quarantine(array_values(array_map('strval', (array) ($cursor['tables'] ?? []))));
         }
         (new RestoreStep($this->jobs, new KeyService, app(LocalVault::class), $ledger))->abort($job, $cursor, $reason);
 
         return true;
+    }
+
+    /**
+     * @param object               $job
+     * @param array<string, mixed> $cursor
+     * @return bool The restore is past its load phase (nothing more is read from the archive) and no
+     *              slice touched it for ABANDONED_SECONDS — the person restoring is gone.
+     */
+    private static function abandonedAfterLoad(object $job, #[\SensitiveParameter] array $cursor): bool
+    {
+        if (isset($cursor['dek']) || !in_array($cursor['phase'] ?? null, ['swap', ...RestoreStep::APPLIED_PHASES], true)) {
+            return false;
+        }
+        $last = $job->updated_at ?? null;
+        $updating = ($cursor['update']['error'] ?? null) === 'interrupted';
+
+        return $last !== null && \Illuminate\Support\Carbon::parse((string) $last)->diffInSeconds(now(), false)
+            >= ($updating ? self::ABANDONED_UPDATE_SECONDS : self::ABANDONED_SECONDS);
     }
 }

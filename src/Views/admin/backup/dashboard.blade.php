@@ -106,6 +106,10 @@
                             {{ gp247_language_render('admin.backup.status.none') }}
                         @endif
                     </p>
+                    {{-- A whole-database restore needs a full backup: its age is said even when a newer snapshot exists. --}}
+                    @if (($status['full_age_hours'] ?? null) !== null)
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" data-testid="backup-status-full-age">{{ gp247_language_render('admin.backup.status.full_age', ['hours' => $status['full_age_hours']]) }}</p>
+                    @endif
                     {{-- BK-7: the recovery point the schedule really gives (US-backup-admin-schedule). --}}
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" data-testid="backup-rpo">{{ gp247_language_render('admin.backup.schedule.rpo.' . $rpo['mode'], ['hours' => $rpo['hours'], 'at' => $rpo['at']]) }}</p>
                     @if ($rpo['cron_missed'])

@@ -76,7 +76,9 @@ final class TableSwapper
                 throw new RuntimeException('Shadow table missing.');
             }
             if ($this->exists(self::name($table, self::OLD))) {
-                $this->drop(self::name($table, self::OLD));
+                if (!$this->drop(self::name($table, self::OLD))) {
+                    throw new RuntimeException('An earlier copy of ' . $table . ' still holds a trigger of the site.');
+                }
                 $dropped[] = $table;
             }
         }
@@ -105,8 +107,8 @@ final class TableSwapper
             if (!$this->exists(self::name($table, self::OLD))) {
                 throw new RuntimeException('Old copy missing.');
             }
-            if ($this->exists(self::name($table, self::SHADOW))) {
-                $this->drop(self::name($table, self::SHADOW));
+            if ($this->exists(self::name($table, self::SHADOW)) && !$this->drop(self::name($table, self::SHADOW))) {
+                throw new RuntimeException('A copy of ' . $table . ' still holds a trigger of the site.');
             }
             $pairs[] = [$table, self::name($table, self::SHADOW)];
             $pairs[] = [self::name($table, self::OLD), $table];
@@ -137,14 +139,26 @@ final class TableSwapper
     }
 
     /**
+     * Never a copy that still holds triggers: a trigger that could not be moved to the table in
+     * place stays on its copy, and dropping the copy would lose the site's trigger with it. Such a
+     * copy is kept for a person to look at, whoever asks for the drop (clean-up, undo, next restore).
+     *
      * @param string $name Real table name.
-     * @return void
+     * @return bool Dropped (or absent); false when kept because it is a copy holding a trigger.
+     *
+     * @aidlc-unit backup-restore
+     * @aidlc-story US-backup-restore-full-database
      */
-    public function drop(string $name): void
+    public function drop(string $name): bool
     {
         $this->assertNoTransaction();
+        if (self::isCopy($name) && $this->schema->triggersOn($name) !== []) {
+            return false;
+        }
         $this->schema->db()->statement('DROP TABLE IF EXISTS ' . $this->schema->quote($name));
         $this->schema->refresh();
+
+        return true;
     }
 
     /**

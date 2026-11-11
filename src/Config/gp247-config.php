@@ -59,6 +59,9 @@ return [
             'admin_user' => ['admin_role_user' => 'user_id', 'admin_user_permission' => 'user_id'],
             'admin_role' => ['admin_role_user' => 'role_id', 'admin_role_permission' => 'role_id'],
         ],
+        // Backed up, but never replaced by a restore: the record of who did what (a restore must not
+        // be a way to erase it). Names without GP247_DB_PREFIX (mod 20261110T164834).
+        'restore_never_replace' => ['admin_log', 'admin_login_failure'],
         // Hours the tables replaced by a restore are kept for "undo" (ADR backup-restore_shadow-table-swap).
         'restore_undo_hours' => 24,
         // Most rows one "add back deleted records" may insert (larger: replace the group instead).

@@ -27,6 +27,9 @@ final class ShadowLoader
     /** SQLite builds before 3.32 allow 999 bound parameters per statement. */
     private const SQLITE_PARAMS = 999;
 
+    /** @var array<string, array<string, int>> Shadow => its BIT columns (bytes). */
+    private array $bits = [];
+
     /**
      * @param SchemaInspector $schema
      */
@@ -46,10 +49,13 @@ final class ShadowLoader
         $this->assertNoTransaction();
         $db = $this->schema->db();
         $shadow = TableSwapper::name($table, TableSwapper::SHADOW);
-        $db->statement('DROP TABLE IF EXISTS ' . $this->schema->quote($shadow));
+        if (!(new TableSwapper($this->schema))->drop($shadow)) {
+            throw new RuntimeException('A copy of ' . $table . ' still holds a trigger of the site.');
+        }
 
         if ($this->schema->isMysql()) {
-            $db->statement('CREATE TABLE ' . $this->schema->quote($shadow) . ' LIKE ' . $this->schema->quote($table));
+            // Zero-date defaults of an older site's table are copied as they are (error 1067 otherwise).
+            $this->schema->withZeroDatesAllowed(fn () => $db->statement('CREATE TABLE ' . $this->schema->quote($shadow) . ' LIKE ' . $this->schema->quote($table)));
         } else {
             $this->createSqlite($table, $shadow);
         }
@@ -68,10 +74,22 @@ final class ShadowLoader
      */
     public function insert(string $shadow, array $columns, iterable $rows): int
     {
+        return $this->schema->withZeroDatesAllowed(fn () => $this->insertRows($shadow, $columns, $rows));
+    }
+
+    /**
+     * @param string                        $shadow
+     * @param list<string>                  $columns
+     * @param iterable<array<string,mixed>> $rows
+     * @return int
+     */
+    private function insertRows(string $shadow, array $columns, iterable $rows): int
+    {
         if ($columns === []) {
             throw new RuntimeException('No column in common with the site table.');
         }
         $maxRows = $this->schema->isMysql() ? self::BATCH_ROWS : max(1, min(self::BATCH_ROWS, intdiv(self::SQLITE_PARAMS, count($columns))));
+        $bits = $this->bits[$shadow] ??= $this->schema->bitColumns($shadow);
 
         $count = 0;
         $batch = [];
@@ -79,7 +97,7 @@ final class ShadowLoader
         foreach ($rows as $row) {
             $values = [];
             foreach ($columns as $column) {
-                $value = $row[$column] ?? null;
+                $value = self::bindable($row[$column] ?? null, $bits[$column] ?? null);
                 $values[$column] = $value;
                 $bytes += is_string($value) ? strlen($value) : 8;
             }
@@ -92,6 +110,64 @@ final class ShadowLoader
         }
 
         return $count + $this->flush($shadow, $batch);
+    }
+
+    /**
+     * The value as the database must receive it (mod 20261110T164834, measured):
+     *  - a float bound by PDO is turned into text with `precision` (14 digits) — 0.30000000000000004
+     *    came back as 0.3: send the shortest text that reads back as the same double;
+     *  - a BIT value is read as a number (a decimal string beyond PHP_INT_MAX) but bound as text it
+     *    is taken as bytes ("Data too long", the restore failed): send its big-endian bytes.
+     *
+     * @param mixed    $value
+     * @param int|null $bitBytes Bytes of the BIT column, null for any other column.
+     * @return mixed
+     *
+     * @aidlc-story US-backup-restore-full-database
+     */
+    public static function bindable(mixed $value, ?int $bitBytes = null): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+        if ($bitBytes !== null && (is_int($value) || (is_string($value) && ctype_digit($value)))) {
+            return self::bitBytes((string) $value, $bitBytes);
+        }
+        if (is_float($value) && is_finite($value)) {
+            for ($digits = 15; $digits <= 17; $digits++) {
+                $text = sprintf('%.' . $digits . 'G', $value);
+                if ((float) $text === $value) {
+                    return $text;
+                }
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param string $decimal Non-negative integer in decimal.
+     * @param int    $bytes
+     * @return string Big-endian bytes, left-padded to $bytes.
+     */
+    private static function bitBytes(string $decimal, int $bytes): string
+    {
+        $out = '';
+        $digits = ltrim($decimal, '0');
+        while ($digits !== '') {
+            // Long division of the decimal string by 256.
+            $rest = 0;
+            $quotient = '';
+            foreach (str_split($digits) as $digit) {
+                $rest = $rest * 10 + (int) $digit;
+                $quotient .= intdiv($rest, 256);
+                $rest %= 256;
+            }
+            $out = chr($rest) . $out;
+            $digits = ltrim($quotient, '0');
+        }
+
+        return str_pad(substr($out, -$bytes), $bytes, chr(0), STR_PAD_LEFT);
     }
 
     /**

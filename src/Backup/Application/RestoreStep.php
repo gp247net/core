@@ -73,6 +73,63 @@ final class RestoreStep
     }
 
     /**
+     * What is left of a restore nobody runs any more, before abort() ends it (RestoreWatchdog):
+     * once the tables were swapped, the caches are cleared so the site reads the restored
+     * configuration, and a data update that was still due is reported as skipped (it is a long
+     * step that must not run inside an unrelated request) — mod 20261110T164834. A post-incident
+     * restore opens its checklist as failed: its steps (sessions, tokens, passwords) never ran.
+     *
+     * @param array<string, mixed> $cursor
+     * @param int                  $jobId
+     * @return array<string, mixed> Cursor for abort().
+     *
+     * @aidlc-story US-backup-restore-full-database, US-backup-restore-post-incident-mode
+     */
+    public static function closeAbandoned(#[\SensitiveParameter] array $cursor, int $jobId): array
+    {
+        $phase = $cursor['phase'] ?? null;
+        $swapped = in_array($phase, self::APPLIED_PHASES, true) || ($phase === 'swap' && !empty($cursor['swapping']));
+        if (!$swapped) {
+            return $cursor;
+        }
+        // A request that died right after the rename left the triggers on the old copies.
+        $schema = new SchemaInspector(DB::connection(GP247_DB_CONNECTION));
+        foreach (array_column((array) ($cursor['tables'] ?? []), 'real') as $real) {
+            try {
+                foreach ($schema->moveTriggers(TableSwapper::name((string) $real, TableSwapper::OLD), (string) $real) as $trigger) {
+                    $cursor['warnings'][] = 'trigger_not_moved:' . $trigger;
+                }
+            } catch (\Throwable $e) {
+                $cursor['warnings'][] = 'trigger_not_moved:' . $real;
+            }
+        }
+        if (in_array($phase, ['swap', 'refresh'], true)) {
+            try {
+                ConfigRestoreRules::refreshCaches();
+            } catch (\Throwable $e) {
+                BackupLog::failure('Abandoned restore: caches could not be cleared: ' . class_basename($e));
+            }
+        }
+        if (!empty($cursor['post_incident']) && ($cursor['plan']['level'] ?? null) === RestorePlan::FULL) {
+            // WHY: the post-incident steps run after the job ends, in the request of the person
+            // restoring, who is gone. The old admin accounts are back in place: the site must say
+            // what is left to do, as for a restore interrupted in finish().
+            $cursor['post_incident_result'] = [['step' => 'all', 'status' => 'failed', 'count' => 0, 'detail' => 'interrupted']];
+            try {
+                PostIncidentChecklist::open($jobId, $cursor['post_incident_result']);
+            } catch (\Throwable $e) {
+                BackupLog::failure('Abandoned restore: the post-incident checklist could not be opened: ' . class_basename($e));
+            }
+        }
+        $updateDue = in_array($cursor['compatibility'] ?? null, [CompatibilityGate::OLDER, CompatibilityGate::UNKNOWN], true);
+        if ($updateDue && in_array($phase, ['swap', 'refresh', 'update'], true)) {
+            $cursor['update'] = ['ok' => false, 'code' => null, 'error' => 'skipped'];
+        }
+
+        return $cursor;
+    }
+
+    /**
      * @param object       $job   Job row (lease held).
      * @param SliceContext $slice
      * @return bool True when the job ended (done or failed).
@@ -312,6 +369,8 @@ final class RestoreStep
                     ConfigRestoreRules::keepBackupRows($schema->db(), $table['real'], $shadow);
                 }
                 $cursor['expected'][$table['real']] = $loader->count($shadow);
+                // Never hand out again an id the site already gave (mod 20261110T164834, A2).
+                $schema->carryAutoIncrement($table['real'], $shadow);
             }
             $cursor['swapping'] = true;
             $slice->save($cursor);
@@ -323,6 +382,13 @@ final class RestoreStep
         }
         if ($swapper->state($reals) !== 'swapped') {
             throw new RestoreAborted('swap_state');
+        }
+        // Triggers followed the old copies through RENAME: move them to the restored tables (A3).
+        // Also on the slice that picks up after a request died right after the rename (idempotent).
+        foreach ($reals as $real) {
+            foreach ($schema->moveTriggers(TableSwapper::name($real, TableSwapper::OLD), $real) as $trigger) {
+                $cursor['warnings'][] = 'trigger_not_moved:' . $trigger;
+            }
         }
         $cursor['swapped_at'] = now()->toIso8601String();
         $cursor['phase'] = 'refresh';
@@ -518,6 +584,7 @@ final class RestoreStep
             'origin' => (string) ($cursor['origin'] ?? ArchiveReader::ORIGIN_SITE),
             'post_incident' => $cursor['post_incident_result'] ?? null,
             'undo_replaced' => (array) ($cursor['undo_replaced'] ?? []),
+            'warnings' => array_values((array) ($cursor['warnings'] ?? [])),
             'swapped_at' => $cursor['swapped_at'] ?? null,
             'finished_at' => now()->toIso8601String(),
         ];

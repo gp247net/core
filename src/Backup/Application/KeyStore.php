@@ -18,6 +18,13 @@ interface KeyStore
     public function get(string $key): ?string;
 
     /**
+     * @param string $key Config key.
+     * @return bool The value is stored encrypted at rest (a config secret) — not plain text someone wrote
+     *              into the database (mod 20261110T164834: the signing key is trusted only then).
+     */
+    public function isEncryptedAtRest(string $key): bool;
+
+    /**
      * Write several values atomically, only if the expected current values still hold
      * (compare-and-set — two set-ups or rotations at once never overwrite each other).
      *

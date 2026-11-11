@@ -36,6 +36,18 @@ final class AdminConfigKeyStore implements KeyStore
     /**
      * {@inheritdoc}
      */
+    public function isEncryptedAtRest(string $key): bool
+    {
+        // WHY the raw column: the model accessor returns plain text for a value without an envelope.
+        $raw = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'admin_config')
+            ->where('store_id', GP247_STORE_ID_GLOBAL)->where('key', $key)->value('value');
+
+        return is_string($raw) && gp247_secret_is_encrypted($raw);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function putMany(#[\SensitiveParameter] array $values, array $secretKeys = [], array $expect = []): void
     {
         DB::connection(GP247_DB_CONNECTION)->transaction(function () use ($values, $secretKeys, $expect) {

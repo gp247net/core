@@ -23,9 +23,10 @@ use Illuminate\Support\Facades\DB;
  * CLI runs the whole job as one slice; a web backup qualifies when its tables fit in its first
  * slice); otherwise "multi_slice".
  *
- * A table without a usable key is read in one go (offsets are not stable between requests):
- * it is not started once half the budget is used, and while it is read the saved cursor stays
- * the one from before the table — a request killed mid-table restarts that table from zero.
+ * A table without a usable key is read in LIMIT / OFFSET pages like any other table, its offset
+ * kept between requests (mod 20261110T164834: reading it in one go could never finish on a 30 s
+ * host). Within one slice the offsets are stable (one snapshot); a table continued in a later slice
+ * may miss or repeat rows written in between — recorded as "no_key_multi_slice:<table>".
  *
  * @aidlc-unit backup-engine
  * @aidlc-story US-backup-engine-resumable-run, US-backup-engine-full-backup, US-backup-engine-selective-backup, US-backup-engine-quick-snapshot
@@ -33,11 +34,18 @@ use Illuminate\Support\Facades\DB;
  */
 final class BackupStep
 {
-    /** Rows fetched per page shrink so one page stays around this many bytes (wide rows). */
-    private const PAGE_BYTES = 8_388_608;
+    /** Rows fetched per page shrink so one page stays around this many bytes (wide rows). A page
+     *  takes ~2.7 times its text in PHP (measured, mod 20261110T164834): 4 MiB keeps a page ~11 MB. */
+    private const PAGE_BYTES = 4_194_304;
 
-    /** Work was done in this slice (a table that cannot be split may still start first). */
-    private bool $progressed = false;
+    /** Most rows of the first page of any table; the following pages adapt to the bytes really read. */
+    private const FIRST_PAGE_ROWS = 100;
+
+    /** Each attempt after a slice killed by the host reads pages this many times smaller. */
+    private const KILLED_PAGE_DIVISOR = 4;
+
+    /** Most rows per page for this slice, set when the slice before it was killed while reading. */
+    private ?int $limitCap = null;
 
     /**
      * @param JobRepository     $jobs
@@ -61,10 +69,12 @@ final class BackupStep
      */
     public function run(object $job, SliceContext $slice): bool
     {
-        $this->progressed = false;
         $cursor = $this->jobs->cursor($job);
         $archiveId = (string) $job->archive_id;
         $dir = $this->vault->archiveDir($archiveId);
+        // WHY: the page size saved by a slice the host killed (memory, time) is the one that killed
+        // it; reading the same page again would die at the same place on every attempt.
+        $this->limitCap = self::limitAfterKill($job, isset($cursor['limit']) ? (int) $cursor['limit'] : null);
 
         if (!isset($cursor['writer'])) {
             // First slice (or a first slice that died before saving anything): start clean.
@@ -134,7 +144,6 @@ final class BackupStep
      */
     private function table(#[\SensitiveParameter] array &$cursor, ArchiveWriter $writer, SliceContext $slice, TableReader $reader, array $table): bool
     {
-        $restart = null;
         if (!$cursor['open']) {
             try {
                 $plan = $reader->describe($table['real']);
@@ -145,25 +154,23 @@ final class BackupStep
 
                 return true;
             }
-            if ($plan['mode'] === TableReader::MODE_SCAN && $this->progressed && $slice->halfSpent()) {
-                $this->save($cursor, $writer, $slice);
-
-                return false;
-            }
             if ($plan['mode'] === TableReader::MODE_SCAN) {
-                // The cursor a killed request falls back to: before this table.
-                $cursor['writer'] = $writer->state();
-                $restart = $cursor;
                 $cursor['warnings'][] = 'no_key:' . $table['name'];
             }
             $writer->beginTable($table['name'], $plan['columns']);
-            $cursor = ['open' => true, 'table_plan' => $plan, 'after' => null, 'offset' => 0, 'limit' => self::pageRows()] + $cursor;
+            $cursor = ['open' => true, 'table_plan' => $plan, 'after' => null, 'offset' => 0, 'table_slice' => $cursor['table_slices'],
+                'limit' => self::firstLimit($plan['row_bytes'] ?? null)] + $cursor;
         }
         $plan = $cursor['table_plan'];
+        $slice->working = $table['name'];
+        $warning = 'no_key_multi_slice:' . $table['name'];
+        if ($plan['mode'] === TableReader::MODE_SCAN && ($cursor['table_slice'] ?? null) !== $cursor['table_slices'] && !in_array($warning, $cursor['warnings'], true)) {
+            $cursor['warnings'][] = $warning;
+        }
 
         do {
             try {
-                $page = $reader->page($table['real'], $plan, CursorValue::unpack($cursor['after']), $cursor['offset'], (int) $cursor['limit']);
+                $page = $reader->page($table['real'], $plan, CursorValue::unpack($cursor['after']), $cursor['offset'], $this->capped((int) $cursor['limit']));
             } catch (TableMissing $e) {
                 $page = ['rows' => [], 'after' => null, 'offset' => $cursor['offset'], 'done' => true];
                 $cursor['warnings'][] = 'table_missing:' . $table['real'];
@@ -173,20 +180,12 @@ final class BackupStep
                 $writer->addRow($row);
                 $bytes += self::rowBytes($row);
             }
-            $this->progressed = true;
             $cursor['after'] = CursorValue::pack($page['after']);
             $cursor['offset'] = $page['offset'];
             $cursor['limit'] = self::nextLimit(count($page['rows']), $bytes);
             if ($page['done']) {
                 $writer->endTable();
                 $cursor = ['open' => false, 'after' => null, 'offset' => 0, 'ti' => $cursor['ti'] + 1, 'table_plan' => null] + $cursor;
-            }
-            if ($restart !== null && !$page['done']) {
-                // Mid-scan: keep the lease alive, but never record a scan offset.
-                if ($slice->saveDue()) {
-                    $slice->save($restart);
-                }
-                continue;
             }
             $mustStop = $slice->expired();
             if ($mustStop || $slice->saveDue()) {
@@ -195,7 +194,11 @@ final class BackupStep
             if ($mustStop) {
                 return false;
             }
-        } while (!$page['done']);
+            $done = $page['done'];
+            // WHY: drop this page before the next one is fetched — two wide pages alive at once
+            // exhausted 128 MB (mod 20261110T164834).
+            $page = null;
+        } while (!$done);
 
         return true;
     }
@@ -213,6 +216,7 @@ final class BackupStep
         while ($cursor['fi'] < count($groups)) {
             $entry = $groups[$cursor['fi']];
             $collector = new FileCollector(new FileGroup($entry['key'], $entry['path'], $entry['exclude']), FileCollector::CHUNK_BYTES, $vault);
+            $slice->working = $entry['key'];
             if (!$cursor['open']) {
                 $writer->beginFiles($entry['key']);
                 $cursor['open'] = true;
@@ -224,7 +228,6 @@ final class BackupStep
                     $cursor['warnings'][] = CursorValue::label('changed:' . $entry['key'] . '/' . $chunk['path']);
                 }
                 $writer->addFileChunk($chunk['path'], $chunk['offset'], $chunk['size'], $chunk['mtime'], $chunk['data']);
-                $this->progressed = true;
                 $next = $chunk['offset'] + strlen($chunk['data']);
                 $cursor['fpath'] = CursorValue::pack($chunk['path']);
                 $cursor['foffset'] = $next >= $chunk['size'] ? -1 : $next;
@@ -342,13 +345,62 @@ final class BackupStep
     }
 
     /**
+     * Rows per page for a slice picking up after the host killed the one before it.
+     *
+     * @param object   $job   Job row: attempts and error of the slices before this one.
+     * @param int|null $limit Page size saved in the cursor (null: none yet).
+     * @return int|null Smaller page size, or null when the slice before did not die reading a page.
+     *
+     * @aidlc-unit backup-engine
+     * @aidlc-story US-backup-engine-resumable-run
+     */
+    public static function limitAfterKill(object $job, ?int $limit): ?int
+    {
+        $attempts = (int) ($job->attempts ?? 0);
+        if ($attempts < 1 || preg_match('/^(memory_exhausted|time_exceeded):/', (string) ($job->error ?? '')) !== 1) {
+            return null;
+        }
+        $base = $limit !== null && $limit > 0 ? $limit : min(self::pageRows(), self::FIRST_PAGE_ROWS);
+
+        return max(1, intdiv($base, self::KILLED_PAGE_DIVISOR ** min($attempts, 8)));
+    }
+
+    /**
+     * @param int $limit
+     * @return int $limit, no more than the cap of a slice picking up after a kill.
+     */
+    private function capped(int $limit): int
+    {
+        return $this->limitCap === null ? $limit : max(1, min($limit, $this->limitCap));
+    }
+
+    /**
+     * @param int|null $rowBytes Average row size the database reports (null / 0 = unknown).
+     * @return int Rows of the first page of a table: small from the start, because a page is held in
+     *             memory whole (mod 20261110T164834: a first page of 5 000 rows of ~9 KB exhausted 128 MB).
+     *             The reported row size cannot be trusted alone — InnoDB leaves text stored off-page
+     *             out of it — so it only lowers this cap further.
+     */
+    private static function firstLimit(?int $rowBytes): int
+    {
+        $limit = min(self::pageRows(), self::FIRST_PAGE_ROWS);
+        if ($rowBytes !== null && $rowBytes > 0) {
+            $limit = min($limit, intdiv(self::PAGE_BYTES, $rowBytes));
+        }
+
+        return max(1, $limit);
+    }
+
+    /**
      * @param int $rows  Rows in the last page.
      * @param int $bytes Their size.
-     * @return int Rows for the next page: the configured page, smaller for wide rows.
+     * @return int Rows for the next page: as many as fit PAGE_BYTES at the width just read, up to the
+     *             configured page. WHY proportional both ways (mod 20261110T164834): a small page that
+     *             fit used to jump straight to the full page — 5 000 rows of ~9 KB, 128 MB exhausted.
      */
     private static function nextLimit(int $rows, int $bytes): int
     {
-        if ($rows === 0 || $bytes <= self::PAGE_BYTES) {
+        if ($rows === 0 || $bytes <= 0) {
             return self::pageRows();
         }
 

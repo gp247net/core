@@ -22,6 +22,9 @@ final class SliceContext
 
     private float $startedAt;
 
+    /** What the step is working on (table or file group) — named in the reason if the host kills the request. */
+    public ?string $working = null;
+
     /**
      * @param int           $jobId
      * @param string        $owner        Lease owner of this slice.

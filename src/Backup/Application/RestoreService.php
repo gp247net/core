@@ -87,7 +87,7 @@ final class RestoreService
         $origin = $this->archiveOrigin($archive, $dir);
         $reader = ArchiveReader::open($dir, $secret, $this->keys, $origin['origin']);
 
-        return $this->withBk5Notes($this->inspect($plan, $reader, $archive, $operator)['preview'], $plan, $origin, $options);
+        return $this->withBk5Notes($this->inspect($plan, $reader, $archive, $operator, $origin['origin'])['preview'], $plan, $origin, $options);
     }
 
     /**
@@ -97,7 +97,9 @@ final class RestoreService
      * @param BackupSecret         $secret
      * @param array<string, mixed> $options operator (['id', 'username']), created_by;
      *                                      accept_unverified: the person confirmed restoring an archive whose origin cannot be verified;
-     *                                      post_incident: full level only — sessions, tokens, passwords after the tables are in place.
+     *                                      post_incident: full level only — sessions, tokens, passwords after the tables are in place;
+     *                                      accept_column_loss: the person confirmed the data of columns the site no longer has is lost;
+     *                                      via ("web" | "cli") + administrator (bool): an unverified archive on the web needs an Administrator.
      * @return array{job_id: int, preview: array, maintenance_secret: string|null}
      *         maintenance_secret: bypass secret of the maintenance mode of a full restore — the admin
      *         screen turns it into the cookie of the person restoring (BK-4), never logs it.
@@ -110,7 +112,7 @@ final class RestoreService
         $origin = $this->archiveOrigin($archive, $dir);
         $dek = ArchiveReader::dataKey($dir, $secret, $this->keys, $origin['origin']);
         $reader = ArchiveReader::openWithDataKey($dir, $dek, $origin['origin'] === ArchiveReader::ORIGIN_SITE ? $this->keys->signingKey() : null, $origin['origin']);
-        $inspected = $this->inspect($plan, $reader, $archive, (array) ($options['operator'] ?? []));
+        $inspected = $this->inspect($plan, $reader, $archive, (array) ($options['operator'] ?? []), $origin['origin']);
         $preview = $this->withBk5Notes($inspected['preview'], $plan, $origin, $options);
         if ($preview['refusals'] !== []) {
             throw new RestoreRefused($preview['refusals'][0], '', ['preview' => $preview]);
@@ -188,6 +190,12 @@ final class RestoreService
             // WHY no shadow should be left: revert() renames the restored data to T__bkr.
             $swapper->revert($tables);
             foreach ($tables as $table) {
+                // The triggers went along with the restored data: back to the table now in place.
+                // A copy holding a trigger that could not be moved stays for a person to look at.
+                if ($schema->moveTriggers(TableSwapper::name($table, TableSwapper::SHADOW), $table) !== []) {
+                    BackupLog::failure('Undo: a trigger of ' . $table . ' could not be moved back; its copy is kept.');
+                    continue;
+                }
                 $swapper->drop(TableSwapper::name($table, TableSwapper::SHADOW));
             }
         } catch (\Throwable $e) {
@@ -314,6 +322,21 @@ final class RestoreService
         if ($postIncident && $plan->level !== RestorePlan::FULL) {
             $preview['refusals'][] = RestoreRefused::POST_INCIDENT_LEVEL;
         }
+        // Mod 20261110T164834 (D1): on the web, the restore right alone does not let someone restore
+        // an archive this site did not sign (one made with their own password could replace accounts).
+        if ($origin['origin'] === ArchiveReader::ORIGIN_UNVERIFIED && ($options['via'] ?? null) !== 'cli' && empty($options['administrator'])) {
+            $preview['refusals'][] = RestoreRefused::UNVERIFIED_ADMIN_ONLY;
+        }
+        // Mod 20261110T164834 (A1): columns of the archive the site no longer has lose their data.
+        $preview['lost_columns'] = [];
+        foreach ((array) ($preview['tables'] ?? []) as $table) {
+            if (!empty($table['columns_ignored'])) {
+                $preview['lost_columns'][(string) $table['name']] = array_values($table['columns_ignored']);
+            }
+        }
+        if ($preview['lost_columns'] !== [] && empty($options['accept_column_loss'])) {
+            $preview['refusals'][] = RestoreRefused::COLUMNS_LOST;
+        }
         $preview['refusals'] = array_values(array_unique($preview['refusals']));
 
         return $preview;
@@ -324,11 +347,12 @@ final class RestoreService
      * @param ArchiveReader        $reader
      * @param object               $archive
      * @param array<string, mixed> $operator
+     * @param string               $origin   ArchiveReader::ORIGIN_*.
      * @return array{preview: array, resolved: array}
      */
-    private function inspect(RestorePlan $plan, ArchiveReader $reader, object $archive, array $operator): array
+    private function inspect(RestorePlan $plan, ArchiveReader $reader, object $archive, array $operator, string $origin = ArchiveReader::ORIGIN_SITE): array
     {
-        $planner = $this->planner();
+        $planner = $this->planner()->forOrigin($origin);
         $inspected = $planner->inspect($plan, $reader, $archive, $operator);
         if ($plan->level === RestorePlan::UNDELETE) {
             $inspected['preview']['undelete'] = (new UndeleteService($this->schema()))->candidates($reader, $inspected['resolved']['tables'][0]) + [

@@ -130,10 +130,12 @@ final class ScopeResolver
                 $add($table, $group->realName($table), in_array($table, $group->raw, true));
             }
         }
-        if ($full) {
+        if ($full || $scope->other) {
             foreach ($this->registry->unassigned() as $table) {
                 $add($table, GP247_DB_PREFIX . $table, false);
             }
+        }
+        if ($full) {
             $migrations = $this->migrationsName();
             if ($migrations !== '' && $this->tableExists($migrations)) {
                 $prefixed = GP247_DB_PREFIX !== '' && str_starts_with($migrations, GP247_DB_PREFIX);

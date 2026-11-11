@@ -60,9 +60,13 @@ final class ShadowJanitor
         $swapper = new TableSwapper(new SchemaInspector(DB::connection(GP247_DB_CONNECTION)));
         $dropped = [];
         foreach ($swapper->copies($this->rawTables()) as $copy) {
-            if (!isset($keep[$copy])) {
-                $swapper->drop($copy);
+            if (isset($keep[$copy])) {
+                continue;
+            }
+            if ($swapper->drop($copy)) {
                 $dropped[] = $copy;
+            } else {
+                BackupLog::failure('Copy ' . $copy . ' still holds a trigger of the site: kept for a person to move it.');
             }
         }
         if ($point !== null && !$live && !empty($point['tables'])) {

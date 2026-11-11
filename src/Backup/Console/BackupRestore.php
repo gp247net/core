@@ -49,6 +49,7 @@ class BackupRestore extends GP247Command
         {--post-incident : After a security incident: end sessions, revoke tokens, require new passwords}
         {--preview : Show what would be restored and stop}
         {--accept-unverified : Restore an archive whose origin cannot be verified}
+        {--accept-column-loss : Restore although columns of the archive no longer exist on the site (their data is lost)}
         {--confirm= : The archive id again (required without interaction)}
         {--undo : Put back the tables the last restore replaced}
         {--secret-stdin : Read the backup password (or recovery key) from one line of standard input}
@@ -143,7 +144,8 @@ class BackupRestore extends GP247Command
         $origin = $service->archiveOrigin($archive, $dir);
         $unverified = $origin['origin'] === ArchiveReader::ORIGIN_UNVERIFIED;
         FileRestorePolicy::assertAllowed($files, $this->interactive(), $postIncident, $unverified);
-        $options = ['accept_unverified' => (bool) $this->option('accept-unverified'), 'post_incident' => $postIncident, 'created_by' => 'cli'];
+        $options = ['accept_unverified' => (bool) $this->option('accept-unverified'), 'post_incident' => $postIncident, 'created_by' => 'cli',
+            'accept_column_loss' => (bool) $this->option('accept-column-loss'), 'via' => 'cli'];
         $plan = $level === null ? null : $this->plan($archiveId, $level);
         $preview = $plan === null ? null : $service->preview($plan, $secret, [], $options);
         $reader = $files === [] ? null : ArchiveReader::open($dir, $secret, new KeyService, $origin['origin']);
@@ -283,6 +285,18 @@ class BackupRestore extends GP247Command
             ], (array) $preview['tables']));
             if (!empty($preview['post_incident'])) {
                 $this->warn('Post-incident mode: every session ends (yours too), every API / MCP token is revoked (integrations need new tokens), every admin must choose a new password.');
+            }
+            // Mod 20261110T164834: what does not come back, said before the restore runs.
+            foreach ((array) ($preview['lost_columns'] ?? []) as $table => $columns) {
+                $this->warn('Data lost — column(s) no longer on the site: ' . $table . '.' . implode(', ' . $table . '.', (array) $columns) . ' (confirm with --accept-column-loss).');
+            }
+            foreach (['absent' => 'not on this site', 'excluded' => 'never replaced', 'not_in_archive' => 'not in the backup'] as $key => $why) {
+                if (!empty($preview[$key])) {
+                    $this->line('Skipped (' . $why . '): ' . implode(', ', (array) $preview[$key]));
+                }
+            }
+            foreach ((array) ($preview['compatibility']['missing_by_source'] ?? []) as $source => $migrations) {
+                $this->warn('Missing on this site (' . $source . '): ' . implode(', ', array_slice((array) $migrations, 0, 10)) . (count((array) $migrations) > 10 ? ' …' : ''));
             }
         }
         foreach ($files as $group) {

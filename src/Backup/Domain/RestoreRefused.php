@@ -45,6 +45,9 @@ final class RestoreRefused extends RuntimeException
     public const UPLOAD_UNKNOWN = 'upload_unknown';
     public const DISK_SPACE = 'disk_space';
     public const CONFIRMATION_REQUIRED = 'confirmation_required';
+    // Mod 20261110T164834: columns the site no longer has, archives of unverified origin on the web.
+    public const COLUMNS_LOST = 'columns_lost';
+    public const UNVERIFIED_ADMIN_ONLY = 'unverified_admin_only';
 
     /**
      * @param string               $reason  One of the constants.

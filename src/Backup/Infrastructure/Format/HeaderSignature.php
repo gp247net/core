@@ -20,7 +20,7 @@ final class HeaderSignature
      * @param string               $signingKey 32-byte site signing key.
      * @return string Hex HMAC.
      */
-    public static function sign(array $header, #[SensitiveParameter] string $signingKey): string
+    public static function sign(array $header, #[\SensitiveParameter] string $signingKey): string
     {
         unset($header['hmac']);
 
@@ -32,7 +32,7 @@ final class HeaderSignature
      * @param string               $signingKey 32-byte site signing key.
      * @return bool
      */
-    public static function verify(array $header, #[SensitiveParameter] string $signingKey): bool
+    public static function verify(array $header, #[\SensitiveParameter] string $signingKey): bool
     {
         $mac = $header['hmac'] ?? null;
         if (!is_string($mac)) {

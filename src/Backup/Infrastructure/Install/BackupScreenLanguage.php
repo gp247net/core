@@ -17,7 +17,7 @@ final class BackupScreenLanguage
      */
     public static function rows(): array
     {
-        return self::screen() + self::restore() + self::messages() + BackupRecoveryLanguage::rows() + BackupOffsiteLanguage::rows() + BackupScheduleLanguage::rows();
+        return self::screen() + self::restore() + self::messages() + BackupRecoveryLanguage::rows() + BackupOffsiteLanguage::rows() + BackupScheduleLanguage::rows() + BackupReassessmentLanguage::rows();
     }
 
     /**

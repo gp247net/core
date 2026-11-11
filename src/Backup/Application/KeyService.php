@@ -48,6 +48,9 @@ final class KeyService
     public const CREATED_AT = 'backup_key_created_at';
     private const SIGNING_KEY_BYTES = 32;
 
+    /** problem(): the signing key is stored in clear — someone may have replaced the key ring. */
+    public const PROBLEM_SIGNING_KEY_PLAINTEXT = 'signing_key_plaintext';
+
     private KeyStore $store;
 
     /**
@@ -216,9 +219,29 @@ final class KeyService
      */
     public function signingKey(): ?string
     {
+        // WHY (mod 20261110T164834): the key is always written as a config secret; one in clear was
+        // written by someone with database access, who could then sign a key ring of their own.
+        if (!$this->store->isEncryptedAtRest(self::SIGNING_KEY)) {
+            return null;
+        }
         $value = base64_decode((string) $this->store->get(self::SIGNING_KEY), true);
 
         return ($value !== false && strlen($value) === self::SIGNING_KEY_BYTES) ? $value : null;
+    }
+
+    /**
+     * @return string|null PROBLEM_* when the stored key ring cannot be trusted, null when fine or not set up.
+     *
+     * @aidlc-story US-backup-engine-key-setup
+     */
+    public function problem(): ?string
+    {
+        if (!$this->isSetUp()) {
+            return null;
+        }
+        $stored = (string) $this->store->get(self::SIGNING_KEY);
+
+        return $stored !== '' && !$this->store->isEncryptedAtRest(self::SIGNING_KEY) ? self::PROBLEM_SIGNING_KEY_PLAINTEXT : null;
     }
 
     /**

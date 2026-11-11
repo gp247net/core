@@ -81,6 +81,15 @@
                     </label>
                 </div>
             @endif
+            {{-- Mod 20261110T164834 (A1): data of columns the site no longer has is lost — confirmed on its own. --}}
+            @if ($acceptColumnLoss || !empty($preview['lost_columns']))
+                <div style="grid-column: 1 / -1">
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                        <x-gp247::checkbox wire:model.live="acceptColumnLoss" data-testid="backup-restore-accept-column-loss" />
+                        {{ gp247_language_render('admin.backup.restore.accept_column_loss') }}
+                    </label>
+                </div>
+            @endif
             @if ($level === 'full')
                 <div style="grid-column: 1 / -1">
                     <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
@@ -131,8 +140,47 @@
                 @if (($compat['status'] ?? '') !== '' && ($compat['status'] ?? '') !== 'same')
                     <x-gp247::alert :type="($compat['status'] ?? '') === 'newer' ? 'error' : 'info'" data-testid="backup-restore-compat">{{ gp247_language_render('admin.backup.restore.compat_' . ($compat['status'] ?? 'unknown')) }}</x-gp247::alert>
                 @endif
+                {{-- Which package / extension each update this site is missing comes from: what to update or install first. --}}
+                @if (!empty($compat['missing_by_source']))
+                    <div class="space-y-1 text-sm text-gray-700 dark:text-gray-200" data-testid="backup-restore-missing-migrations">
+                        <p class="font-medium">{{ gp247_language_render('admin.backup.restore.missing_by_source') }}</p>
+                        <ul class="list-disc ps-5 text-xs text-gray-600 dark:text-gray-300">
+                            @foreach ((array) $compat['missing_by_source'] as $source => $migrations)
+                                <li>{{ $source === 'unknown' ? gp247_language_render('admin.backup.restore.missing_unknown') : $source }}: {{ implode(', ', array_slice((array) $migrations, 0, 10)) }}{{ count((array) $migrations) > 10 ? ' …' : '' }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 @if (!empty($preview['credential_tables']))
                     <x-gp247::alert type="warning" data-testid="backup-restore-credentials">{{ gp247_language_render('admin.backup.restore.credentials', ['tables' => implode(', ', (array) $preview['credential_tables'])]) }}</x-gp247::alert>
+                @endif
+                @if (!empty($preview['lost_columns']))
+                    <div class="space-y-1 text-sm" data-testid="backup-restore-lost-columns">
+                        <x-gp247::alert type="warning">{{ gp247_language_render('admin.backup.restore.lost_columns') }}</x-gp247::alert>
+                        <ul class="list-disc ps-5 text-xs text-gray-600 dark:text-gray-300">
+                            @foreach ((array) $preview['lost_columns'] as $lostTable => $lostColumns)
+                                <li>{{ $lostTable }}: {{ implode(', ', (array) $lostColumns) }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+                {{-- Mod 20261110T164834 (C3): what this restore does NOT bring back, said before it runs. --}}
+                @php($notRestored = array_filter([
+                    'absent' => (array) ($preview['absent'] ?? []),
+                    'excluded' => (array) ($preview['excluded'] ?? []),
+                    'not_in_archive' => (array) ($preview['not_in_archive'] ?? []),
+                ]))
+                @if ($notRestored !== [] || !empty($preview['file_groups_not_restored']))
+                    <div class="space-y-1 rounded-lg border border-gray-200 p-3 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200" data-testid="backup-restore-not-restored">
+                        <p class="font-medium">{{ gp247_language_render('admin.backup.restore.not_restored') }}</p>
+                        @foreach ($notRestored as $why => $names)
+                            <p class="text-xs" data-testid="backup-restore-not-restored-{{ $why }}">{{ gp247_language_render('admin.backup.restore.not_restored_' . $why) }}: {{ implode(', ', $names) }}</p>
+                        @endforeach
+                        @if (!empty($preview['file_groups_not_restored']))
+                            <p class="text-xs" data-testid="backup-restore-not-restored-files">{{ gp247_language_render('admin.backup.restore.not_restored_files') }}: {{ implode(', ', array_map(fn ($g) => gp247_language_render('admin.backup.files.' . $g), (array) $preview['file_groups_not_restored'])) }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.backup.restore.files_cli_only') }}</p>
+                        @endif
+                    </div>
                 @endif
 
                 @if (!empty($preview['tables']))

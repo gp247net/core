@@ -12,6 +12,7 @@ use GP247\Core\Backup\Application\DataGroupRegistry;
 use GP247\Core\Backup\Application\ImportService;
 use GP247\Core\Backup\Application\OffsiteService;
 use GP247\Core\Backup\Application\RestoreService;
+use GP247\Core\Backup\Application\SecretAttemptLimiter;
 use GP247\Core\Backup\Application\UploadSession;
 use GP247\Core\Backup\Http\UploadController;
 use GP247\Core\Backup\Domain\Archive;
@@ -75,6 +76,8 @@ class BackupRestore extends Component
     public bool $acceptUnverified = false;
     /** Whole database only: end sessions, revoke tokens, require new passwords afterwards. */
     public bool $postIncident = false;
+    /** The person confirmed that columns the site no longer has lose their data (mod 20261110T164834). */
+    public bool $acceptColumnLoss = false;
 
     /** Fingerprint of the plan the preview in the session belongs to. */
     public ?string $previewFor = null;
@@ -100,7 +103,7 @@ class BackupRestore extends Component
      */
     public function updated(string $property): void
     {
-        if (in_array(explode('.', $property)[0], ['archiveId', 'level', 'groups', 'undeleteTable', 'acceptUnverified', 'postIncident'], true)) {
+        if (in_array(explode('.', $property)[0], ['archiveId', 'level', 'groups', 'undeleteTable', 'acceptUnverified', 'postIncident', 'acceptColumnLoss'], true)) {
             $this->forgetPreview();
         }
     }
@@ -114,14 +117,19 @@ class BackupRestore extends Component
         if (!$this->requireStepUp('preview')) {
             return;
         }
+        if ($this->secretThrottled('restore_preview')) {
+            return;
+        }
         try {
             $plan = $this->plan(forPreview: true);
             $preview = $this->service()->preview($plan, $this->secret(), $this->operator(), $this->options());
+            SecretAttemptLimiter::clear((string) admin()->user()->id);
         } catch (RestoreRefused $e) {
             $this->refused('restore_preview', $e->reason, ['archive_id' => $this->archiveId, 'level' => $this->level]);
 
             return;
         } catch (WrongBackupSecret $e) {
+            SecretAttemptLimiter::failed((string) admin()->user()->id);
             $this->refused('restore_preview', 'wrong_secret', ['archive_id' => $this->archiveId]);
 
             return;
@@ -160,16 +168,21 @@ class BackupRestore extends Component
             return;
         }
         $admin = admin()->user();
+        if ($this->secretThrottled('restore')) {
+            return;
+        }
         try {
             $started = $this->service()->start($this->plan(), $this->secret(), [
                 'operator' => $this->operator(),
                 'created_by' => (string) $admin->username,
             ] + $this->options());
+            SecretAttemptLimiter::clear((string) $admin->id);
         } catch (RestoreRefused $e) {
             $this->refused('restore', $e->reason, ['archive_id' => $this->archiveId, 'level' => $this->level]);
 
             return;
         } catch (WrongBackupSecret $e) {
+            SecretAttemptLimiter::failed((string) $admin->id);
             $this->refused('restore', 'wrong_secret', ['archive_id' => $this->archiveId]);
 
             return;
@@ -238,9 +251,13 @@ class BackupRestore extends Component
         }
         $uploads = new UploadSession;
         $adminId = (string) admin()->user()->id;
+        if ($this->secretThrottled('import')) {
+            return;
+        }
         try {
             $path = $uploads->complete($uploadId, $adminId);
             $started = (new ImportService)->start($path, true, $this->secret(), ['created_by' => (string) admin()->user()->username]);
+            SecretAttemptLimiter::clear($adminId);
         } catch (RestoreRefused $e) {
             // A wrong / busy moment keeps the upload for another try; a file that can never be
             // imported goes (ImportService already removed it).
@@ -251,6 +268,7 @@ class BackupRestore extends Component
 
             return;
         } catch (WrongBackupSecret $e) {
+            SecretAttemptLimiter::failed($adminId);
             $this->refused('import', 'wrong_secret');
 
             return;
@@ -308,13 +326,18 @@ class BackupRestore extends Component
         if (!$this->requireStepUp('fetchRemote', [$archiveId])) {
             return;
         }
+        if ($this->secretThrottled('fetch')) {
+            return;
+        }
         try {
             $started = (new ImportService)->startFromRemote($archiveId, $this->secret(), ['created_by' => (string) admin()->user()->username]);
+            SecretAttemptLimiter::clear((string) admin()->user()->id);
         } catch (RestoreRefused $e) {
             $this->refused('fetch', $e->reason, ['archive_id' => $archiveId]);
 
             return;
         } catch (WrongBackupSecret $e) {
+            SecretAttemptLimiter::failed((string) admin()->user()->id);
             $this->refused('fetch', 'wrong_secret', ['archive_id' => $archiveId]);
 
             return;
@@ -425,7 +448,31 @@ class BackupRestore extends Component
      */
     private function options(): array
     {
-        return ['accept_unverified' => $this->acceptUnverified, 'post_incident' => $this->postIncident && $this->level === RestorePlan::FULL];
+        return [
+            'accept_unverified' => $this->acceptUnverified,
+            'post_incident' => $this->postIncident && $this->level === RestorePlan::FULL,
+            'accept_column_loss' => $this->acceptColumnLoss,
+            // Mod 20261110T164834 (D1): an archive of unverified origin needs an Administrator here.
+            'via' => 'web',
+            'administrator' => BackupAccess::isAdministrator(),
+        ];
+    }
+
+    /**
+     * @param string $action Audit action.
+     * @return bool Too many wrong backup passwords lately: refused (and the typed secret dropped).
+     *
+     * @aidlc-story US-backup-admin-step-up-auth
+     */
+    private function secretThrottled(string $action): bool
+    {
+        if (SecretAttemptLimiter::begin((string) admin()->user()->id) === null) {
+            return false;
+        }
+        $this->restoreSecret = '';
+        $this->refused($action, SecretAttemptLimiter::REASON, ['archive_id' => $this->archiveId]);
+
+        return true;
     }
 
     /**

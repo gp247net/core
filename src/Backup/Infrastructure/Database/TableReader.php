@@ -12,8 +12,8 @@ use Illuminate\Database\QueryException;
  * and go on in the next:
  *  - "key"  : keyset on the primary key (or a unique index whose columns are all NOT NULL),
  *             composite keys included — `WHERE a > ? OR (a = ? AND b > ?) ORDER BY a, b`;
- *  - "scan" : no usable key — LIMIT / OFFSET pages; the caller must read such a table in one
- *             go (rows may move between requests) and records a warning.
+ *  - "scan" : no usable key — LIMIT / OFFSET pages; offsets are stable inside one snapshot only,
+ *             so the caller records a warning when such a table spans several requests.
  *
  * @aidlc-unit backup-engine
  * @aidlc-story US-backup-engine-resumable-run
@@ -33,7 +33,8 @@ final class TableReader
 
     /**
      * @param string $table Real table name.
-     * @return array{columns: list<string>, key: list<string>, mode: string}
+     * @return array{columns: list<string>, key: list<string>, mode: string, row_bytes: int|null}
+     *         row_bytes: average row size the database reports (MySQL / MariaDB), null when unknown.
      * @throws TableMissing When the table does not exist (schema listings return [] instead of failing).
      */
     public function describe(string $table): array
@@ -73,7 +74,30 @@ final class TableReader
         }
         $key = $key ?: ($unique ?? []);
 
-        return ['columns' => $columns, 'key' => $key, 'mode' => $key === [] ? self::MODE_SCAN : self::MODE_KEY];
+        return ['columns' => $columns, 'key' => $key, 'mode' => $key === [] ? self::MODE_SCAN : self::MODE_KEY, 'row_bytes' => $this->rowBytes($table)];
+    }
+
+    /**
+     * @param string $table Real table name.
+     * @return int|null Average row size from the table statistics, refreshed on MySQL 8 (which
+     *                  otherwise caches them up to a day); null when the driver does not tell.
+     *
+     * @aidlc-story US-backup-engine-resumable-run
+     */
+    private function rowBytes(string $table): ?int
+    {
+        if (!in_array($this->db->getDriverName(), ['mysql', 'mariadb'], true)) {
+            return null;
+        }
+        try {
+            SchemaStats::fresh($this->db);
+            $row = $this->db->selectOne('SELECT AVG_ROW_LENGTH AS l FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', [$table]);
+        } catch (\Throwable $e) {
+            return null;
+        }
+        $bytes = (int) ($row->l ?? 0);
+
+        return $bytes > 0 ? $bytes : null;
     }
 
     /**

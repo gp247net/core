@@ -320,6 +320,8 @@ final class DataGroupRegistry
      */
     public static function currentSchemaTables(): array
     {
+        // Sizes feed the free-space check and the web limit: they must be current (mod 20261110T164834).
+        \GP247\Core\Backup\Infrastructure\Database\SchemaStats::fresh(\Illuminate\Support\Facades\DB::connection(GP247_DB_CONNECTION));
         $schema = Schema::connection(GP247_DB_CONNECTION);
 
         return $schema->getTables($schema->getCurrentSchemaListing());

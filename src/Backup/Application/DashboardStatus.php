@@ -30,6 +30,11 @@ final class DashboardStatus
     public const OFFSITE_FAILED = 'offsite_failed';
     /** BK-6: a destination is set but cannot be used (library missing, host key changed). */
     public const OFFSITE_UNAVAILABLE = 'offsite_unavailable';
+    /** Mod 20261110T164834: no verified full backup (or it is too old) while newer snapshots exist. */
+    public const NO_FULL = 'no_full';
+    public const FULL_STALE = 'full_stale';
+    /** Mod 20261110T164834: the signing key is stored in clear — the key ring may have been replaced. */
+    public const KEY_RING_UNTRUSTED = 'key_ring_untrusted';
 
     /**
      * @param KeyService|null    $keys
@@ -43,7 +48,8 @@ final class DashboardStatus
 
     /**
      * @param CarbonInterface|null $now
-     * @return array{last_ok: object|null, age_hours: int|null, warnings: list<string>, job: array<string, mixed>|null}
+     * @return array{last_ok: object|null, age_hours: int|null, full_age_hours: int|null, warnings: list<string>, job: array<string, mixed>|null}
+     *         full_age_hours: age of the newest verified FULL backup (the only kind a whole-database restore uses).
      */
     public function summary(?CarbonInterface $now = null): array
     {
@@ -55,20 +61,36 @@ final class DashboardStatus
         $lastOk = $own()->where('status', Archive::STATUS_OK)->orderByDesc('created_at')->orderByDesc('id')->first();
         $latest = $own()->whereIn('status', [Archive::STATUS_OK, Archive::STATUS_BROKEN])->orderByDesc('created_at')->orderByDesc('id')->first();
         $age = $lastOk === null ? null : (int) floor(Carbon::parse($lastOk->created_at)->diffInMinutes($now, true) / 60);
+        $lastFull = $own()->where('status', Archive::STATUS_OK)->where('kind', Archive::KIND_FULL)->orderByDesc('created_at')->orderByDesc('id')->first();
+        $fullAge = $lastFull === null ? null : (int) floor(Carbon::parse($lastFull->created_at)->diffInMinutes($now, true) / 60);
+        $warnings = self::warnings(
+            BackupFeature::enabled(),
+            $this->keys->isSetUp(),
+            $age,
+            ($latest->status ?? null) === Archive::STATUS_BROKEN,
+            BackupNotifier::mailEnabled(),
+            self::staleHours(),
+            ($lastOk->offsite ?? null) === Archive::OFFSITE_FAILED,
+            self::offsiteUnavailable(),
+        );
+        if ($warnings !== [] && in_array($warnings[0], [self::DISABLED, self::NOT_SET_UP], true)) {
+            return ['last_ok' => $lastOk, 'age_hours' => $age, 'full_age_hours' => $fullAge, 'warnings' => $warnings, 'job' => $this->activeJob()];
+        }
+        if ($this->keys->problem() !== null) {
+            array_unshift($warnings, self::KEY_RING_UNTRUSTED);
+        }
+        // A recent snapshot of one group must not hide that no (recent) full backup exists.
+        if ($age !== null && $fullAge === null) {
+            $warnings[] = self::NO_FULL;
+        } elseif ($fullAge !== null && $fullAge >= self::staleHours() && !in_array(self::STALE, $warnings, true)) {
+            $warnings[] = self::FULL_STALE;
+        }
 
         return [
             'last_ok' => $lastOk,
             'age_hours' => $age,
-            'warnings' => self::warnings(
-                BackupFeature::enabled(),
-                $this->keys->isSetUp(),
-                $age,
-                ($latest->status ?? null) === Archive::STATUS_BROKEN,
-                BackupNotifier::mailEnabled(),
-                self::staleHours(),
-                ($lastOk->offsite ?? null) === Archive::OFFSITE_FAILED,
-                self::offsiteUnavailable(),
-            ),
+            'full_age_hours' => $fullAge,
+            'warnings' => $warnings,
             'job' => $this->activeJob(),
         ];
     }

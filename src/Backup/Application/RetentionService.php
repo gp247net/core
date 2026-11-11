@@ -64,8 +64,15 @@ final class RetentionService
         // WHY only the newest uncopied archive (BK-7, ⚑ #7): enough to copy it out when the
         // destination is back, without letting a long outage fill the disk.
         $newestUncopied = CountRetentionPolicy::newestUncopied($archives);
+        // WHY (mod 20261110T164834, measured): quick snapshots counted with the rest pushed out every
+        // full backup — the only kind a whole-database restore can use. The newest one always stays.
+        $newestFull = null;
         foreach ($archives as $i => $archive) {
             $known[(string) $archive->id] = true;
+            if ($newestFull === null && (string) $archive->kind === Archive::KIND_FULL && (string) ($archive->reason ?? '') !== Archive::REASON_IMPORT) {
+                $newestFull = (string) $archive->id;
+                $protected[$newestFull] = true;
+            }
             if ($i === 0 || (bool) $archive->pinned || ($newestUncopied !== null && $archive->id === $newestUncopied)) {
                 $protected[(string) $archive->id] = true;
             }

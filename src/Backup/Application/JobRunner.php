@@ -29,6 +29,10 @@ final class JobRunner
     private const LEASE_MARGIN = 30;
     private const CLI_LEASE = 600;
 
+    /** @var array{job: int, owner: string, slice: SliceContext}|null Slice running in this process. */
+    private static ?array $watching = null;
+    private static bool $shutdownRegistered = false;
+
     private JobRepository $jobs;
     private ArchiveRepository $archives;
     private LocalVault $vault;
@@ -99,6 +103,9 @@ final class JobRunner
             }
 
             $slice = new SliceContext((int) $job->id, $owner, $deadline, $leaseSeconds, $this->jobs);
+            // WHY: a host that kills the request (memory, time limit) gives no exception to catch;
+            // the shutdown handler records what killed it, so the job fails with a reason.
+            self::watchForFatal((int) $job->id, $owner, $slice);
             try {
                 $finished = match ($job->type) {
                     Archive::JOB_BACKUP => $this->backupStep->run($job, $slice),
@@ -109,9 +116,12 @@ final class JobRunner
                     default => throw new \RuntimeException('Unknown job type.'),
                 };
             } catch (LeaseLost $e) {
+                self::$watching = null;
+
                 return $this->leaseLost($job);
             } catch (\Throwable $e) {
-                $error = self::describe($e);
+                self::$watching = null;
+                $error = self::failureReason($e);
                 BackupLog::failure('Backup job ' . $job->id . ' (' . $job->type . ') error: ' . $error);
                 // The last allowed attempt ends the job while this slice still holds the lease.
                 if ((int) $job->attempts + 1 >= self::MAX_ATTEMPTS) {
@@ -126,6 +136,7 @@ final class JobRunner
                 return $this->result('error', $job);
             }
 
+            self::$watching = null;
             if (!$finished) {
                 $this->jobs->release((int) $job->id, $owner);
 
@@ -185,13 +196,13 @@ final class JobRunner
             try {
                 $this->importStep->abort($cursor);
             } catch (\Throwable $e) {
-                BackupLog::failure('Import job ' . $job->id . ' could not be cleaned up: ' . self::describe($e));
+                BackupLog::failure('Import job ' . $job->id . ' could not be cleaned up: ' . self::failureReason($e));
             }
         } elseif ($restore) {
             try {
                 $this->restoreStep->abort($job, $cursor, $error);
             } catch (\Throwable $e) {
-                BackupLog::failure('Restore job ' . $job->id . ' could not be rolled back: ' . self::describe($e));
+                BackupLog::failure('Restore job ' . $job->id . ' could not be rolled back: ' . self::failureReason($e));
             }
         }
         if ($job->type === Archive::JOB_BACKUP && $job->archive_id !== null && !$this->vault->deleteArchive((string) $job->archive_id)) {
@@ -201,7 +212,7 @@ final class JobRunner
             try {
                 $this->uploadStep->failed($job, $error);
             } catch (\Throwable $e) {
-                BackupLog::failure('Upload job ' . $job->id . ' outcome not recorded: ' . self::describe($e));
+                BackupLog::failure('Upload job ' . $job->id . ' outcome not recorded: ' . self::failureReason($e));
             }
         }
         BackupLog::failure('Backup job ' . $job->id . ' failed: ' . $error);
@@ -330,7 +341,7 @@ final class JobRunner
             (new FileRestoreService(null, $this->vault))->sweep();
             (new UploadSession($this->vault))->sweep();
         } catch (\Throwable $e) {
-            BackupLog::failure('Clean-up of restore copies failed: ' . self::describe($e));
+            BackupLog::failure('Clean-up of restore copies failed: ' . self::failureReason($e));
         }
     }
 
@@ -353,14 +364,97 @@ final class JobRunner
 
     /**
      * @param \Throwable $e
-     * @return string Short description without data: SQL errors may quote row values.
+     * @return string Short description without data: SQL errors may quote row values, so a
+     *                database error keeps only its SQLSTATE and the driver's error number.
+     *
+     * @aidlc-story US-backup-engine-resumable-run, US-backup-restore-full-database
      */
-    private static function describe(\Throwable $e): string
+    public static function failureReason(\Throwable $e): string
     {
         if ($e instanceof QueryException) {
-            return 'database error ' . $e->getCode();
+            $state = (string) ($e->errorInfo[0] ?? $e->getCode());
+            $driverCode = $e->errorInfo[1] ?? null;
+
+            return 'database error ' . $state . (is_int($driverCode) || ctype_digit((string) $driverCode) ? '/' . $driverCode : '');
         }
 
         return class_basename($e) . ': ' . mb_substr($e->getMessage(), 0, 150);
+    }
+
+    /**
+     * @param array{type: int, message: string}|null $error From error_get_last().
+     * @param string|null                            $where Table or file group the slice was on.
+     * @return string|null memory_exhausted:<where> | time_exceeded:<where>; null for anything else.
+     *
+     * @aidlc-story US-backup-engine-resumable-run
+     */
+    public static function fatalReason(?array $error, ?string $where): ?string
+    {
+        if ($error === null || !in_array($error['type'] ?? 0, [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
+            return null;
+        }
+        $message = (string) ($error['message'] ?? '');
+        $kind = match (true) {
+            str_contains($message, 'Allowed memory size') => 'memory_exhausted',
+            str_contains($message, 'Maximum execution time') => 'time_exceeded',
+            default => null,
+        };
+
+        return $kind === null ? null : $kind . ':' . mb_substr((string) ($where ?? 'unknown'), 0, 120);
+    }
+
+    /**
+     * Record why the request running a slice was killed (counts as one failed attempt, lease freed).
+     *
+     * @param int         $jobId
+     * @param string      $owner Lease owner of the dying slice.
+     * @param array|null  $error From error_get_last().
+     * @param string|null $where
+     * @return void
+     *
+     * @aidlc-story US-backup-engine-resumable-run
+     */
+    public static function recordFatal(int $jobId, string $owner, ?array $error, ?string $where): void
+    {
+        $reason = self::fatalReason($error, $where);
+        if ($reason === null) {
+            return;
+        }
+        try {
+            (new JobRepository)->recordError($jobId, $owner, $reason);
+            BackupLog::failure('Backup job ' . $jobId . ' was stopped by the host: ' . $reason);
+        } catch (\Throwable $e) {
+            // Best effort: the request is already dying.
+        }
+    }
+
+    /**
+     * Watch the slice now running: if the request dies before the slice ends, the shutdown
+     * handler (registered once per process) records why.
+     *
+     * @param int          $jobId
+     * @param string       $owner
+     * @param SliceContext $slice
+     * @return void
+     */
+    private static function watchForFatal(int $jobId, string $owner, SliceContext $slice): void
+    {
+        self::$watching = ['job' => $jobId, 'owner' => $owner, 'slice' => $slice];
+        if (self::$shutdownRegistered) {
+            return;
+        }
+        self::$shutdownRegistered = true;
+        register_shutdown_function(static function (): void {
+            $watching = self::$watching;
+            if ($watching === null) {
+                return;
+            }
+            $limit = ini_get('memory_limit');
+            if (is_string($limit) && $limit !== '-1') {
+                // WHY: after "memory exhausted" the handler needs a little room for one UPDATE.
+                @ini_set('memory_limit', (string) (memory_get_usage(true) + 16 * 1024 * 1024));
+            }
+            self::recordFatal($watching['job'], $watching['owner'], error_get_last(), $watching['slice']->working);
+        });
     }
 }
