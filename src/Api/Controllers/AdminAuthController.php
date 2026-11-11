@@ -8,6 +8,7 @@ use GP247\Core\Api\Support\LoginChallenges;
 use GP247\Core\Api\Support\ApiTokenLifetime;
 use GP247\Core\Controllers\RootAdminController;
 use GP247\Core\Models\AdminUser;
+use GP247\Core\Support\Password\LegacyEncodedPassword;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -88,6 +89,13 @@ class AdminAuthController extends RootAdminController
 
         $credentials = request(['username', 'password']);
         $credentials['status'] = 1;
+
+        // WHY: same repair as the web login — a hash of the old gp247_clean() form of this
+        // password is rewritten from the typed one before the normal check (US-admin-shell-password-as-typed).
+        LegacyEncodedPassword::upgrade(
+            AdminUser::where('username', (string) $request->input('username'))->first(),
+            (string) $request->input('password')
+        );
 
         if (!$this->guard()->attempt($credentials)) {
             return ApiErrorResponder::respond(401, 'unauthenticated', 'Unauthorized');

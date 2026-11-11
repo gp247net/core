@@ -66,6 +66,20 @@ class EmailSettingsForm extends StoreConfigForm
     }
 
     /**
+     * SMTP settings go to the mail transport, not to a page: store them exactly as entered
+     * so a password or sender name with & or " reaches the mail server unchanged.
+     *
+     * @return array<int, string>
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-config-value-verbatim
+     */
+    protected function verbatimKeys(): array
+    {
+        return $this->smtpKeys();
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function fieldTypes(): array

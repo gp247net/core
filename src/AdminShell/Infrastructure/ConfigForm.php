@@ -637,6 +637,22 @@ abstract class ConfigForm extends GP247AdminComponent
         return $value;
     }
 
+    /**
+     * Hook: keys stored exactly as entered (no gp247_clean). Secret keys are always stored
+     * verbatim; list here other values a machine consumes rather than a page renders
+     * (credentials, connection settings — e.g. the SMTP keys of the Email screen).
+     *
+     * @return array<int, string>
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-config-value-verbatim
+     * @aidlc-adr admin-shell_credential-verbatim
+     */
+    protected function verbatimKeys(): array
+    {
+        return [];
+    }
+
     public function save(): void
     {
         $this->authorizeAction('update');
@@ -729,9 +745,14 @@ abstract class ConfigForm extends GP247AdminComponent
             }
         }
 
-        $stored = $this->isBooleanType($key)
-            ? ($value ? '1' : '0')
-            : gp247_clean((string) $value);
+        // WHY verbatim for secrets/verbatimKeys(): HTML-encoding a password before encrypting it
+        // made p&ss reach the SMTP server / payment gateway as p&amp;ss (NFR-SEC-credential-verbatim).
+        // Other keys keep gp247_clean until text storage changes for every field (P2).
+        $stored = match (true) {
+            $this->isBooleanType($key) => $value ? '1' : '0',
+            $isSecret, in_array($key, $this->verbatimKeys(), true) => (string) $value,
+            default => gp247_clean((string) $value),
+        };
 
         if ($this->isSubStoreScope()) {
             $base = AdminConfig::where('group', $this->group())

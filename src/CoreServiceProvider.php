@@ -188,6 +188,11 @@ class CoreServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        // WHY: text fields are still stored HTML-encoded by gp247_clean(); without this, {{ }}
+        // encodes them a second time and "Free &amp; Pro" shows on the page. Raw < > " ' & are
+        // still escaped; only entities already present are kept (US-CMP-text-single-encoding,
+        // ADR compat-foundation_output-single-encoding — bridge until text is stored as typed).
+        Blade::withoutDoubleEncoding();
 
         $this->initial();
 

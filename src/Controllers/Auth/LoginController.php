@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Validator;
 use GP247\Core\Controllers\PasswordValidationTrait;
 use GP247\Core\Support\LoginThrottle;
+use GP247\Core\Support\Password\LegacyEncodedPassword;
 
 class LoginController extends RootAdminController
 {
@@ -69,6 +70,13 @@ class LoginController extends RootAdminController
         $credentials = $request->only([$this->username(), 'password']);
         $credentials['status'] = 1;
         $remember = $request->get('remember', false);
+
+        // WHY before attempt(): an account whose hash is of the old gp247_clean() form of this
+        // password is repaired here, so attempt() below succeeds once and fires no Failed event.
+        LegacyEncodedPassword::upgrade(
+            AdminUser::where($this->username(), $username)->first(),
+            (string) $request->input('password')
+        );
 
         if ($this->guard()->attempt($credentials, $remember)) {
             LoginThrottle::succeeded($request, 'admin', $subject);
@@ -153,11 +161,15 @@ class LoginController extends RootAdminController
                 ->withErrors($validator)
                 ->withInput();
         }
+        // WHY the raw input: a password is hashed exactly as typed, never through gp247_clean()
+        // (NFR-SEC-credential-verbatim) — the cleaned form made passwords with & < > " unusable.
+        $typedPassword = (string) ($dataOrigin['password'] ?? '');
         // WHY: after a post-incident restore the account may only continue with a NEW password.
         $mustChange = !empty($user->password_change_required);
-        // WHY the cleaned value: it is the one hashed below; comparing the raw input would let
-        // "old<b></b>" pass and store the old password again.
-        if ($mustChange && (empty($data['password']) || \Illuminate\Support\Facades\Hash::check((string) $data['password'], (string) $user->password))) {
+        // WHY either form: the stored hash is of the typed password, or of its old gp247_clean()
+        // form for an account set on this screen before the fix; neither may be chosen again
+        // (this also keeps "old<b></b>" from passing as a new password).
+        if ($mustChange && ($typedPassword === '' || LegacyEncodedPassword::matchesEitherForm($typedPassword, (string) $user->password))) {
             return redirect()->back()
                 ->withErrors(['password' => gp247_language_render('admin.password_change_required')])
                 ->withInput();
@@ -172,12 +184,11 @@ class LoginController extends RootAdminController
         if (admin()->user()->isRole('administrator')) {
             $dataUpdate['email'] = $data['email'];
         }
-        if ($data['password']) {
-            $dataUpdate['password'] = gp247_password_hash($data['password']);
-        }
-        $dataUpdate = gp247_clean($dataUpdate, [], true);
-        if ($data['password'] && $mustChange) {
-            $dataUpdate['password_change_required'] = 0;
+        if ($typedPassword !== '') {
+            $dataUpdate['password'] = gp247_password_hash($typedPassword);
+            if ($mustChange) {
+                $dataUpdate['password_change_required'] = 0;
+            }
         }
         $user->update($dataUpdate);
 
