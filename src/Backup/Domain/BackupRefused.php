@@ -19,6 +19,8 @@ final class BackupRefused extends RuntimeException
     public const GROUP_UNKNOWN = 'group_unknown';
     public const REASON_INVALID = 'reason_invalid';
     public const ALREADY_RUNNING = 'already_running';
+    /** An extension reports a bulk write (e.g. a data import) — WriteActivity. */
+    public const BUSY_ELSEWHERE = 'busy_elsewhere';
     public const DISK_SPACE = 'disk_space';
     public const NEEDS_CONFIRMATION = 'needs_confirmation';
     public const VAULT_UNSAFE = 'vault_unsafe';

@@ -91,6 +91,8 @@ final class PreChangeGuard
             PreChange::SYSTEM_UPDATE => ScheduleSettings::scope(ScheduleSettings::KIND_DATA),
             PreChange::EXTENSION_UPDATE => $this->extensionScope((string) ($change->scope['type'] ?? ''), (string) ($change->scope['key'] ?? ''), $known, $keep),
             PreChange::TEMPLATE_SWITCH => $keep(['config', 'content']),
+            // US-backup-engine-pre-change-snapshot (mod 20261106T131917): exactly the groups the import writes.
+            PreChange::DATA_IMPORT => $keep(array_values(array_filter((array) ($change->scope['groups'] ?? []), 'is_string'))),
             default => null,
         };
     }
@@ -151,6 +153,15 @@ final class PreChangeGuard
         $parts = [$clean($change->operation)];
         if (isset($change->scope['key'])) {
             $parts[] = $clean((string) ($change->scope['type'] ?? '')) . '/' . $clean((string) $change->scope['key']);
+        }
+        // WHY: imports of different data within the reuse window must not share one snapshot.
+        if ($change->operation === PreChange::DATA_IMPORT) {
+            $groups = array_values(array_filter((array) ($change->scope['groups'] ?? []), 'is_string'));
+            sort($groups);
+            $parts[] = implode('+', array_map($clean, $groups)) ?: '-';
+            if (isset($change->scope['source'])) {
+                $parts[] = $clean((string) $change->scope['source']);
+            }
         }
         if ($change->from !== null || $change->to !== null) {
             $parts[] = $clean($change->from);

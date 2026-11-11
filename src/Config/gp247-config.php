@@ -26,6 +26,8 @@ return [
     // ['key' => string, 'callback' => callable]; appended at boot by a package or plugin.
     'core' => [
         'pre_change' => [],
+        // Bulk writes in progress (backup area, data import…): ['key' => string, 'probe' => callable] — GP247\Core\Support\WriteActivity.
+        'write_activity' => [],
     ],
 
     // Backup data groups (ADR backup-engine_data-group-registry). The core declares only its

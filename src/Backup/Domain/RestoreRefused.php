@@ -25,6 +25,8 @@ final class RestoreRefused extends RuntimeException
     public const FK_NOT_SUPPORTED = 'fk_not_supported';
     public const ARCHIVE_NEWER = 'archive_newer';
     public const ALREADY_RUNNING = 'already_running';
+    /** An extension reports a bulk write (e.g. a data import) — WriteActivity. */
+    public const BUSY_ELSEWHERE = 'busy_elsewhere';
     public const NO_KEY = 'no_key';
     public const TOO_MANY_ROWS = 'too_many_rows';
     public const NOTHING_TO_UNDO = 'nothing_to_undo';

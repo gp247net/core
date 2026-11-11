@@ -236,6 +236,8 @@ final class BackupScreenLanguage
             'admin.backup.refused.scope_empty' => ['Choose at least one group.', 'Hãy chọn ít nhất một nhóm.', '1 つ以上のグループを選択してください。'],
             'admin.backup.refused.group_unknown' => ['Unknown data group.', 'Nhóm dữ liệu không tồn tại.', '不明なデータグループです。'],
             'admin.backup.refused.already_running' => ['Another backup or restore is running. Wait for it to finish.', 'Đang có một lần sao lưu hoặc phục hồi khác. Hãy chờ nó xong.', '別のバックアップまたは復元が実行中です。完了までお待ちください。'],
+            'admin.backup.refused.busy_elsewhere' => ['Another bulk change of the site data is running (for example a data import). Wait for it to finish.', 'Đang có một thao tác ghi dữ liệu hàng loạt khác (ví dụ một đợt nhập dữ liệu). Hãy chờ nó xong.', 'サイトデータの一括変更（データのインポートなど）が実行中です。完了までお待ちください。'],
+            'admin.backup.write_activity' => ['Backup or restore', 'Sao lưu hoặc phục hồi', 'バックアップまたは復元'],
             'admin.backup.refused.disk_space' => ['Not enough free disk space for this backup.', 'Không đủ dung lượng trống cho bản này.', 'ディスクの空き容量が足りません。'],
             'admin.backup.refused.vault_unsafe' => ['The storage folder is not safe (inside the public web folder).', 'Thư mục lưu không an toàn (nằm trong thư mục web công khai).', '保存フォルダーが安全ではありません（公開 Web フォルダー内）。'],
             'admin.backup.refused.not_found' => ['This backup does not exist or is not ready.', 'Bản sao lưu không tồn tại hoặc chưa sẵn sàng.', 'バックアップが存在しないか、準備ができていません。'],

@@ -2,6 +2,7 @@
 
 namespace GP247\Core\Backup\Application;
 
+use GP247\Core\Support\WriteActivity;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\BackupSecret;
@@ -376,6 +377,10 @@ final class RestoreService
             AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)->where('key', BackupFeature::CONFIG_KEY)->lockForUpdate()->first();
             if ($this->jobs->hasActiveWriteJob()) {
                 throw new RestoreRefused(RestoreRefused::ALREADY_RUNNING);
+            }
+            // US-backup-engine-write-activity-exclusion: an extension writing in bulk (data import).
+            if (($other = WriteActivity::busy(WriteProbe::KEY)) !== null) {
+                throw new RestoreRefused(RestoreRefused::BUSY_ELSEWHERE, $other['key'], ['activity' => $other['label']]);
             }
 
             return $create();

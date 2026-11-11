@@ -22,6 +22,12 @@ final class PreChange
     public const TEMPLATE_SWITCH = 'template.switch';
 
     /**
+     * Bulk import of business data by an extension (e.g. the DataImport plugin).
+     * Scope: ['groups' => list<string> data groups it writes, 'source' => string, 'job' => string].
+     */
+    public const DATA_IMPORT = 'data.import';
+
+    /**
      * @param string               $operation One of the constants above (registrants may meet others later).
      * @param array<string, mixed> $scope     What the change touches (e.g. ['type' => 'Plugins', 'key' => 'Foo']).
      * @param string|null          $from      Version / value before the change, when known.

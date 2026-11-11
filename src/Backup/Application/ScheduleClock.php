@@ -2,6 +2,7 @@
 
 namespace GP247\Core\Backup\Application;
 
+use GP247\Core\Support\WriteActivity;
 use GP247\Core\Backup\Domain\Archive;
 use GP247\Core\Backup\Infrastructure\Store\JobRepository;
 use GP247\Core\Models\AdminConfig;
@@ -49,7 +50,7 @@ final class ScheduleClock
             if ($settings['mode'] !== ScheduleSettings::MODE_VISIT || !BackupFeature::enabled() || !$this->keys()->isSetUp()) {
                 return false;
             }
-            if ($this->jobs->hasActiveWriteJob()) {
+            if ($this->jobs->hasActiveWriteJob() || WriteActivity::busy(WriteProbe::KEY) !== null) {
                 return false;
             }
             $tried = $this->triedAt();

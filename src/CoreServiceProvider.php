@@ -562,6 +562,11 @@ class CoreServiceProvider extends ServiceProvider
         $preChange[] = ['key' => \GP247\Core\Backup\Application\PreChangeGuard::KEY, 'callback' => [\GP247\Core\Backup\Application\PreChangeGuard::class, 'check']];
         config(['gp247-config.core.pre_change' => $preChange]);
 
+        // US-backup-engine-write-activity-exclusion: extensions that write in bulk see backup jobs.
+        $writers = (array) config('gp247-config.core.write_activity', []);
+        $writers[] = ['key' => \GP247\Core\Backup\Application\WriteProbe::KEY, 'probe' => [\GP247\Core\Backup\Application\WriteProbe::class, 'probe']];
+        config(['gp247-config.core.write_activity' => $writers]);
+
         $widgets = (array) config('gp247-config.admin.header_widgets', []);
         $widgets[] = \GP247\Core\Backup\Livewire\BackupBeaconWidget::class;
         config(['gp247-config.admin.header_widgets' => $widgets]);
