@@ -3,16 +3,18 @@
 namespace GP247\Core\AdminShell\Http\Livewire;
 
 use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
+use GP247\Core\Support\Gp247PackageVersions;
 use Illuminate\Contracts\View\View;
 
 /**
- * Read-only server information screen (ADR-005): PHP runtime settings, loaded
- * extensions and installed Composer packages. Mirrors the legacy
- * AdminServerInfoController. Gated by `admin_server_info`; no mutating actions.
+ * Read-only server information screen (ADR-005): GP247 package versions first
+ * (as the release tags print them), then PHP runtime settings, loaded extensions
+ * and the other installed Composer packages. Mirrors the legacy AdminServerInfoController.
+ * Gated by `admin_server_info`; no mutating actions.
  *
  * @aidlc-unit admin-shell-rbac
- * @aidlc-story US-UI-002
- * @aidlc-adr ADR-001, ADR-005
+ * @aidlc-story US-UI-002, US-admin-shell-server-info-gp247-versions
+ * @aidlc-adr ADR-001, ADR-005, admin-shell_gp247-version-display
  */
 class ServerInfo extends GP247AdminComponent
 {
@@ -46,10 +48,14 @@ class ServerInfo extends GP247AdminComponent
         $extensions = get_loaded_extensions();
         sort($extensions);
 
+        $gp247Packages = Gp247PackageVersions::gp247();
+
         return view('gp247-admin::livewire.server-info', [
+            'gp247Packages' => $gp247Packages,
             'phpInfo' => $this->phpInfo(),
             'extensions' => $extensions,
-            'packages' => gp247_composer_get_package_installed(),
+            // WHY: the GP247 block already lists these; the project root package stays here.
+            'packages' => array_diff_key(Gp247PackageVersions::all(), $gp247Packages),
         ])->layout('gp247-admin::layouts.admin', [
             'title' => gp247_language_render('admin.server_info'),
         ]);

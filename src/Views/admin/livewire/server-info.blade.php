@@ -3,15 +3,45 @@
     extensions, installed Composer packages. UI text via gp247_language_render.
 
     @aidlc-unit admin-shell-rbac
-    @aidlc-story US-UI-002
-    @aidlc-adr ADR-005
+    @aidlc-story US-UI-002, US-admin-shell-server-info-gp247-versions
+    @aidlc-adr ADR-005, admin-shell_gp247-version-display
 
     Variables:
-      - $phpInfo    (array  label => value)
-      - $extensions (string[] loaded extension names)
-      - $packages   (array  package => version)
+      - $gp247Packages (array  package => version as the release tag prints it; core/front/shop/mcp first)
+      - $phpInfo       (array  label => value)
+      - $extensions    (string[] loaded extension names)
+      - $packages      (array  package => version as the release tag prints it; excludes $gp247Packages)
 --}}
 <div class="space-y-5">
+
+    {{-- GP247 package versions: first, so a site owner without CLI can compare with the release notes --}}
+    <x-gp247::card data-testid="admin-shell-server-info-gp247">
+        <x-slot:header>
+            <div class="flex w-full items-center justify-between">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100">
+                    <i class="fas fa-shield-alt mr-1.5 text-gray-400"></i>{{ gp247_language_render('admin.server_info_gp247_title') }}
+                </h3>
+                <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+                    {{ count($gp247Packages) }}
+                </span>
+            </div>
+        </x-slot:header>
+        <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.server_info_gp247_hint') }}</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                    @foreach ($gp247Packages as $name => $version)
+                        <tr data-testid="admin-shell-server-info-gp247-row" data-package="{{ $name }}" class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="py-2.5 pr-4 font-mono text-sm font-medium text-gray-700 dark:text-gray-200">{{ $name }}</td>
+                            <td class="py-2.5 text-right">
+                                <x-gp247::badge color="blue"><span data-testid="admin-shell-server-info-gp247-version">{{ $version }}</span></x-gp247::badge>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </x-gp247::card>
 
     {{-- PHP runtime --}}
     <x-gp247::card title="PHP">

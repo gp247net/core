@@ -3,15 +3,17 @@
 namespace GP247\Core\Commands;
 
 use GP247\Core\Console\GP247Command;
+use GP247\Core\Support\Gp247PackageVersions;
 use Illuminate\Support\Facades\Storage;
 
 /**
  * Machine-readable system status backbone: installed package versions
- * (core/front/shop), install marker, and plugin/template counts. Read-only.
+ * (core/front/shop/mcp, as the release tags print them), install marker, and
+ * plugin/template counts. Read-only.
  *
  * @aidlc-unit system-cli
  * @aidlc-story US-CLI-004
- * @aidlc-adr system-cli_output-contract
+ * @aidlc-adr system-cli_output-contract, admin-shell_gp247-version-display
  */
 class Info extends GP247Command
 {
@@ -26,15 +28,10 @@ class Info extends GP247Command
      */
     protected function handleGp247(): int
     {
-        $packages = gp247_composer_get_package_installed();
         $data = [
             'core'      => config('gp247.core'),
-            'versions'  => [
-                'gp247/core'  => $packages['gp247/core'] ?? null,
-                'gp247/front' => $packages['gp247/front'] ?? null,
-                'gp247/shop'  => $packages['gp247/shop'] ?? null,
-                'gp247/mcp'   => $packages['gp247/mcp'] ?? null,
-            ],
+            // WHY: same string as the release tag and the Server info screen (3.11.2, not 3.11.2.0).
+            'versions'  => Gp247PackageVersions::core(),
             'installed' => Storage::disk('local')->exists('gp247-installed.txt'),
             'plugins'   => $this->countExtensions('Plugins'),
             'templates' => $this->countExtensions('Templates'),

@@ -311,6 +311,8 @@ return [
     'admin.home_welcome_version' => 'GP247 バージョン :version をご利用中です',
     'admin.deny' => 'アクセスが拒否されました！',
     'admin.server_info' => 'サーバー情報',
+    'admin.server_info_gp247_title' => 'GP247 のバージョン',
+    'admin.server_info_gp247_hint' => 'S-Cart のリリースページ「推奨バージョン」の「推奨最低バージョン」列と各行を比べてください。低い場合、このサイトには修正が不足しています。',
     'admin.setting_account' => 'アカウント設定',
     'admin.failed' => '認証に失敗しました',
     'admin.login_too_many_attempts' => 'ログインの試行回数が多すぎます。:seconds 秒後にもう一度お試しください。',
