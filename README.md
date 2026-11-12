@@ -23,6 +23,8 @@ Install the core (Laravel already set up):
 ## About GP247
 GP247 is a powerful, secure, flexible, and AI-agent-friendly open-source system built on the Laravel framework.
 
+**GP247/core 3.x tech stack:** PHP ≥ 8.3 · [Laravel 13](https://github.com/laravel/laravel) · [Livewire 4](https://livewire.laravel.com) · Tailwind CSS 3 (prebuilt — no Node needed) · MySQL / MariaDB
+
 Main components in the GP247 ecosystem:
 
 - **[Package] GP247/core**: The core of the entire ecosystem. GP247/core can operate independently as a Laravel admin.

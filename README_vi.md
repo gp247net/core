@@ -23,6 +23,8 @@ Cài đặt core (khi đã có laravel):
 ## Giới thiệu về GP247
 GP247 là một hệ thống mã nguồn mở mạnh mẽ, an toàn, linh hoạt, thân thiện với AI agent, được xây dựng trên nền tảng Laravel.
 
+**Công nghệ GP247/core 3.x:** PHP ≥ 8.3 · [Laravel 13](https://github.com/laravel/laravel) · [Livewire 4](https://livewire.laravel.com) · Tailwind CSS 3 (đã build sẵn — không cần Node) · MySQL / MariaDB
+
 Các thành phần chính trong hệ sinh thái của GP247:
 
 - **[Package] GP247/core**: Là core của toàn bộ hệ sinh thái. GP247/core có thể hoạt động độc lập như 1 laravel admin.

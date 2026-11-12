@@ -23,6 +23,8 @@ core のインストール（Laravel が既にある場合）：
 ## GP247 について
 GP247 は、Laravel をベースに構築された、強力・安全・柔軟で、AI エージェントとの親和性が高いオープンソースシステムです。
 
+**GP247/core 3.x の技術スタック：** PHP ≥ 8.3 · [Laravel 13](https://github.com/laravel/laravel) · [Livewire 4](https://livewire.laravel.com) · Tailwind CSS 3（ビルド済み — Node 不要） · MySQL / MariaDB
+
 GP247 エコシステムの主な構成要素：
 
 - **[Package] GP247/core**：エコシステム全体のコアです。GP247/core は、単独で Laravel 管理画面として動作させることもできます。
