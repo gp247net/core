@@ -80,7 +80,7 @@ if (!function_exists('gp247_custom_field_update') && !in_array('gp247_custom_fie
                 foreach ($fields as $key => $value) {
                     $field = $definitions->get($key);
                     if ($field) {
-                        $dataField = gp247_clean([
+                        $dataField = gp247_text_plain([
                             'custom_field_id' => $field->id,
                             'rel_id' => $itemId,
                             'text' => is_array($value) ? implode(',', $value) : trim($value),

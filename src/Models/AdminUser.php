@@ -52,7 +52,7 @@ class AdminUser extends Authenticatable
      */
     public static function updateInfo($dataUpdate, $id)
     {
-        $dataUpdate = gp247_clean(data:$dataUpdate, hight: true);
+        $dataUpdate = gp247_text_plain(data:$dataUpdate, stripTags: true);
         $obj        = self::find($id);
         return $obj->update($dataUpdate);
     }
@@ -107,7 +107,7 @@ class AdminUser extends Authenticatable
      */
     public static function createUser($dataInsert)
     {
-        $dataInsert = gp247_clean(data:$dataInsert, hight: true);
+        $dataInsert = gp247_text_plain(data:$dataInsert, stripTags: true);
         return self::create($dataInsert);
     }
 

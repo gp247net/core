@@ -66,7 +66,7 @@ abstract class ResourcePanel extends GP247AdminComponent
 
     /**
      * form.* field names holding admin-authored rich HTML (TinyMCE) that must
-     * survive save() as-is. gp247_clean() htmlspecialchars-escapes its input,
+     * survive save() as-is. gp247_clean() (used before core 3.12) htmlspecialchars-escaped its input,
      * which corrupts real markup (e.g. a Layout Block's `text`); concrete
      * screens with a rich-editor form field must list it here. Mirrors the
      * richFields pattern in FormComponent / WebsiteInfo::RICH_FIELDS.
@@ -712,7 +712,7 @@ abstract class ResourcePanel extends GP247AdminComponent
         }
         $this->validate($rules, $messages);
         // richFields are excluded so admin-authored rich HTML isn't escaped.
-        $this->persist(gp247_clean($this->form, $this->richFields));
+        $this->persist(gp247_text_plain($this->form, $this->richFields));
 
         // Opted-in screens (ADR two-panel-state-preservation): stay in place so
         // the list keeps its page/keyword/sort and the just-saved record remains

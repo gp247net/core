@@ -751,7 +751,7 @@ abstract class ConfigForm extends GP247AdminComponent
         $stored = match (true) {
             $this->isBooleanType($key) => $value ? '1' : '0',
             $isSecret, in_array($key, $this->verbatimKeys(), true) => (string) $value,
-            default => gp247_clean((string) $value),
+            default => gp247_text_plain((string) $value),
         };
 
         if ($this->isSubStoreScope()) {

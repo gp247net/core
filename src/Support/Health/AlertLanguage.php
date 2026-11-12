@@ -132,6 +132,12 @@ final class AlertLanguage
                 'ja' => ':count 件の拡張機能で public/ の静的ファイルが不足しています。gp247:ext-publish を実行してください。',
             ],
             'admin.alerts.extension_assets_ok' => ['en' => 'Extensions have their static files', 'vi' => 'Extension đủ file tĩnh', 'ja' => '拡張機能の静的ファイルは揃っています'],
+            'admin.alerts.raw_output_scan' => [
+                'en' => 'Site templates/plugins print :count field(s) raw with {!! !!} — text is now stored as typed, so switch them to {{ }}.',
+                'vi' => 'Template/plugin của site in thô :count chỗ bằng {!! !!} — chữ nay được lưu đúng như nhập, hãy đổi sang {{ }}.',
+                'ja' => 'サイトのテンプレート/プラグインが :count 箇所を {!! !!} でそのまま出力しています。文字は入力どおりに保存されるようになったため {{ }} に変更してください。',
+            ],
+            'admin.alerts.raw_output_scan_ok' => ['en' => 'Site templates print text safely', 'vi' => 'Template của site in chữ an toàn', 'ja' => 'サイトのテンプレートは文字を安全に出力しています'],
         ];
     }
 

@@ -33,7 +33,7 @@ class LogOperation
             ];
 
             try {
-                $log = gp247_clean(data:$log, hight: true);
+                $log = gp247_text_plain(data:$log, stripTags: true);
                 AdminLog::create($log);
             } catch (\Throwable $exception) {
                 gp247_report($exception->getMessage());

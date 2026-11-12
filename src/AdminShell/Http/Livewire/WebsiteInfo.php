@@ -95,8 +95,8 @@ class WebsiteInfo extends GP247AdminComponent
 
     /**
      * Description fields holding admin-authored rich HTML (TinyMCE). These are stored
-     * raw — like the legacy store_maintain / CMS content fields — because gp247_clean()
-     * htmlspecialchars-escapes its input and would break HTML rendering. Safe here:
+     * raw — like the legacy store_maintain / CMS content fields — because gp247_clean() (used before core 3.12)
+     * htmlspecialchars-escaped its input and would break HTML rendering. Safe here:
      * the screen is RBAC-gated (store.full) and every write is Layer-2 authorized.
      */
     private const RICH_FIELDS = ['maintain_content'];
@@ -233,7 +233,7 @@ class WebsiteInfo extends GP247AdminComponent
 
         $values = [];
         foreach ($fields as $field) {
-            $values[$field] = gp247_clean((string) ($this->store[$field] ?? ''));
+            $values[$field] = gp247_text_plain((string) ($this->store[$field] ?? ''));
         }
 
         if (array_key_exists('domain', $values)) {
@@ -289,7 +289,7 @@ class WebsiteInfo extends GP247AdminComponent
             foreach (self::DESC_FIELDS as $field) {
                 $value = (string) ($this->desc[$code][$field] ?? '');
                 // WHY: rich HTML fields keep their markup (raw); plain-text fields are XSS-cleaned.
-                $row[$field] = in_array($field, self::RICH_FIELDS, true) ? $value : gp247_clean($value);
+                $row[$field] = in_array($field, self::RICH_FIELDS, true) ? $value : gp247_text_plain($value);
             }
 
             AdminStoreDescription::where('store_id', $storeId)->where('lang', $code)->exists()

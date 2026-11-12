@@ -24,7 +24,7 @@ abstract class FormComponent extends GP247AdminComponent
 
     /**
      * form.* field names holding admin-authored rich HTML (TinyMCE) that must
-     * survive save() as-is. gp247_clean() htmlspecialchars-escapes its input,
+     * survive save() as-is. gp247_clean() (used before core 3.12) htmlspecialchars-escaped its input,
      * which corrupts real markup (e.g. a Layout Block's `text` when type=html);
      * concrete forms with a rich-editor field must list it here. Mirrors the
      * RICH_FIELDS pattern in WebsiteInfo — safe because these screens are
@@ -89,7 +89,7 @@ abstract class FormComponent extends GP247AdminComponent
         // WHY: escape HTML at the boundary so persisted data can't carry markup
         // (XSS defense, NFR-SEC-004) — mirrors the brownfield controller flow.
         // richFields are excluded so admin-authored rich HTML isn't escaped.
-        $clean = gp247_clean($this->form, $this->richFields);
+        $clean = gp247_text_plain($this->form, $this->richFields);
 
         $this->persist($clean);
 

@@ -72,7 +72,7 @@ class AdminRole extends Model
      */
     public static function updateInfo($dataUpdate, $id)
     {
-        $dataUpdate = gp247_clean(data:$dataUpdate, hight: true);
+        $dataUpdate = gp247_text_plain(data:$dataUpdate, stripTags: true);
         $obj        = self::find($id);
         return $obj->update($dataUpdate);
     }
@@ -83,7 +83,7 @@ class AdminRole extends Model
      */
     public static function createRole($dataCreate)
     {
-        $dataCreate = gp247_clean(data:$dataCreate, hight: true);
+        $dataCreate = gp247_text_plain(data:$dataCreate, stripTags: true);
         return self::create($dataCreate);
     }
 }

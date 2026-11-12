@@ -199,7 +199,7 @@ class CustomConfigForm extends GP247AdminComponent
         AdminConfig::where('key', $key)
             ->where('code', self::CODE)
             ->where('store_id', (string) $this->effectiveStore())
-            ->update(['value' => gp247_clean((string) $value)]);
+            ->update(['value' => gp247_text_plain((string) $value)]);
 
         $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
@@ -233,8 +233,8 @@ class CustomConfigForm extends GP247AdminComponent
 
         AdminConfig::insert([
             'key' => $key,
-            'value' => gp247_clean($this->newValue),
-            'detail' => gp247_clean($this->newDetail),
+            'value' => gp247_text_plain($this->newValue),
+            'detail' => gp247_text_plain($this->newDetail),
             'code' => self::CODE,
             'group' => '',
             'store_id' => (string) $this->effectiveStore(),

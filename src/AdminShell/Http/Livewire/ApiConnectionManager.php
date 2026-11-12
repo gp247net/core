@@ -228,7 +228,7 @@ class ApiConnectionManager extends GP247AdminComponent
 
         $validated = $this->validate();
 
-        $payload = gp247_clean([
+        $payload = gp247_text_plain([
             'description' => $validated['description'],
             'apiconnection' => $validated['apiconnection'],
             'expire' => $validated['expire'] ?? null,

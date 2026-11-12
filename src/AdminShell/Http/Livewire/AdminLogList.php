@@ -114,7 +114,7 @@ class AdminLogList extends DataTableComponent
      * - Classic POST/PUT/DELETE rows: fields = the top-level input keys.
      * - GET rows carry no input and show nothing.
      *
-     * Input is stored HTML-escaped by gp247_clean(), hence the decode first.
+     * Input logged before core 3.12 was HTML-escaped by gp247_clean(), hence the decode first.
      *
      * @param AdminLog $row
      * @return array{action: string|null, fields: array<int, string>, params: array<int, string>, full: string|null}

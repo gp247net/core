@@ -10,6 +10,7 @@ use GP247\Core\Support\Health\AppDebugCheck;
 use GP247\Core\Support\Health\DefaultAdminPasswordCheck;
 use GP247\Core\Support\Health\EncryptionKeyDedicatedCheck;
 use GP247\Core\Support\Health\ExtensionAssetsCheck;
+use GP247\Core\Support\Health\RawOutputScanCheck;
 use GP247\Core\Support\Health\ExtensionDataPendingCheck;
 use GP247\Core\Support\Health\HttpsCheck;
 use GP247\Core\Support\Health\MfaEnabledCheck;
@@ -512,6 +513,7 @@ class Doctor extends GP247Command
             new MfaEnabledCheck,
             new ApiExposureCheck,
             new SupportLineCheck,
+            new RawOutputScanCheck,
         ] as $check) {
             $rows[] = $this->healthRow($check, 'skipped (check failed)');
         }

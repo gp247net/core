@@ -45,14 +45,14 @@ final class ApiAdminLog
             $input = json_encode(['_truncated' => true]);
         }
         try {
-            AdminLog::create(gp247_clean(data: [
+            AdminLog::create(gp247_text_plain(data: [
                 'user_id'    => $user->id,
                 'path'       => substr($request->path(), 0, 255),
                 'method'     => $request->method(),
                 'ip'         => gp247_get_real_ip_client(),
                 'user_agent' => substr((string) $request->header('User-Agent', ''), 0, 255),
                 'input'      => $input,
-            ], hight: true));
+            ], stripTags: true));
         } catch (\Throwable $e) {
             // WHY: a failing audit write must not break the API call it describes.
             gp247_report($e->getMessage());

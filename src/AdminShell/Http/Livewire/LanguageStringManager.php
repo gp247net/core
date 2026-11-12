@@ -128,8 +128,8 @@ class LanguageStringManager extends GP247AdminComponent
         }
 
         Languages::updateOrCreate(
-            ['location' => $langCode, 'code' => gp247_clean($code)],
-            ['text' => gp247_clean($text), 'position' => gp247_clean($position)]
+            ['location' => $langCode, 'code' => gp247_text_encode_label($code)],
+            ['text' => gp247_text_encode_label($text), 'position' => gp247_text_encode_label($position)]
         );
 
         $this->notify('success', gp247_language_render('action.update_success'));
@@ -177,9 +177,9 @@ class LanguageStringManager extends GP247AdminComponent
             : $this->newForm['position'];
 
         Languages::insert([
-            'code'     => gp247_clean(trim($this->newForm['code'])),
-            'text'     => gp247_clean(trim($this->newForm['text'])),
-            'position' => gp247_clean(trim($pos)),
+            'code'     => gp247_text_encode_label(trim($this->newForm['code'])),
+            'text'     => gp247_text_encode_label(trim($this->newForm['text'])),
+            'position' => gp247_text_encode_label(trim($pos)),
             'location' => 'en',
         ]);
 

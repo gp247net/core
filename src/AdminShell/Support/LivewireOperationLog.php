@@ -200,7 +200,7 @@ class LivewireOperationLog extends ComponentHook
                 'user_agent' => substr((string) request()->header('User-Agent', ''), 0, 255),
                 'input' => $json,
             ];
-            $log = gp247_clean(data: $log, hight: true);
+            $log = gp247_text_plain(data: $log, stripTags: true);
             AdminLog::create($log);
         } catch (\Throwable $exception) {
             gp247_report($exception->getMessage());

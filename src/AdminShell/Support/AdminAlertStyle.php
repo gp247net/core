@@ -28,6 +28,7 @@ final class AdminAlertStyle
         'support_line' => 'fas fa-clock',
         'extension_data_pending' => 'fas fa-puzzle-piece',
         'extension_assets' => 'fas fa-puzzle-piece',
+        'raw_output_scan' => 'fas fa-code',
     ];
 
     private const FALLBACK_ICONS = [
