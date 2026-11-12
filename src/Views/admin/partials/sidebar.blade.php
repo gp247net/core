@@ -44,7 +44,7 @@
                          requesting distinguishable menu blocks). --}}
                     <div class="{{ $loop->first ? '' : 'border-t border-gray-100 pt-4 dark:border-gray-700' }}">
                         <p class="gp247-section-label px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                            {!! gp247_language_render($level0->title) !!}
+                            {{ gp247_language_render($level0->title) }}
                         </p>
                         <ul class="space-y-1">
                             @foreach ($children as $level1)
@@ -55,7 +55,7 @@
                                         <a href="{{ gp247_url_render($level1->uri) }}" wire:navigate
                                             class="{{ $linkBase }} {{ $active ? $linkActive : $linkIdle }}">
                                             <i class="{{ $level1->icon }} w-5 text-center"></i>
-                                            <span class="gp247-nav-label">{!! gp247_language_render($level1->title) !!}</span>
+                                            <span class="gp247-nav-label">{{ gp247_language_render($level1->title) }}</span>
                                         </a>
                                     </li>
                                 @elseif (! empty($grandChildren))
@@ -70,7 +70,7 @@
                                             class="{{ $linkBase }} {{ $groupActive ? $linkActive : $linkIdle }} w-full justify-between">
                                             <span class="flex items-center gap-3">
                                                 <i class="{{ $level1->icon }} w-5 text-center"></i>
-                                                <span class="gp247-nav-label">{!! gp247_language_render($level1->title) !!}</span>
+                                                <span class="gp247-nav-label">{{ gp247_language_render($level1->title) }}</span>
                                             </span>
                                             <i class="gp247-nav-caret fas fa-angle-left transition" :class="open && '-rotate-90'"></i>
                                         </button>
@@ -82,7 +82,7 @@
                                                         <a href="{{ gp247_url_render($level2->uri) }}" wire:navigate
                                                             class="{{ $linkBase }} {{ $active ? $linkActive : $linkIdle }}">
                                                             <i class="{{ $level2->icon }} w-4 text-center text-xs"></i>
-                                                            <span class="gp247-nav-label">{!! gp247_language_render($level2->title) !!}</span>
+                                                            <span class="gp247-nav-label">{{ gp247_language_render($level2->title) }}</span>
                                                         </a>
                                                     </li>
                                                 @endif

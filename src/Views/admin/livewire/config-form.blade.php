@@ -142,7 +142,7 @@
                     @php $config = $row['config']; $type = $types[$config->key] ?? 'text'; @endphp
                     <tr wire:key="cfg-{{ $config->key }}-{{ $subStoreScope ? 'sub' : 'base' }}" class="{{ $i % 2 ? 'bg-gray-50/50 dark:bg-gray-800/40' : 'bg-white dark:bg-gray-800' }}">
                         <td class="px-5 py-3 align-middle text-sm text-gray-700 dark:text-gray-200">
-                            {!! $config->detail ? gp247_language_render($config->detail) : e($config->key) !!}
+                            {!! gp247_language_label($config->detail ?: $config->key) !!}
                             @if (!empty($hints[$config->key] ?? ''))
                                 <span class="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">{{ $hints[$config->key] }}</span>
                             @endif

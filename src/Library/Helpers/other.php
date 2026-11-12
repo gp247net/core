@@ -105,6 +105,31 @@ if (!function_exists('gp247_url_render') && !in_array('gp247_url_render', config
 
 
 
+if (!function_exists('gp247_render_basic_markup') && !in_array('gp247_render_basic_markup', config('gp247_functions_except', []))) {
+    /**
+     * Render a short text that code may decorate with simple markup (an order-history line
+     * such as "Change <b>status</b> …"): everything is escaped, then only <b>, <strong>,
+     * <i>, <em> and <br> without attributes are given back. Unlike gp247_html_render() it
+     * never lets a script, an event handler or a link through, whoever wrote the text.
+     *
+     * @param mixed $string
+     * @return string
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-raw-output-guard
+     */
+    function gp247_render_basic_markup($string): string
+    {
+        if (!is_scalar($string)) {
+            return '';
+        }
+        $html = e((string) $string, false);
+        $html = preg_replace('/&lt;(\/?)(b|strong|i|em)&gt;/i', '<$1$2>', $html);
+
+        return (string) preg_replace('/&lt;br\s*\/?&gt;/i', '<br>', (string) $html);
+    }
+}
+
 if (!function_exists('gp247_html_render') && !in_array('gp247_html_render', config('gp247_functions_except', []))) {
     /*
     Html render

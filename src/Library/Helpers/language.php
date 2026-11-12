@@ -69,6 +69,30 @@ if (!function_exists('gp247_language_quickly') && !in_array('gp247_language_quic
     }
 }
 
+if (!function_exists('gp247_language_label') && !in_array('gp247_language_label', config('gp247_functions_except', []))) {
+    /**
+     * Label that is either a language key or text someone typed (a custom config's detail):
+     * the translation when the key has one — language strings may hold intended markup and
+     * stay encoded on write (decision D1, mod 20261112T061240) — otherwise the string itself,
+     * escaped, so it can be printed with {!! !!} safely.
+     *
+     * @param mixed $string Language key or plain text.
+     * @return string
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-raw-output-guard
+     */
+    function gp247_language_label($string): string
+    {
+        if (!is_string($string) || $string === '') {
+            return '';
+        }
+        $text = gp247_language_quickly($string, null);
+
+        return $text !== null ? (string) $text : e($string, false);
+    }
+}
+
 if (!function_exists('gp247_language_text') && !in_array('gp247_language_text', config('gp247_functions_except', []))) {
     /**
      * Look up a language string in the database for a locale, falling back to

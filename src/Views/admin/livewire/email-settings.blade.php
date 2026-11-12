@@ -97,7 +97,7 @@
                     @if ($config)
                         <tr wire:key="cfg-{{ $key }}">
                             <td class="py-3 pr-4 align-middle text-sm text-gray-700 dark:text-gray-200">
-                                {!! $config->detail ? gp247_language_render($config->detail) : e($key) !!}
+                                {!! gp247_language_label($config->detail ?: $key) !!}
                             </td>
                             <td class="py-3 align-middle">
                                 @include('gp247-admin::partials.config-field', ['key' => $key, 'type' => $types[$key] ?? 'text'])
@@ -163,7 +163,7 @@
                         @if ($config)
                             <tr wire:key="cfg-{{ $key }}">
                                 <td class="py-3 pr-4 align-middle text-sm text-gray-700 dark:text-gray-200">
-                                    {!! $config->detail ? gp247_language_render($config->detail) : e($key) !!}
+                                    {!! gp247_language_label($config->detail ?: $key) !!}
                                 </td>
                                 <td class="py-3 align-middle">
                                     @include('gp247-admin::partials.config-field', ['key' => $key, 'type' => $types[$key] ?? 'text', 'placeholder' => $smtpPlaceholders[$key] ?? '', 'options' => $options[$key] ?? []])

@@ -70,11 +70,16 @@ trait ExtensionOnlineController
                 ];
             }
             
+            // WHY: the page numbers come from the remote marketplace API and end up in HTML
+            // printed with {!! !!}; cast them so nothing but a number reaches the markup.
+            $dataApi['current_page'] = (int) ($dataApi['current_page'] ?? 1);
+            $dataApi['last_page'] = (int) ($dataApi['last_page'] ?? 1);
+
             // Create pagination HTML
             $resultItems = gp247_language_render('admin.result_item', [
-                'item_from' => $dataApi['from'] ?? 0, 
-                'item_to' => $dataApi['to']??0, 
-                'total' =>  $dataApi['total'] ?? 0
+                'item_from' => (int) ($dataApi['from'] ?? 0),
+                'item_to' => (int) ($dataApi['to'] ?? 0),
+                'total' => (int) ($dataApi['total'] ?? 0),
             ]);
             
             // Build pagination HTML

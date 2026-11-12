@@ -86,7 +86,11 @@ if (!function_exists('gp247_image_render') && !in_array('gp247_image_render', co
         $style = '';
         $style .= ($width) ? ' width:' . $width . ';' : '';
         $style .= ($height) ? ' height:' . $height . ';' : '';
-        return '<img  alt="' . $alt . '" title="' . $title . '" ' . (($options) ?? '') . ' src="' . gp247_file($image) . '"   ' . ($style ? 'style="' . $style . '"' : '') . '   >';
+        // WHY: alt/title are names users typed (product, language, extension) and src may come
+        // from a stored path; escape them here so every caller can print the tag with {!! !!}
+        // (US-CMP-raw-output-guard). double_encode=false keeps text already stored encoded
+        // by gp247_clean() single-encoded, like Blade::withoutDoubleEncoding().
+        return '<img  alt="' . e((string) $alt, false) . '" title="' . e((string) $title, false) . '" ' . (($options) ?? '') . ' src="' . e((string) gp247_file($image), false) . '"   ' . ($style ? 'style="' . e($style, false) . '"' : '') . '   >';
     }
 }
 /*

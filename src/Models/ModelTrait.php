@@ -33,15 +33,114 @@ trait ModelTrait
      */
     public function setSort(array $sort)
     {
-        if (is_array($sort)) {
-            if (count($sort) == 1) {
-                foreach ($sort as $kS => $vS) {
-                    $sort = [$kS, $vS];
-                }
+        if (count($sort) == 1) {
+            foreach ($sort as $kS => $vS) {
+                $sort = [$kS, $vS];
             }
-            $this->gp247_sort[] = $sort;
+        }
+        $sort = array_values($sort);
+        // WHY: plugins and templates may hand request input straight to setSort(); only a
+        // column the model knows is kept, so ORDER BY never carries a foreign identifier
+        // (US-CMP-dynamic-sql-guard). An unknown column is dropped silently.
+        $column = $this->gp247SortColumn($sort[0] ?? null);
+        if ($column !== null) {
+            $this->gp247_sort[] = [$column, self::gp247SortDirection($sort[1] ?? 'asc')];
         }
         return $this;
+    }
+
+    /**
+     * Sort keys that are not table columns but that buildQuery() maps itself (e.g. 'new').
+     *
+     * @return array<int, string>
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-dynamic-sql-guard
+     */
+    public function gp247SortAliases(): array
+    {
+        return [];
+    }
+
+    /**
+     * Tables whose columns may be sorted on: the model table, plus the tables buildQuery()
+     * joins (a description table) when the model says so.
+     *
+     * @return array<int, string>
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-dynamic-sql-guard
+     */
+    public function gp247SortTables(): array
+    {
+        return [$this->getTable()];
+    }
+
+    /**
+     * The sort column if the model knows it — a sort alias, a column of one of the sortable
+     * tables, or "table.column" of one of them — otherwise null.
+     *
+     * @param mixed $column
+     * @return string|null
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-dynamic-sql-guard
+     * @aidlc-adr compat-foundation_static-security-guards
+     */
+    public function gp247SortColumn($column): ?string
+    {
+        if (!is_string($column) || !preg_match('/^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?$/', $column)) {
+            return null;
+        }
+        if (in_array($column, $this->gp247SortAliases(), true)) {
+            return $column;
+        }
+
+        $tables = $this->gp247SortTables();
+        if (str_contains($column, '.')) {
+            [$table, $name] = explode('.', $column, 2);
+            $tables = in_array($table, $tables, true) ? [$table] : [];
+        } else {
+            $name = $column;
+        }
+        foreach ($tables as $table) {
+            if (in_array($name, $this->gp247TableColumns($table), true)) {
+                return $column;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalise a sort direction to 'asc' or 'desc'; anything else is 'asc'.
+     *
+     * @param mixed $direction
+     * @return string
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-dynamic-sql-guard
+     */
+    public static function gp247SortDirection($direction): string
+    {
+        return is_string($direction) && strtolower(trim($direction)) === 'desc' ? 'desc' : 'asc';
+    }
+
+    /**
+     * Column names of a table on the model's connection, read once per process.
+     *
+     * @param string $table
+     * @return array<int, string>
+     */
+    private function gp247TableColumns(string $table): array
+    {
+        static $columns = [];
+        $key = ($this->getConnectionName() ?? '') . '|' . $table;
+        if (!array_key_exists($key, $columns)) {
+            $columns[$key] = $this->getConnection()->getSchemaBuilder()->getColumnListing($table);
+        }
+
+        return $columns[$key];
     }
 
     /**
