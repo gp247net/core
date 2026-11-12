@@ -4,6 +4,7 @@ namespace GP247\Core\Support\Health;
 
 use GP247\Core\AdminShell\Domain\AdminAlertCheck;
 use GP247\Core\AdminShell\Infrastructure\AdminAlert;
+use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * TRUSTED_PROXIES trusts every visitor: "REMOTE_ADDR" (behind the bundled nginx,
@@ -11,7 +12,10 @@ use GP247\Core\AdminShell\Infrastructure\AdminAlert;
  * "**" or a catch-all range. Any visitor can then set their own IP through
  * X-Forwarded-For — login throttling, the sign-in log and IP rules stop holding.
  *
- * Reads configuration rather than the current request, so the CLI and the
+ * Also reports a missing proxy: the last signed-in admin request came through a
+ * proxy that TRUSTED_PROXIES does not list (ProxyTrustObservation), so URLs are
+ * http:// and every visitor shows the proxy's IP. Neither condition reads the
+ * current request — configuration plus the recorded signal — so the CLI and the
  * dashboard agree.
  *
  * @aidlc-unit admin-shell
@@ -36,8 +40,8 @@ class TrustedProxiesCheck implements AdminAlertCheck
     }
 
     /**
-     * Warn when TRUSTED_PROXIES trusts every client; pass when it is empty or lists
-     * explicit ranges only.
+     * Warn when TRUSTED_PROXIES trusts every client, or when the last admin request came
+     * through a proxy it does not list; pass otherwise.
      *
      * @return AdminAlert
      *
@@ -62,11 +66,48 @@ class TrustedProxiesCheck implements AdminAlertCheck
             );
         }
 
+        $missing = $this->untrustedHop($entries);
+        if ($missing !== null) {
+            return $missing;
+        }
+
         $detail = $entries === []
             ? 'TRUSTED_PROXIES is empty - no proxy is trusted'
             : 'TRUSTED_PROXIES lists ' . count($entries) . ' explicit range(s)';
 
         return AdminAlert::ok($this->key(), HealthText::t('admin.alerts.trusted_proxies_ok'), $detail);
+    }
+
+    /**
+     * Warning for a proxy in front of the site that TRUSTED_PROXIES does not list, from
+     * the last recorded admin request; null when there is no such signal or the current
+     * configuration already covers that proxy (fixed before the next admin request).
+     *
+     * @param array<int, string> $entries Normalised TRUSTED_PROXIES entries.
+     * @return AdminAlert|null
+     *
+     * @aidlc-unit admin-shell
+     * @aidlc-story US-admin-shell-system-alerts
+     */
+    private function untrustedHop(array $entries): ?AdminAlert
+    {
+        $signal = ProxyTrustObservation::latest();
+        if ($signal === null || $signal['trusted'] || ($entries !== [] && IpUtils::checkIp($signal['peer'], $entries))) {
+            return null;
+        }
+
+        $hint = ProxyTrustObservation::isInternal($signal['peer'])
+            ? 'add the Docker network / local proxy range (e.g. 172.16.0.0/12) and publish the container port on 127.0.0.1 only'
+            : 'check that this address belongs to your CDN / load balancer (its published IP ranges) before adding those ranges - never add an address you do not recognise';
+
+        return AdminAlert::warning(
+            $this->key(),
+            HealthText::t('admin.alerts.trusted_proxies_untrusted_hop'),
+            'admin request at ' . gmdate('Y-m-d\TH:i:s\Z', $signal['at']) . ' came through ' . $signal['peer']
+                . ', which TRUSTED_PROXIES does not list - URLs are generated as http:// and visitors show that IP; ' . $hint
+                . ' (list every proxy in front of PHP)',
+            docUrl: HealthText::doc('security-production-config'),
+        );
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace GP247\Core\Middleware;
 
 use Closure;
+use GP247\Core\Support\Health\ProxyTrustObservation;
 use Illuminate\Support\Facades\Auth;
 
 class Authenticate
@@ -28,6 +29,12 @@ class Authenticate
             $request->session()->regenerateToken();
 
             return redirect()->guest($redirectTo);
+        }
+        if (Auth::guard('admin')->user()?->isAdministrator()) {
+            // WHY here and Administrator only: the page request of the one role that sees System
+            // alerts reports the site's proxy chain (trusted_proxies check); visitors and other
+            // staff cannot plant a warning that names their own address.
+            ProxyTrustObservation::record($request);
         }
         if ($this->mustChangePassword($request)) {
             return redirect(gp247_route_admin('admin.setting'))

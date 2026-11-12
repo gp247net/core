@@ -67,6 +67,11 @@ final class AlertLanguage
                 'ja' => 'TRUSTED_PROXIES がすべての訪問者を信頼しています。誰でも IP アドレスを偽装でき、ログイン制限や IP ルールを回避できます。',
             ],
             'admin.alerts.trusted_proxies_ok' => ['en' => 'Only declared proxies are trusted', 'vi' => 'Chỉ tin proxy đã khai báo', 'ja' => '宣言済みのプロキシのみを信頼しています'],
+            'admin.alerts.trusted_proxies_untrusted_hop' => [
+                'en' => 'The admin pages come through a proxy missing from TRUSTED_PROXIES — links become http:// (the browser blocks admin actions as mixed content) and every visitor shows that proxy\'s IP.',
+                'vi' => 'Trang quản trị đi qua một proxy chưa khai trong TRUSTED_PROXIES — link sinh ra là http:// (trình duyệt chặn thao tác quản trị vì mixed content) và mọi khách hiện cùng IP của proxy đó.',
+                'ja' => '管理画面へのアクセスが TRUSTED_PROXIES に未登録のプロキシを経由しています。リンクが http:// になり（ブラウザが混在コンテンツとして管理操作をブロック）、すべての訪問者がそのプロキシの IP として記録されます。',
+            ],
             'admin.alerts.default_admin_password' => [
                 'en' => 'The account "admin" still signs in with the default password "admin".',
                 'vi' => 'Tài khoản "admin" vẫn đăng nhập được bằng mật khẩu mặc định "admin".',
