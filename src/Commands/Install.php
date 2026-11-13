@@ -4,6 +4,7 @@ namespace GP247\Core\Commands;
 
 use GP247\Core\Console\GP247Command;
 use GP247\Core\Support\Password\InitialAdminPassword;
+use GP247\Core\Support\StoredTextDecoder;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -245,6 +246,9 @@ class Install extends GP247Command
         $this->info('---------------> Seeding database GP247 system done!');
         $this->runArtisan('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataLocaleSeeder', '--force' => true]);
         $this->info('---------------> Seeding database GP247 local done!');
+        // WHY: a fresh site stores text as typed; without the flag its first gp247:update would
+        // decode "&amp;" a user typed on purpose (US-CMP-text-stored-as-typed).
+        StoredTextDecoder::markStoredAsTyped('text_storage_decoded_core');
 
         $this->runArtisan('vendor:publish', ['--tag' => 'gp247:core-public']);
         $this->runArtisan('vendor:publish', ['--tag' => 'gp247:functions-except']);

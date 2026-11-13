@@ -184,14 +184,42 @@ final class StoredTextDecoder
     }
 
     /**
+     * Mark a package as storing text as typed, so its one-time decode migration has nothing
+     * to do. Called only by the install command of that package (gp247:core-install,
+     * gp247:front-install, gp247:shop-install): a site installed from 3.12 never stored
+     * HTML-encoded text, and gp247:install does not record the upgrade/ migrations as run,
+     * so without the flag its first gp247:update would decode text typed on purpose
+     * ("&amp;" ⇒ "&"). Never call it from a seeder that gp247:update also runs — those run
+     * before the front/shop update and would make an upgraded site skip its decode.
+     *
+     * @param string $flag admin_config key of the package (text_storage_decoded_<pkg>).
+     * @return void
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-text-stored-as-typed
+     * @aidlc-adr compat-foundation_text-stored-as-typed
+     */
+    public static function markStoredAsTyped(string $flag): void
+    {
+        self::markDone($flag);
+    }
+
+    /**
+     * Write the one-time flag (value '1') on the global store, once.
+     *
      * @param string $flag
      * @return void
      */
     private static function markDone(string $flag): void
     {
         $db = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'admin_config');
-        $updated = $db->clone()->where('key', $flag)->where('store_id', self::globalStore())->update(['value' => '1']);
-        if ($updated === 0) {
+        $row = $db->clone()->where('key', $flag)->where('store_id', self::globalStore());
+        // WHY exists() and not the affected-row count of update(): MySQL reports 0 rows when the
+        // value is already '1', which would insert a second row and break the (key, store_id)
+        // unique index — e.g. when gp247:front-install runs again on a site that has the flag.
+        if ($row->clone()->exists()) {
+            $row->update(['value' => '1']);
+        } else {
             $db->insert([
                 'group' => 'global',
                 'code' => 'system',
