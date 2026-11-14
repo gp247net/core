@@ -219,7 +219,8 @@ class DataDefaultSeeder extends Seeder
             ['id' => 1,
             'logo' => '/GP247/Core/logo/logo.png',
             'icon' => '/GP247/Core/logo/icon.png',
-            'og_image' => '/GP247/Core/images/org.jpg',
+            // WHY: no bundled share image — the owner sets their own (US-DEP-no-default-og-image).
+            'og_image' => null,
             'phone' => '0123456789',
             'long_phone' => 'Support: 0987654321',
             'email' => $email,
