@@ -802,6 +802,134 @@ if (!function_exists('gp247_plugin_config_group') && !in_array('gp247_plugin_con
     }
 }
 
+if (!function_exists('gp247_plugin_config_group_api_filter') && !in_array('gp247_plugin_config_group_api_filter', config('gp247_functions_except', []))) {
+    /**
+     * Turn the filter groups picked on the online library into the raw code lists the
+     * marketplace API filters by.
+     *
+     * The API knows no groups: a named group is sent as its own code (include list) and
+     * "Other" as "every code but the named groups" (exclude list), the two OR-combined
+     * by the server. Unknown, duplicate or non-string entries are dropped.
+     *
+     * @param array $groups Group codes from the request (e.g. ['Payment', 'Other']).
+     * @return array{0: string[], 1: string[]} [code[] to include, code_not[] to exclude].
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-config-code-filter
+     * @aidlc-adr plugin-manager_config-code-filter
+     */
+    function gp247_plugin_config_group_api_filter(array $groups): array
+    {
+        $named = array_keys(gp247_plugin_config_group_labels());
+        $named = array_values(array_diff($named, ['Other']));
+        $groups = array_filter($groups, 'is_string');
+
+        $codeIn = array_values(array_intersect($named, $groups));
+        $codeNot = in_array('Other', $groups, true) ? $named : [];
+
+        return [$codeIn, $codeNot];
+    }
+}
+
+if (!function_exists('gp247_plugin_config_group_counts') && !in_array('gp247_plugin_config_group_counts', config('gp247_functions_except', []))) {
+    /**
+     * Add up the marketplace's per-raw-code product counts into filter-group counts.
+     *
+     * @param array $rawCounts Raw gp247_code => count (meta.code_counts of the listing; "" = no code).
+     * @return array<string, int> Group code => count; groups without products are absent.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-config-code-filter
+     * @aidlc-adr plugin-manager_config-code-filter
+     */
+    function gp247_plugin_config_group_counts(array $rawCounts): array
+    {
+        $counts = [];
+        foreach ($rawCounts as $code => $count) {
+            $group = gp247_plugin_config_group((string) $code);
+            $counts[$group] = ($counts[$group] ?? 0) + (int) $count;
+        }
+
+        return $counts;
+    }
+}
+
+if (!function_exists('gp247_extension_required_core') && !in_array('gp247_extension_required_core', config('gp247_functions_except', []))) {
+    /**
+     * The core an extension listed as not compatible asks for: the lowest of its
+     * supported cores that is above the running core.
+     *
+     * Empty when every supported core is older than the running one (the extension was
+     * not released for this core line) or when the list holds no valid version.
+     *
+     * @param string $supportedCores Comma list of cores (`gp247_version` of the listing, e.g. "3.0,3.5.1").
+     * @param string $currentCore    Running core version (config gp247.core).
+     * @return string A version from the list, or "".
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-online-catalog-all-cores
+     * @aidlc-adr plugin-manager_online-catalog-all-cores
+     */
+    function gp247_extension_required_core(string $supportedCores, string $currentCore): string
+    {
+        $normalize = function (string $version): string {
+            return implode('.', array_slice(array_merge(explode('.', $version), ['0', '0', '0']), 0, 3));
+        };
+        $current = $normalize(trim($currentCore));
+
+        $required = '';
+        foreach (explode(',', $supportedCores) as $version) {
+            $version = trim($version);
+            if (!preg_match('/^\d+(\.\d+)*$/', $version) || !version_compare($normalize($version), $current, '>')) {
+                continue;
+            }
+            if ($required === '' || version_compare($normalize($version), $normalize($required), '<')) {
+                $required = $version;
+            }
+        }
+
+        return $required;
+    }
+}
+
+if (!function_exists('gp247_extension_pagination_pages') && !in_array('gp247_extension_pagination_pages', config('gp247_functions_except', []))) {
+    /**
+     * Page numbers of a pager: the first and last page, a window around the current one,
+     * and "…" for each gap (a gap of a single page shows that page instead).
+     *
+     * @param int $current Current page (clamped to 1..$last).
+     * @param int $last    Last page.
+     * @param int $window  Pages shown on each side of the current one.
+     * @return array<int|string> Page numbers and "…"; empty when there is a single page.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     */
+    function gp247_extension_pagination_pages(int $current, int $last, int $window = 2): array
+    {
+        if ($last <= 1) {
+            return [];
+        }
+        $current = max(1, min($current, $last));
+        $shown = array_unique(array_merge([1, $last], range(max(1, $current - $window), min($last, $current + $window))));
+        sort($shown);
+
+        $pages = [];
+        $previous = 0;
+        foreach ($shown as $page) {
+            if ($page - $previous === 2) {
+                $pages[] = $previous + 1;
+            } elseif ($page - $previous > 2) {
+                $pages[] = '…';
+            }
+            $pages[] = $page;
+            $previous = $page;
+        }
+
+        return $pages;
+    }
+}
+
 if (!function_exists('gp247_extension_installed_version') && !in_array('gp247_extension_installed_version', config('gp247_functions_except', []))) {
     /**
      * The version core recorded when the extension was installed or last updated.

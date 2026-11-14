@@ -10,96 +10,68 @@ use Illuminate\Support\Facades\Storage;
 
 trait ExtensionOnlineController
 {
+    /**
+     * Online extension library: one page of the marketplace listing for this extension group.
+     *
+     * Asks for the whole catalogue by default (`compat=all`): extensions that need another
+     * core are listed and flagged `compatible = false` (an older marketplace omits the flag
+     * and returns only compatible items, so a missing flag means compatible). On the
+     * Plugins tab the picked filter groups are sent as raw code lists and the chip counts
+     * come from the marketplace's per-code counts; without them the screen falls back to
+     * filtering and counting the current page client-side.
+     *
+     * @return \Illuminate\Contracts\View\View
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     * @aidlc-story US-PLG-online-catalog-all-cores
+     * @aidlc-story US-PLG-config-code-filter
+     * @aidlc-adr plugin-manager_online-catalog-all-cores
+     * @aidlc-adr plugin-manager_config-code-filter
+     */
     public function index()
     {
-        $license = config('gp247-config.env.GP247_API_LICENSE');
-        // Initialize required variables
-        $arrExtensions = [];  // Array containing list of extensions
-        $resultItems = '';    // String to display search results
-        $htmlPaging = '';     // HTML pagination
-        
-        // Get parameters from request
-        $gp247_version = config('gp247.core');  // Core version
-        $is_free = request('is_free', 0);  // Filter free extensions
-        $type_sort = request('type_sort', ''); // Filter by type
-        $keyword = request('keyword', ''); // Search keyword
-        
+        $filters = $this->onlineFilters();
+        [$codeIn, $codeNot] = gp247_plugin_config_group_api_filter($filters['group']);
+
         // Fetch the listing through the shared marketplace client (uniform
         // headers/SSL/timeout, soft-degrades to an empty list on error).
-        $page = request('page') ?? 1;
-        $dataApi = (new LibraryClient)->list($this->groupType, [
+        $params = [
             'page[size]'   => 20,
-            'page[number]' => $page,
-            'version'      => $gp247_version,
-            'is_free'      => $is_free,
-            'type_sort'    => $type_sort,
-            'keyword'      => $keyword,
-        ]);
+            'page[number]' => max(1, (int) request('page', 1)),
+            'version'      => config('gp247.core'),
+            'is_free'      => $filters['is_free'],
+            'type_sort'    => $filters['type_sort'],
+            'keyword'      => $filters['keyword'],
+            'compat'       => $filters['compat'],
+        ];
+        if ($codeIn) {
+            $params['code'] = $codeIn;
+        }
+        if ($codeNot) {
+            $params['code_not'] = $codeNot;
+        }
+        $dataApi = (new LibraryClient)->list($this->groupType, $params);
 
-        // Process data returned from API
-        if (!empty($dataApi['data'])) {
-            // Map data to extensions array
-            foreach ($dataApi['data'] as $key => $data) {
-                $arrExtensions[] = [
-                    'sku'             => $data['sku'] ?? '',
-                    'key'             => $data['key'] ?? '',
-                    // Defensive: the marketplace API may not send a configCode yet. When
-                    // absent the plugin falls into the "Other" filter bucket on the online
-                    // tab (US-PLG-config-code-filter); it starts filtering by category the
-                    // moment the API returns 'code'. No behaviour change when empty.
-                    'code'            => $data['code'] ?? '',
-                    'name'            => $data['name'] ?? '',
-                    'description'     => $data['description'] ?? '',
-                    'image'           => $data['image'] ?? '',
-                    'image_demo'      => $data['image_demo'] ?? '',
-                    'path'            => $data['path'] ?? '',
-                    'file'            => $data['file'] ?? '',
-                    'version'         => $data['version'] ?? '',
-                    'gp247_version'   => $data['gp247_version'] ?? '',
-                    'price'           => $data['price'] ?? 0,
-                    'price_final'     => $data['price_final'] ?? 0,
-                    'price_promotion' => $data['price_promotion'] ?? 0,
-                    'is_free'         => $data['is_free'] ?? 0,
-                    'download'        => $data['download'] ?? 0,
-                    'username'        => $data['username'] ?? '',
-                    'times'           => $data['times'] ?? 0,
-                    'points'          => $data['points'] ?? 0,
-                    'rated'           => $data['rated'] ?? 0,
-                    'date'            => $data['date'] ?? '',
-                    'link'            => $data['link'] ?? '',
-                ];
-            }
-            
-            // WHY: the page numbers come from the remote marketplace API and end up in HTML
-            // printed with {!! !!}; cast them so nothing but a number reaches the markup.
-            $dataApi['current_page'] = (int) ($dataApi['current_page'] ?? 1);
-            $dataApi['last_page'] = (int) ($dataApi['last_page'] ?? 1);
+        $arrExtensions = array_map([$this, 'mapOnlineItem'], is_array($dataApi['data'] ?? null) ? $dataApi['data'] : []);
 
-            // Create pagination HTML
+        // WHY: the page numbers come from the remote marketplace API and end up in HTML;
+        // cast them so nothing but a number reaches the markup.
+        $currentPage = (int) ($dataApi['current_page'] ?? 1);
+        $lastPage = (int) ($dataApi['last_page'] ?? 1);
+        $resultItems = '';
+        if ($arrExtensions) {
             $resultItems = gp247_language_render('admin.result_item', [
                 'item_from' => (int) ($dataApi['from'] ?? 0),
                 'item_to' => (int) ($dataApi['to'] ?? 0),
                 'total' => (int) ($dataApi['total'] ?? 0),
             ]);
-            
-            // Build pagination HTML
-            $htmlPaging .= '<ul class="pagination pagination-sm no-margin pull-right">';
-            if ($dataApi['current_page'] > 1) {
-                $htmlPaging .= '<li class="page-item"><a class="page-link" href="'.$this->urlOnline.'?page='.($dataApi['current_page'] - 1).'" rel="prev">«</a></li>';
-            } else {
-                for ($i = 1; $i < $dataApi['last_page']; $i++) {
-                    if ($dataApi['current_page'] == $i) {
-                        $htmlPaging .= '<li class="page-item active"><span class="page-link">'.$i.'</span></li>';
-                    } else {
-                        $htmlPaging .= '<li class="page-item"><a class="page-link" href="'.$this->urlOnline.'?page='.$i.'">'.$i.'</a></li>';
-                    }
-                }
-            }
-            if ($dataApi['current_page'] < $dataApi['last_page']) {
-                $htmlPaging .= '<li class="page-item"><a class="page-link" href="'.$this->urlOnline.'?page='.($dataApi['current_page'] + 1).'" rel="next">»</a></li>';
-            }
-            $htmlPaging .= '</ul>';
         }
+
+        // Library-wide counts per filter group when the marketplace sends them
+        // (US-PLG-config-code-filter); otherwise the view counts the current page.
+        $libraryCounts = $dataApi['meta']['code_counts'] ?? null;
+        $groupCounts = is_array($libraryCounts) ? gp247_plugin_config_group_counts($libraryCounts) : null;
 
         // Surface a marketplace API failure in the admin banner. LibraryClient
         // normalizes any non-2xx/exception into a payload carrying a non-empty
@@ -114,33 +86,8 @@ trait ExtensionOnlineController
             $errorCode = $dataApi['code'] ?? (string) ($dataApi['status'] ?? 'error');
             $errorMessage = $dataApi['message'] ?? $dataApi['error'];
         }
-    
-    
+
         $title = gp247_language_render('admin.extension.management', ['extension' => $this->groupType]);
-
-        switch ($this->groupType) {
-            case 'Templates':
-                $urlAction = [
-                    'install' => gp247_route_admin('admin_template_online.install'),
-                    'local' => gp247_route_admin('admin_template.index'),
-                    'urlImport' => gp247_route_admin('admin_template.import'),
-                    'update' => gp247_route_admin('admin_template_online.update'),
-                    'checkUpdate' => gp247_route_admin('admin_template_online.check-update'),
-                    'saveLicense' => gp247_route_admin('admin_template_online.save-license'),
-                ];
-                break;
-
-            default:
-                $urlAction = [
-                    'install' => gp247_route_admin('admin_plugin_online.install'),
-                    'local' => gp247_route_admin('admin_plugin.index'),
-                    'urlImport' => gp247_route_admin('admin_plugin.import'),
-                    'update' => gp247_route_admin('admin_plugin_online.update'),
-                    'checkUpdate' => gp247_route_admin('admin_plugin_online.check-update'),
-                    'saveLicense' => gp247_route_admin('admin_plugin_online.save-license'),
-                ];
-                break;
-        }
 
         // Updates already discovered for this extension group ("<Type>|<key>" map)
         $arrUpdates = (new ExtensionUpdateManager)->checkUpdates();
@@ -155,17 +102,141 @@ trait ExtensionOnlineController
                     "arrOrphans"         => (new ExtensionInstaller)->orphans($this->groupType),
                     "arrExtensions"      => $arrExtensions,
                     "arrUpdates"         => $arrUpdates,
-                    "keyword"            => $keyword ?? '',
-                    "type_sort"          => $type_sort ?? '',
-                    "is_free"            => $is_free ?? '',
+                    "keyword"            => $filters['keyword'],
+                    "type_sort"          => $filters['type_sort'],
+                    "is_free"            => $filters['is_free'],
+                    "compat"             => $filters['compat'],
+                    "groups"             => $filters['group'],
+                    "groupCounts"        => $groupCounts,
+                    "groupTotal"         => is_array($libraryCounts) ? array_sum($groupCounts) : null,
+                    "filterQuery"        => $this->onlineFilterQuery($filters),
+                    "currentPage"        => $currentPage,
+                    "lastPage"           => $lastPage,
+                    "pages"              => gp247_extension_pagination_pages($currentPage, $lastPage),
                     "resultItems"        => $resultItems,
-                    "htmlPaging"         => $htmlPaging,
                     "dataApi"            => $dataApi,
-                    "urlAction"          => $urlAction,
+                    "urlAction"          => $this->onlineUrlActions(),
                     "errorCode"          => $errorCode,
                     "errorMessage"       => $errorMessage,
                 ]
         );
+    }
+
+    /**
+     * Filters of the online library read from the query string, each checked against an
+     * allowlist so nothing unexpected reaches the marketplace or the page.
+     *
+     * @return array{keyword: string, is_free: int, type_sort: string, compat: string, group: string[]}
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-online-catalog-all-cores
+     * @aidlc-story US-PLG-config-code-filter
+     */
+    protected function onlineFilters(): array
+    {
+        $typeSort = (string) request('type_sort', '');
+        $groups = request('group', []);
+        $groups = ($this->groupType === 'Plugins' && is_array($groups))
+            ? array_values(array_intersect(array_keys(gp247_plugin_config_group_labels()), $groups))
+            : [];
+
+        return [
+            'keyword'   => mb_substr(trim((string) (is_string(request('keyword')) ? request('keyword') : '')), 0, 100),
+            'is_free'   => request('is_free') == 1 ? 1 : 0,
+            'type_sort' => in_array($typeSort, ['download', 'rating', 'sort_price_asc', 'sort_price_desc'], true) ? $typeSort : '',
+            'compat'    => request('compat') === 'compatible' ? 'compatible' : 'all',
+            'group'     => $groups,
+        ];
+    }
+
+    /**
+     * The filters as they go back into the screen's links (pager, group chips): empty
+     * values and the default compat are left out so links stay short.
+     *
+     * @param array $filters Result of onlineFilters().
+     * @return array Query parameters (no page).
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     */
+    protected function onlineFilterQuery(array $filters): array
+    {
+        $query = array_filter([
+            'keyword'   => $filters['keyword'],
+            'is_free'   => $filters['is_free'] ?: null,
+            'type_sort' => $filters['type_sort'],
+            'compat'    => $filters['compat'] === 'all' ? null : $filters['compat'],
+        ], fn ($value) => $value !== null && $value !== '');
+        if ($filters['group']) {
+            $query['group'] = $filters['group'];
+        }
+
+        return $query;
+    }
+
+    /**
+     * Normalize one marketplace listing item to the fields the screen reads.
+     *
+     * @param array $data Item from the marketplace.
+     * @return array
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-online-catalog-all-cores
+     */
+    protected function mapOnlineItem($data): array
+    {
+        $data = is_array($data) ? $data : [];
+
+        return [
+            'sku'             => $data['sku'] ?? '',
+            'key'             => $data['key'] ?? '',
+            // Defensive: an older marketplace may not send a configCode. When absent the
+            // plugin falls into the "Other" filter bucket (US-PLG-config-code-filter).
+            'code'            => $data['code'] ?? '',
+            'name'            => $data['name'] ?? '',
+            'description'     => $data['description'] ?? '',
+            'image'           => $data['image'] ?? '',
+            'image_demo'      => $data['image_demo'] ?? '',
+            'path'            => $data['path'] ?? '',
+            'file'            => $data['file'] ?? '',
+            'version'         => $data['version'] ?? '',
+            'gp247_version'   => $data['gp247_version'] ?? '',
+            // An older marketplace sends no flag and only items this core can run.
+            'compatible'      => array_key_exists('compatible', $data) ? (bool) $data['compatible'] : true,
+            'price'           => $data['price'] ?? 0,
+            'price_final'     => $data['price_final'] ?? 0,
+            'price_promotion' => $data['price_promotion'] ?? 0,
+            'is_free'         => $data['is_free'] ?? 0,
+            'download'        => $data['download'] ?? 0,
+            'username'        => $data['username'] ?? '',
+            'times'           => $data['times'] ?? 0,
+            'points'          => $data['points'] ?? 0,
+            'rated'           => $data['rated'] ?? 0,
+            'date'            => $data['date'] ?? '',
+            'link'            => $data['link'] ?? '',
+        ];
+    }
+
+    /**
+     * Action URLs of the online screen for this extension group.
+     *
+     * @return array<string, string>
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-002
+     */
+    protected function onlineUrlActions(): array
+    {
+        $prefix = $this->groupType === 'Templates' ? 'admin_template' : 'admin_plugin';
+
+        return [
+            'install'     => gp247_route_admin($prefix . '_online.install'),
+            'local'       => gp247_route_admin($prefix . '.index'),
+            'urlImport'   => gp247_route_admin($prefix . '.import'),
+            'update'      => gp247_route_admin($prefix . '_online.update'),
+            'checkUpdate' => gp247_route_admin($prefix . '_online.check-update'),
+            'saveLicense' => gp247_route_admin($prefix . '_online.save-license'),
+        ];
     }
 
     /**

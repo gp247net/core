@@ -49,13 +49,48 @@
             </nav>
         </div>
 
-        {{-- Filter toolbar --}}
-        <div class="border-b border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700/50 dark:bg-gray-700/30">
+        @php
+            // Group chip counts (US-PLG-config-code-filter, mod 20261114T075507): library-wide
+            // totals from the marketplace when it sends them (server mode: chips are links);
+            // otherwise the rows of this page, filtered client-side as before. NO active check.
+            // Plugins tab only.
+            $pcfServer = is_array($groupCounts ?? null);
+            $pluginConfigCounts = $pcfServer ? $groupCounts : [];
+            $pluginConfigBuckets = [];
+            if ($groupType === 'Plugins') {
+                foreach ($arrExtensions as $pcfItem) {
+                    $pcfBucket = gp247_plugin_config_group($pcfItem['code'] ?? '');
+                    $pluginConfigBuckets[] = $pcfBucket;
+                    if (!$pcfServer) {
+                        $pluginConfigCounts[$pcfBucket] = ($pluginConfigCounts[$pcfBucket] ?? 0) + 1;
+                    }
+                }
+            }
+            $pcfMode = $pcfServer ? 'server' : 'client';
+            $onlineGroups = $groups ?? [];
+            $currentCore = (string) config('gp247.core');
+        @endphp
+
+        {{-- Alpine scope for the client-side configCode filter (chips + rows share $store.pluginConfigFilter) --}}
+        <div @if ($groupType === 'Plugins' && $pcfMode === 'client') x-data x-init="$store.pluginConfigFilter && ($store.pluginConfigFilter.buckets = @js($pluginConfigBuckets))" @endif>
+
+        {{-- Filter toolbar: search/sort/compatibility on one row, group chips below --}}
+        <div class="space-y-3 border-b border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700/50 dark:bg-gray-700/30">
             <form method="GET" action="{{ url()->current() }}" class="flex flex-wrap items-center gap-2">
+                @foreach ($onlineGroups as $onlineGroup)
+                    <input type="hidden" name="group[]" value="{{ $onlineGroup }}">
+                @endforeach
                 <select name="is_free"
                     class="h-9 w-40 rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
                     <option value="">{{ gp247_language_render('admin.extension.all_items') }}</option>
                     <option value="1" {{ ($is_free == 1) ? 'selected' : '' }}>{{ gp247_language_render('admin.extension.only_free') }}</option>
+                </select>
+
+                <select name="compat" data-testid="plugin-manager-online-compat-filter" onchange="this.form.submit()"
+                    title="{{ gp247_language_render('admin.extension.compat_only', ['current' => $currentCore]) }}"
+                    class="h-9 w-48 rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                    <option value="all" {{ ($compat ?? 'all') === 'all' ? 'selected' : '' }}>{{ gp247_language_render('admin.extension.compat_all') }}</option>
+                    <option value="compatible" {{ ($compat ?? 'all') === 'compatible' ? 'selected' : '' }}>{{ gp247_language_render('admin.extension.compat_only', ['current' => $currentCore]) }}</option>
                 </select>
 
                 <select name="type_sort"
@@ -86,27 +121,17 @@
                     {{ gp247_language_render('admin.extension.check_update') }}
                 </button>
             </form>
+
+            @if ($groupType === 'Plugins')
+                @include('gp247-admin::partials.plugin-config-filter', [
+                    'groupCounts' => $pluginConfigCounts,
+                    'mode'        => $pcfMode,
+                    'groups'      => $onlineGroups,
+                    'filterQuery' => $filterQuery ?? [],
+                    'groupTotal'  => $pcfServer ? ($groupTotal ?? null) : count($arrExtensions),
+                ])
+            @endif
         </div>
-
-        @php
-            // Pre-pass: count online plugins per configCode bucket for the filter chip bar
-            // (US-PLG-config-code-filter). Counts reflect the CURRENT page only — the online
-            // list is server-paginated and the marketplace API may omit 'code' (then Other).
-            // NO active check. Plugins tab only.
-            $pluginConfigCounts = [];
-            if ($groupType === 'Plugins' && $arrExtensions) {
-                foreach ($arrExtensions as $pcfItem) {
-                    $pcfBucket = gp247_plugin_config_group($pcfItem['code'] ?? '');
-                    $pluginConfigCounts[$pcfBucket] = ($pluginConfigCounts[$pcfBucket] ?? 0) + 1;
-                }
-            }
-        @endphp
-
-        {{-- Alpine scope for the configCode filter (chips + rows share $store.pluginConfigFilter) --}}
-        <div @if ($groupType === 'Plugins') x-data @endif>
-        @if ($groupType === 'Plugins')
-            @include('gp247-admin::partials.plugin-config-filter', ['groupCounts' => $pluginConfigCounts])
-        @endif
 
         {{-- Table --}}
         <div class="overflow-x-auto">
@@ -125,7 +150,14 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
-                    @if (!$arrExtensions)
+                    @if (!$arrExtensions && $onlineGroups)
+                        {{-- The picked groups match nothing in the library (US-PLG-config-code-filter) --}}
+                        <tr data-testid="plugin-config-filter-empty">
+                            <td colspan="9" class="px-4 py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+                                {{ gp247_language_render('admin.extension.filter_empty') }}
+                            </td>
+                        </tr>
+                    @elseif (!$arrExtensions)
                         <tr>
                             <td colspan="9" class="px-4 py-12 text-center">
                                 <i class="fas fa-cloud-arrow-down mb-3 text-3xl text-gray-300 dark:text-gray-600"></i>
@@ -179,11 +211,19 @@
                                 $isOrphan = !$isLocal && array_key_exists($extension['key'], $arrOrphans ?? []);
                                 $orphanVersion = $isOrphan ? ($arrOrphans[$extension['key']] ?? null) : null;
                                 $orphanParams = ['key' => $extension['key'], 'version' => $orphanVersion ?? '?', 'type' => $groupType, 'cli_type' => $groupType === 'Templates' ? 'template' : 'plugin'];
+                                // Not runnable on this core (listed because the library was asked for the
+                                // whole catalogue): no install and no license box — only the product link
+                                // (US-PLG-online-catalog-all-cores). Installed/orphan items keep their own state.
+                                $isIncompatible = !$isLocal && !$isOrphan && ($extension['compatible'] ?? true) === false;
+                                $requiredCore = $isIncompatible ? gp247_extension_required_core((string) ($extension['gp247_version'] ?? ''), $currentCore) : '';
+                                if ($isIncompatible) {
+                                    $showLicense = false;
+                                }
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                 @if ($groupType === 'Plugins')
                                     data-config-group="{{ $pcfRowBucket }}"
-                                    x-show="$store.pluginConfigFilter.visible('{{ $pcfRowBucket }}')"
+                                    @if ($pcfMode === 'client') x-show="$store.pluginConfigFilter.visible('{{ $pcfRowBucket }}')" @endif
                                 @endif>
 
                                 {{-- Image --}}
@@ -309,6 +349,17 @@
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 {{ gp247_language_render('admin.extension.orphan_badge') }} · {{ $orphanVersion ?? '?' }}
                                             </span>
+                                        @elseif ($isIncompatible)
+                                            <span data-testid="plugin-manager-online-incompatible-{{ $extension['key'] }}"
+                                                title="{{ gp247_language_render('admin.extension.incompatible_hint', ['current' => $currentCore]) }}"
+                                                class="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                <i class="fas fa-lock"></i>
+                                                @if ($requiredCore !== '')
+                                                    {{ gp247_language_render('admin.extension.requires_core', ['version' => $requiredCore, 'current' => $currentCore]) }}
+                                                @else
+                                                    {{ gp247_language_render('admin.extension.unsupported_core', ['current' => $currentCore]) }}
+                                                @endif
+                                            </span>
                                         @elseif ($isFree)
                                             <button type="button"
                                                 title="{{ gp247_language_render('admin.extension.install') }}"
@@ -366,17 +417,48 @@
                                 </td>
                             </tr>
                         @endforeach
+                        @if ($groupType === 'Plugins' && $pcfMode === 'client')
+                            {{-- Picked groups hide every row of this page (US-PLG-config-code-filter) --}}
+                            <tr x-show="$store.pluginConfigFilter?.empty() ?? false" style="display: none" data-testid="plugin-config-filter-empty">
+                                <td colspan="9" class="px-4 py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+                                    {{ gp247_language_render('admin.extension.filter_empty') }}
+                                </td>
+                            </tr>
+                        @endif
                     @endif
                 </tbody>
             </table>
         </div>
         </div>{{-- /Alpine filter scope --}}
 
-        {{-- Pagination --}}
-        @if (!empty($htmlPaging) || !empty($resultItems))
-            <div class="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-gray-700/50">
+        {{-- Pagination: every link keeps the current filters (US-PLG-002) --}}
+        @if (!empty($pages) || !empty($resultItems))
+            @php
+                $pageUrl = fn (int $page) => url()->current() . '?' . http_build_query(($filterQuery ?? []) + ['page' => $page]);
+                $pageLink = 'inline-flex h-8 w-8 items-center justify-center rounded-lg border px-2 text-xs font-medium transition';
+                $pageIdle = 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-600';
+            @endphp
+            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-700/50">
                 <div class="text-sm text-gray-500 dark:text-gray-400">{!! $resultItems ?? '' !!}</div>
-                <div>{!! $htmlPaging ?? '' !!}</div>
+                @if (!empty($pages))
+                    <nav class="flex flex-wrap items-center gap-1" data-testid="plugin-manager-online-pagination" aria-label="Pagination">
+                        @if ($currentPage > 1)
+                            <a href="{{ $pageUrl($currentPage - 1) }}" rel="prev" class="{{ $pageLink }} {{ $pageIdle }}">&laquo;</a>
+                        @endif
+                        @foreach ($pages as $page)
+                            @if ($page === '…')
+                                <span class="px-1 text-xs text-gray-400">…</span>
+                            @elseif ($page === $currentPage)
+                                <span aria-current="page" class="{{ $pageLink }} border-blue-600 bg-blue-600 text-white">{{ $page }}</span>
+                            @else
+                                <a href="{{ $pageUrl($page) }}" class="{{ $pageLink }} {{ $pageIdle }}">{{ $page }}</a>
+                            @endif
+                        @endforeach
+                        @if ($currentPage < $lastPage)
+                            <a href="{{ $pageUrl($currentPage + 1) }}" rel="next" class="{{ $pageLink }} {{ $pageIdle }}">&raquo;</a>
+                        @endif
+                    </nav>
+                @endif
             </div>
         @endif
     </div>

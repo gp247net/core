@@ -74,9 +74,11 @@
     @endphp
 
     {{-- Alpine scope for the configCode filter (chips + rows share $store.pluginConfigFilter) --}}
-    <div @if ($groupType === 'Plugins') x-data @endif>
+    <div @if ($groupType === 'Plugins') x-data x-init="$store.pluginConfigFilter && ($store.pluginConfigFilter.buckets = @js(array_values($pluginConfigBucket)))" @endif>
         @if ($groupType === 'Plugins')
-            @include('gp247-admin::partials.plugin-config-filter', ['groupCounts' => $pluginConfigCounts])
+            <div class="border-b border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700/50 dark:bg-gray-700/30">
+                @include('gp247-admin::partials.plugin-config-filter', ['groupCounts' => $pluginConfigCounts])
+            </div>
         @endif
 
     {{-- Table --}}
@@ -370,6 +372,14 @@
                         </tr>
                         @endif
                     @endforeach
+                @endif
+                @if ($groupType === 'Plugins')
+                    {{-- Picked groups hide every row (US-PLG-config-code-filter) --}}
+                    <tr x-show="$store.pluginConfigFilter?.empty() ?? false" style="display: none" data-testid="plugin-config-filter-empty">
+                        <td colspan="8" class="px-4 py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+                            {{ gp247_language_render('admin.extension.filter_empty') }}
+                        </td>
+                    </tr>
                 @endif
             </tbody>
         </table>
