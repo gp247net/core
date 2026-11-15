@@ -4,6 +4,7 @@ namespace GP247\Core\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Throwable;
@@ -153,6 +154,75 @@ abstract class GP247Command extends Command
             $this->writeStderr($text);
         }
         return $code;
+    }
+
+    /**
+     * Run `migrate` (one file with $path, or every pending migration) for an install step,
+     * and turn a failure into the step's failure result.
+     *
+     * WHY --force: the framework asks before migrating when APP_ENV=production and cancels when
+     * nobody answers — the Docker production stack pins that value. The install command has
+     * already obtained consent (its own gate), and its destructive part (dropping the old tables)
+     * has run by now, so the framework's question protects nothing; skipping the migration only
+     * left a site without its tables (incident 2026-11-15).
+     *
+     * @param string|null $path Migration file relative to the base path, or null for all pending.
+     * @return int|null Null when the migration succeeded; otherwise the exit code to return.
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
+     */
+    protected function migrateForInstall(?string $path = null): ?int
+    {
+        $arguments = ['--force' => true];
+        if ($path !== null) {
+            $arguments['--path'] = $path;
+        }
+        $code = $this->runArtisan('migrate', $arguments);
+        if ($code === self::SUCCESS) {
+            return null;
+        }
+
+        return $this->respondFailure(
+            'migration_failed',
+            'Migration failed: ' . ($path ?? 'pending migrations') . ' (exit ' . $code . ') — install stopped before seeding.'
+        );
+    }
+
+    /**
+     * Ask before an install step drops and recreates a package whose tables already exist.
+     *
+     * The command must declare `{--force=0}`. A site without the table (fresh install, or an
+     * earlier install that broke before recreating it) is installed without a question.
+     *
+     * @param string $table   Representative table of the package, without the GP247 prefix.
+     * @param string $package Name shown to the user (e.g. "front").
+     * @return int|null Null to go on; otherwise the exit code to return (nothing was changed).
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
+     */
+    protected function guardReinstall(string $table, string $package): ?int
+    {
+        // WHY the table and not the `migrations` row: what needs protecting is the data in it, and
+        // the install itself deletes that row before migrating.
+        if ($this->option('force') || !Schema::connection(GP247_DB_CONNECTION)->hasTable(GP247_DB_PREFIX . $table)) {
+            return null;
+        }
+        if ($this->isJson() || !$this->input->isInteractive()) {
+            return $this->respondFailure(
+                'confirmation_required',
+                'Refusing to reinstall ' . $package . ': its tables already hold data, and a reinstall drops them. Pass --force=1 to reinstall anyway.'
+            );
+        }
+        $this->warn('WARNING: this drops and recreates the ' . $package . ' tables — their existing data WILL BE LOST.');
+        if (!$this->confirm('Reinstall ' . $package . ' and lose its existing data?', false)) {
+            $this->info('Installation canceled');
+
+            return $this->respondSuccess(['installed' => false, 'canceled' => true]);
+        }
+
+        return null;
     }
 
     /**

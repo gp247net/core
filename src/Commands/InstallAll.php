@@ -212,10 +212,11 @@ class InstallAll extends GP247Command
     {
         $this->info('==> ' . $command);
 
-        // WHY: confirmation was already obtained here, so force core-install
-        // to skip its own prompt / already-installed refusal (avoids a nested
-        // second prompt). front/shop-install expose no --force option.
-        $args = $command === 'gp247:core-install' ? ['--force' => 1] : [];
+        // WHY: confirmation was already obtained here, so every step that has its own
+        // gate (core/front/shop-install) gets --force=1 instead of asking again. Only when
+        // the step declares the option: front/shop of an older release do not, and an
+        // unknown option would abort the install (US-CLI-003).
+        $args = $this->stepAcceptsForce($command) ? ['--force' => 1] : [];
         if ($command === 'gp247:core-install' && $this->option('admin-password') !== null) {
             $args['--admin-password'] = (string) $this->option('admin-password');
         }
@@ -223,6 +224,25 @@ class InstallAll extends GP247Command
         return in_array($command, self::FRESH_PROCESS_STEPS, true)
             ? $this->runInFreshProcess($command)
             : $this->runArtisan($command, $args);
+    }
+
+    /**
+     * Whether an install step declares a --force option (its own reinstall gate).
+     *
+     * @param string $command Artisan command name.
+     * @return bool
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-003
+     */
+    private function stepAcceptsForce(string $command): bool
+    {
+        $app = $this->getApplication();
+        if ($app === null || !$app->has($command) || in_array($command, self::FRESH_PROCESS_STEPS, true)) {
+            return false;
+        }
+
+        return $app->find($command)->getDefinition()->hasOption('force');
     }
 
     /**

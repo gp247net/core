@@ -234,11 +234,17 @@ class Install extends GP247Command
             return $this->respondFailure('env_missing', 'File .env not found');
         }
 
-        $this->runArtisan('migrate');
+        // WHY migrateForInstall(): --force so an APP_ENV=production site is not left without its
+        // tables, and a failed migration stops here instead of seeding a broken schema (US-CLI-003).
+        if (($stop = $this->migrateForInstall()) !== null) {
+            return $stop;
+        }
         $this->info('---------------> Migrate default done!');
 
         \DB::connection(GP247_DB_CONNECTION)->table('migrations')->where('migration', '00_00_00_step1_create_tables_admin')->delete();
-        $this->runArtisan('migrate', ['--path' => '/vendor/gp247/core/src/Database/Migrations/00_00_00_step1_create_tables_admin.php']);
+        if (($stop = $this->migrateForInstall('/vendor/gp247/core/src/Database/Migrations/00_00_00_step1_create_tables_admin.php')) !== null) {
+            return $stop;
+        }
         $this->info('---------------> Migrate schema GP247 done!');
 
         $this->runArtisan('db:seed', ['--class' => '\GP247\Core\Database\Seeders\DataDefaultSeeder', '--force' => true]);
