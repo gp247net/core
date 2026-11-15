@@ -27,6 +27,36 @@ class ExtensionUpdateManager
     const CHECK_TIMEOUT = 20; //seconds
     const DOWNLOAD_TIMEOUT = 120; //seconds
 
+    /** update() found nothing newer on the marketplace: not a failure for callers that only asked. */
+    const REASON_UP_TO_DATE = 'up_to_date';
+    /** update() could not ask the marketplace: the check-update call itself failed. */
+    const REASON_CHECK_FAILED = 'check_failed';
+    /** update() found no gp247.json for the extension on disk. */
+    const REASON_NOT_INSTALLED = 'not_installed';
+
+    /**
+     * Error of the most recent check-update call made by this instance, null when it succeeded
+     * or none was made. Kept apart from the (softly degraded) result so an explicit update
+     * request can say why it found nothing.
+     *
+     * @var string|null
+     */
+    protected ?string $lastCheckError = null;
+
+    /**
+     * Error of the most recent check-update call made by this instance.
+     *
+     * @return string|null Null when the last call succeeded or no call was made.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     * @aidlc-adr plugin-manager_extension-update-flow
+     */
+    public function lastCheckError(): ?string
+    {
+        return $this->lastCheckError;
+    }
+
     /**
      * Return updates already discovered, from cache only (no API call).
      * Safe to call on every admin screen render.
@@ -63,6 +93,7 @@ class ExtensionUpdateManager
 
         $items = $this->localItems();
         $updates = [];
+        $this->lastCheckError = null;
 
         if ($items) {
             try {
@@ -110,9 +141,11 @@ class ExtensionUpdateManager
                         }
                     }
                 } else {
+                    $this->lastCheckError = $this->checkErrorMessage(is_array($body) ? $body : [], $response->status());
                     gp247_report(msg: 'Check-update API error: '.json_encode($body ?? $response->body()), channel: null);
                 }
             } catch (\Throwable $e) {
+                $this->lastCheckError = $e->getMessage();
                 gp247_report(msg: 'Check-update error: '.$e->getMessage(), channel: null);
             }
         }
@@ -134,29 +167,41 @@ class ExtensionUpdateManager
      *
      * @param string $type          'Plugins' or 'Templates'.
      * @param string $key           Extension key (folder name / configKey).
+     * When nothing is updated because there is nothing to update, the result carries a `reason`:
+     * REASON_NOT_INSTALLED (no gp247.json on disk, decided before any API call),
+     * REASON_CHECK_FAILED (the check-update call failed) or REASON_UP_TO_DATE (the marketplace
+     * answered and has nothing newer). `error` stays 1 for all three, so screens keep their contract.
+     *
+     * @param string $type          'Plugins' or 'Templates'.
+     * @param string $key           Extension key (folder name / configKey).
      * @param bool   $skipPreChange Do not ask the "before change" registrants.
-     * @return array ['error' => 0|1, 'msg' => string, 'pre_change'? => 1, 'pre_change_detail'? => list<array>]
+     * @return array ['error' => 0|1, 'msg' => string, 'reason'? => string, 'pre_change'? => 1, 'pre_change_detail'? => list<array>]
      *
      * @aidlc-unit plugin-manager
      * @aidlc-story US-PLG-005, US-PLG-pre-change-hook
      * @aidlc-adr system-cli_pre-change-registry
+     * @aidlc-adr plugin-manager_extension-update-flow
      */
     public function update(string $type, string $key, bool $skipPreChange = false): array
     {
         $type = ($type === 'Templates') ? 'Templates' : 'Plugins';
 
+        $appPath = 'GP247/'.$type.'/'.$key;
+        $localConfigFile = app_path($appPath.'/gp247.json');
+        if (!file_exists($localConfigFile)) {
+            return $this->notUpdated(self::REASON_NOT_INSTALLED, $this->label('admin.extension.update_not_installed', ['key' => $key], ':key is not installed (no gp247.json on disk)'));
+        }
+
         $item = $this->getAvailableUpdates()[$type.'|'.$key]
             ?? $this->checkUpdates(true)[$type.'|'.$key]
             ?? null;
         if (!$item) {
-            return ['error' => 1, 'msg' => gp247_language_render('admin.extension.update_not_found', ['key' => $key])];
+            if ($this->lastCheckError !== null) {
+                return $this->notUpdated(self::REASON_CHECK_FAILED, $this->label('admin.extension.update_check_failed', ['key' => $key, 'msg' => $this->lastCheckError], 'Could not check the marketplace for updates to :key: :msg'));
+            }
+            return $this->notUpdated(self::REASON_UP_TO_DATE, $this->label('admin.extension.update_up_to_date', ['key' => $key], ':key is already up to date'));
         }
 
-        $appPath = 'GP247/'.$type.'/'.$key;
-        $localConfigFile = app_path($appPath.'/gp247.json');
-        if (!file_exists($localConfigFile)) {
-            return ['error' => 1, 'msg' => gp247_language_render('admin.extension.update_not_found', ['key' => $key])];
-        }
         $oldVersion = json_decode(file_get_contents($localConfigFile), true)['version'] ?? '0.0.0';
 
         // Block a too-old current version before downloading (server advertised
@@ -377,6 +422,63 @@ class ExtensionUpdateManager
             'expire'  => $expire,
             'checked' => true,
         ]);
+    }
+
+    /**
+     * Result of an update() that changed nothing, tagged with why.
+     *
+     * @param string $reason One of the REASON_* constants.
+     * @param string $msg    Message for the person who asked.
+     * @return array ['error' => 1, 'msg' => string, 'reason' => string]
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     */
+    protected function notUpdated(string $reason, string $msg): array
+    {
+        return ['error' => 1, 'msg' => $msg, 'reason' => $reason];
+    }
+
+    /**
+     * Render a language label, falling back to English text when the label row is not in the
+     * database yet (core files updated by composer before `gp247:update` seeded the new labels):
+     * the person must still see the cause, not the bare key.
+     *
+     * @param string               $code     Language key.
+     * @param array<string, mixed> $replace  Placeholder values.
+     * @param string               $fallback English text with the same placeholders.
+     * @return string
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     */
+    protected function label(string $code, array $replace, string $fallback): string
+    {
+        $text = (string) gp247_language_render($code, $replace);
+
+        return $text === $code ? gp247_language_replace($fallback, $replace) : $text;
+    }
+
+    /**
+     * Short, displayable cause of a failed check-update response: the API's own message when
+     * it gave one, otherwise the HTTP status. Never includes request headers (license).
+     *
+     * @param array $body   Decoded response body (empty when not JSON).
+     * @param int   $status HTTP status code.
+     * @return string
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     */
+    protected function checkErrorMessage(array $body, int $status): string
+    {
+        foreach (['message', 'msg', 'error', 'code'] as $field) {
+            if (isset($body[$field]) && is_string($body[$field]) && $body[$field] !== '') {
+                return mb_substr($body[$field], 0, 300).' (HTTP '.$status.')';
+            }
+        }
+
+        return 'HTTP '.$status;
     }
 
     /**

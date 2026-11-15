@@ -63,31 +63,46 @@ class ExtUpdate extends ExtCommand
                 }
             }
             if (!$targets) {
+                // WHY: an empty map is also what a failed check returns (soft degradation for screens);
+                // an explicit update request must not report that as "nothing to update".
+                if ($manager->lastCheckError() !== null) {
+                    return $this->respondFailure(ExtensionUpdateManager::REASON_CHECK_FAILED, 'Could not check the marketplace for updates: '.$manager->lastCheckError(), ['type' => $type]);
+                }
                 $this->info('No updates available.');
-                return $this->respondSuccess(['type' => $type, 'updated' => [], 'failed' => []]);
+                return $this->respondSuccess(['type' => $type, 'updated' => [], 'up_to_date' => [], 'failed' => []]);
             }
         } else {
             $targets = [$key];
         }
 
         $updated = [];
+        $upToDate = [];
         $failed = [];
+        $reasons = [];
         foreach ($targets as $k) {
             $response = $manager->update($type, $k, (bool) $this->option('skip-pre-change'));
+            $reason = $response['reason'] ?? null;
             if (($response['error'] ?? 1) == 0) {
                 $updated[] = $k;
                 $this->info('Updated: '.$k);
+            } elseif ($reason === ExtensionUpdateManager::REASON_UP_TO_DATE) {
+                $upToDate[] = $k;
+                $this->info($k.' is already up to date.');
             } else {
                 $failed[$k] = $response['msg'] ?? 'Update failed';
+                $reasons[$k] = $reason;
                 $this->addWarning('Failed '.$k.': '.$failed[$k]);
             }
         }
 
-        if ($failed && !$updated) {
-            return $this->respondFailure('update_failed', 'All updates failed', ['type' => $type, 'failed' => $failed]);
+        if ($failed && !$updated && !$upToDate) {
+            // WHY: a single named key keeps its precise cause (check_failed / not_installed) so
+            // scripts can react to it; several failures or other causes stay update_failed.
+            $code = (count($failed) === 1 && reset($reasons)) ? (string) reset($reasons) : 'update_failed';
+            return $this->respondFailure($code, 'All updates failed', ['type' => $type, 'failed' => $failed]);
         }
 
-        return $this->respondSuccess(['type' => $type, 'updated' => $updated, 'failed' => $failed]);
+        return $this->respondSuccess(['type' => $type, 'updated' => $updated, 'up_to_date' => $upToDate, 'failed' => $failed]);
     }
 
     /**
