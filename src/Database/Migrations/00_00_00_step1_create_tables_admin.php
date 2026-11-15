@@ -245,10 +245,8 @@ return new class extends Migration
                 $table->increments('id');
                 $table->string('description', 500);
                 $table->string('apiconnection', 50)->unique();
-                // WHY kept: always empty, but the released upgrade migration 2026_10_26_191822 (run by the
-                // first gp247:update of a fresh install) still reads it; the contract migration
-                // 2026_10_27_154124 drops it right after.
-                $table->string('apikey', 128)->nullable();
+                // No plain `apikey` column: a fresh install records the upgrade migrations as run
+                // (US-CLI-fresh-install-upgrade-baseline), so the one that drops it never runs here.
                 // SHA-256 of the key; the plain key is not stored (US-CMP-api-connection-key-hashing)
                 $table->char('apikey_hash', 64)->nullable()->index();
                 $table->date('expire')->nullable();

@@ -28,7 +28,9 @@ return new class extends Migration
     {
         $schema = Schema::connection(GP247_DB_CONNECTION);
         $table = GP247_DB_PREFIX . 'api_connection';
-        if (!$schema->hasTable($table)) {
+        // WHY no plain column => nothing to do: a table created by the current base migration has
+        // only the hash (mod 20261114T223618); the contract migration has already run elsewhere.
+        if (!$schema->hasTable($table) || !$schema->hasColumn($table, 'apikey')) {
             return;
         }
         if (!$schema->hasColumn($table, 'apikey_hash')) {
