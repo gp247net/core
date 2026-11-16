@@ -1000,3 +1000,35 @@ if (!function_exists('gp247_extension_forget_installed_version') && !in_array('g
             ->delete();
     }
 }
+
+/**
+ * Whether an extension has a settings page: its AppConfig::clickApp() returns something to open.
+ *
+ * One place decides the config (⚙) button of the Plugins and Templates lists and the fixed "Customize theme" menu
+ * entry of gp247/front. Call it only for an installed and enabled extension — a template registers its admin routes
+ * only while it is on, so clickApp() of a disabled one may throw.
+ *
+ * WHY catch everything: clickApp() is third-party code run while drawing the whole list; one broken template must
+ * cost only its own button, never the screen (RISK-TECH-template-clickapp-listing-failure).
+ *
+ * @param object $appConfig AppConfig instance of the extension.
+ * @return bool
+ *
+ * @aidlc-unit plugin-manager
+ * @aidlc-story US-PLG-006
+ * @aidlc-adr front-admin_template-settings-entry
+ */
+if (!function_exists('gp247_extension_has_settings') && !in_array('gp247_extension_has_settings', config('gp247_functions_except', []))) {
+    function gp247_extension_has_settings(object $appConfig): bool
+    {
+        if (!method_exists($appConfig, 'clickApp')) {
+            return false;
+        }
+        try {
+            return !empty($appConfig->clickApp());
+        } catch (\Throwable $e) {
+            gp247_report(msg: 'clickApp() of '.get_class($appConfig).' failed: '.$e->getMessage(), channel: null);
+            return false;
+        }
+    }
+}

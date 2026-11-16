@@ -130,6 +130,9 @@
                             $pluginClass  = new $classConfig;
                             $isInstalled  = array_key_exists($keyExtension, $extensionsInstalled->toArray());
                             $isEnabled    = $isInstalled && $extensionsInstalled[$keyExtension]['value'] == 1;
+                            // One decision for the ⚙ button of plugins and templates (default / in-use ones too);
+                            // a failing clickApp() costs only this button (US-PLG-006).
+                            $hasSettings  = $isEnabled && gp247_extension_has_settings($pluginClass);
                             $isProtected  = in_array($keyExtension, $extensionProtected);
                             $isDefaultTpl = defined('GP247_TEMPLATE_FRONT_DEFAULT') && $keyExtension === GP247_TEMPLATE_FRONT_DEFAULT;
                             $isTplInUse   = $groupType === 'Templates'
@@ -267,9 +270,10 @@
                                         @elseif ($pluginScope !== 'store')
                                             {{-- global scope: one shared value — the Scope column already says so,
                                                  so no per-store status text here; only the config shortcut (if any). --}}
-                                            @if ($isEnabled && ($pluginClass->clickApp() ?? false))
+                                            @if ($hasSettings)
                                                 <a href="{{ url()->current() }}?action=config&key={{ $keyExtension }}"
                                                     title="{{ gp247_language_render('admin.extension.config') }}"
+                                                    data-testid="plugin-manager-extension-config-{{ $keyExtension }}"
                                                     class="action-btn bg-blue-600 hover:bg-blue-700 focus:ring-blue-500">
                                                     <i class="fas fa-cog text-xs"></i>
                                                 </a>
@@ -287,25 +291,37 @@
                                                     onchange="extensionAction(this.checked ? 'enable' : 'disable', '{{ $keyExtension }}', '{{ $selectedStoreId }}')">
                                                 <span class="gp247-switch-slider"></span>
                                             </label>
-                                            @if ($isEnabled && ($pluginClass->clickApp() ?? false))
+                                            @if ($hasSettings)
                                                 <a href="{{ url()->current() }}?action=config&key={{ $keyExtension }}"
                                                     title="{{ gp247_language_render('admin.extension.config') }}"
+                                                    data-testid="plugin-manager-extension-config-{{ $keyExtension }}"
                                                     class="action-btn bg-blue-600 hover:bg-blue-700 focus:ring-blue-500">
                                                     <i class="fas fa-cog text-xs"></i>
                                                 </a>
                                             @endif
                                         @endif
                                     @else
-                                    @if ($isDefaultTpl)
-                                        <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                            <i class="fas fa-shield-alt"></i>
-                                            Default
-                                        </span>
-                                    @elseif ($isTplInUse)
-                                        <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                            <i class="fas fa-check"></i>
-                                            {{ gp247_language_render('admin.extension.used') }}
-                                        </span>
+                                    @if ($isDefaultTpl || $isTplInUse)
+                                        @if ($isDefaultTpl)
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                                <i class="fas fa-shield-alt"></i>
+                                                Default
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                                <i class="fas fa-check"></i>
+                                                {{ gp247_language_render('admin.extension.used') }}
+                                            </span>
+                                        @endif
+                                        {{-- The template a store uses is the one an owner configures most: keep its ⚙ next to the badge. --}}
+                                        @if ($hasSettings)
+                                            <a href="{{ url()->current() }}?action=config&key={{ $keyExtension }}"
+                                                title="{{ gp247_language_render('admin.extension.config') }}"
+                                                data-testid="plugin-manager-extension-config-{{ $keyExtension }}"
+                                                class="action-btn bg-blue-600 hover:bg-blue-700 focus:ring-blue-500">
+                                                <i class="fas fa-cog text-xs"></i>
+                                            </a>
+                                        @endif
                                     @else
                                         {{-- Install --}}
                                         @if (!$isInstalled)
@@ -317,10 +333,11 @@
                                             </button>
                                         @endif
 
-                                        {{-- Config (only for enabled, non-template plugins with clickApp) --}}
-                                        @if ($isEnabled && $groupType !== 'Templates' && ($pluginClass->clickApp() ?? false))
+                                        {{-- Config: enabled plugin or template with a settings page --}}
+                                        @if ($hasSettings)
                                             <a href="{{ url()->current() }}?action=config&key={{ $keyExtension }}"
                                                 title="{{ gp247_language_render('admin.extension.config') }}"
+                                                data-testid="plugin-manager-extension-config-{{ $keyExtension }}"
                                                 class="action-btn bg-blue-600 hover:bg-blue-700 focus:ring-blue-500">
                                                 <i class="fas fa-cog text-xs"></i>
                                             </a>
