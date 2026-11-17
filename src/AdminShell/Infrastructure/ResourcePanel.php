@@ -4,6 +4,7 @@ namespace GP247\Core\AdminShell\Infrastructure;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\WithPagination;
 
 /**
@@ -60,8 +61,16 @@ abstract class ResourcePanel extends GP247AdminComponent
      * refresh / is shareable. Edit is reached by navigating to the edit route;
      * save/cancel navigate back to the base route.
      *
+     * Locked: only the server assigns it (mount, editRow, resetForm, persist after a
+     * create). Every write path loads the record by this id, so a browser-supplied
+     * value would let an admin aim a save at a record its baseQuery() does not
+     * expose — e.g. another store's record for a store-admin.
+     *
      * @var string|null
+     * @aidlc-story US-admin-shell-store-scoped-resource
+     * @aidlc-adr admin-shell_store-scoped-resource-panel
      */
+    #[Locked]
     public ?string $editingId = null;
 
     /**
