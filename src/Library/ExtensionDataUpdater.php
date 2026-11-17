@@ -14,9 +14,14 @@ namespace GP247\Core\Library;
  *
  * Runs synchronously — no queue, no cron — so it works on shared hosting (NFR-AVAIL-001).
  *
+ * Before each hook the extension's public/ folder is copied again (files copied over app/
+ * bring new static files too), and a library update left pending by ExtensionUpdateManager
+ * (marker) is finished here — restoring its backup when the hook fails.
+ *
  * @aidlc-unit plugin-manager
- * @aidlc-story US-PLG-local-update-data-converge
+ * @aidlc-story US-PLG-local-update-data-converge, US-PLG-005
  * @aidlc-adr plugin-manager_local-update-data-converge
+ * @aidlc-adr plugin-manager_extension-update-fresh-process
  */
 class ExtensionDataUpdater
 {
@@ -62,8 +67,13 @@ class ExtensionDataUpdater
                 continue;
             }
 
+            $marker = $this->pendingLibraryUpdate($item, $dryRun);
             $state = $this->state($item['from'], $item['to']);
             if ($state === 'in-sync') {
+                if ($marker !== null && !$dryRun) {
+                    // The hook already ran and the version was recorded; only the clean-up was missed.
+                    $this->manager()->settlePending($item['type'], $item['key'], $marker, true);
+                }
                 $results[] = $item + ['status' => 'skipped', 'msg' => 'up to date'];
                 continue;
             }
@@ -77,15 +87,30 @@ class ExtensionDataUpdater
                 continue;
             }
 
-            $response = $this->runHook($item['type'], $item['key'], $item['from']);
+            // WHY before the hook: files copied over app/ bring new CSS/JS/images that only
+            // reach the browser through public/; the hook may also rely on them being there.
+            $published = (new ExtensionInstaller)->publishAssets($item['type'], $item['key']);
+            if (($published['error'] ?? 1) != 0) {
+                $results[] = $item + ['status' => 'failed', 'msg' => (string) $published['msg']];
+                continue;
+            }
+
+            $from = $marker !== null ? $marker['from'] : $item['from'];
+            $response = $this->runHook($item['type'], $item['key'], $from);
             if (($response['error'] ?? 1) != 0) {
                 $msg = (string) ($response['msg'] ?? 'Update hook failed');
-                gp247_report(msg: 'Extension data update failed for '.$item['type'].'/'.$item['key'].' ('.($item['from'] ?? 'unknown').' -> '.$item['to'].'): '.$msg, channel: null);
+                gp247_report(msg: 'Extension data update failed for '.$item['type'].'/'.$item['key'].' ('.($from ?? 'unknown').' -> '.$item['to'].'): '.$msg, channel: null);
+                if ($marker !== null) {
+                    $this->manager()->settlePending($item['type'], $item['key'], $marker, false, $msg);
+                }
                 $results[] = $item + ['status' => 'failed', 'msg' => $msg];
                 continue;
             }
 
             gp247_extension_set_installed_version($item['type'], $item['key'], $item['to']);
+            if ($marker !== null) {
+                $this->manager()->settlePending($item['type'], $item['key'], $marker, true);
+            }
             $applied++;
             $results[] = $item + ['status' => 'applied', 'msg' => (string) ($response['msg'] ?? '')];
         }
@@ -95,6 +120,40 @@ class ExtensionDataUpdater
         }
 
         return $results;
+    }
+
+    /**
+     * Marker of a library update still waiting for its data hook, when it matches the files
+     * on disk. A marker for another version is stale (the files were replaced again since):
+     * it is dropped — never restored — except during a dry run, which changes nothing.
+     *
+     * @param array{type: string, key: string, from: ?string, to: string} $item
+     * @param bool $dryRun
+     * @return array{from: ?string, to: string, backup: string, at: string}|null
+     */
+    private function pendingLibraryUpdate(array $item, bool $dryRun): ?array
+    {
+        $marker = ExtensionPendingUpdate::read($item['type'], $item['key']);
+        if ($marker === null) {
+            return null;
+        }
+        if ($marker['to'] !== $item['to']) {
+            if (!$dryRun) {
+                ExtensionPendingUpdate::forget($item['type'], $item['key']);
+            }
+
+            return null;
+        }
+
+        return $marker;
+    }
+
+    /**
+     * @return ExtensionUpdateManager
+     */
+    private function manager(): ExtensionUpdateManager
+    {
+        return app(ExtensionUpdateManager::class);
     }
 
     /**

@@ -236,6 +236,9 @@ trait ExtensionOnlineController
             'update'      => gp247_route_admin($prefix . '_online.update'),
             'checkUpdate' => gp247_route_admin($prefix . '_online.check-update'),
             'saveLicense' => gp247_route_admin($prefix . '_online.save-license'),
+            // WHY: an update whose hook was left to a fresh request (pending_apply) is finished by
+            // the same "apply data" route as the local screen; the template one lives in gp247/front.
+            'applyData'   => \Illuminate\Support\Facades\Route::has($prefix . '.apply_data') ? gp247_route_admin($prefix . '.apply_data') : '',
         ];
     }
 

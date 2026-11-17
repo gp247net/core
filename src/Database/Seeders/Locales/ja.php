@@ -648,6 +648,7 @@ return [
     'admin.extension.update_confirm' => ':key を :old から :new に更新しますか？ファイルを置き換える前に storage/backups/extensions にバックアップが保存されます。',
     'admin.extension.update_confirm_template' => '警告: テンプレートを更新するとすべてのファイルが上書きされ、:key のローカルでのカスタマイズはすべて失われます（自動バックアップは保存されます）。続行しますか？',
     'admin.extension.update_success' => ':key をバージョン :version に更新しました',
+    'admin.extension.update_data_pending' => ':key のファイルをバージョン :version に置き換えました。データ更新を適用しています…',
     'admin.extension.data_pending' => 'データ更新待ち: :from → :to',
     'admin.extension.data_pending_hint' => 'ファイルがマーケットプレイス以外（git、composer、FTP）で更新されました。新しいバージョンのデータ更新を実行するには「適用」を押してください。',
     'admin.extension.apply_data' => 'データ更新を適用',

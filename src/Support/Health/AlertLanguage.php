@@ -131,6 +131,13 @@ final class AlertLanguage
                 'vi' => ':count extension thiếu file tĩnh trong public/ — chạy gp247:ext-publish.',
                 'ja' => ':count 件の拡張機能で public/ の静的ファイルが不足しています。gp247:ext-publish を実行してください。',
             ],
+            // mod 20261117T091216: a new code (not new text for the old one) — insertOrIgnore seeding
+            // never rewrites a row an installed site already has, so the old wording would stay.
+            'admin.alerts.extension_assets_stale' => [
+                'en' => 'Extensions with missing or outdated static files in public/: :count — run gp247:ext-publish.',
+                'vi' => ':count extension có file tĩnh trong public/ bị thiếu hoặc cũ — chạy gp247:ext-publish.',
+                'ja' => ':count 件の拡張機能で public/ の静的ファイルが不足しているか古くなっています。gp247:ext-publish を実行してください。',
+            ],
             'admin.alerts.extension_assets_ok' => ['en' => 'Extensions have their static files', 'vi' => 'Extension đủ file tĩnh', 'ja' => '拡張機能の静的ファイルは揃っています'],
             'admin.alerts.raw_output_scan' => [
                 'en' => 'Site templates/plugins print :count field(s) raw with {!! !!} — text is now stored as typed, so switch them to {{ }}.',

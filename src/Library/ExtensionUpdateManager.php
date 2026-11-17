@@ -175,12 +175,18 @@ class ExtensionUpdateManager
      * @param string $type          'Plugins' or 'Templates'.
      * @param string $key           Extension key (folder name / configKey).
      * @param bool   $skipPreChange Do not ask the "before change" registrants.
-     * @return array ['error' => 0|1, 'msg' => string, 'reason'? => string, 'pre_change'? => 1, 'pre_change_detail'? => list<array>]
+     * When this request had already loaded the extension's code from its folder, the files are
+     * replaced but the hook is NOT called: the result is `error=0` + `pending_apply=1`, the old
+     * version stays recorded and ExtensionDataUpdater::applyPending() finishes the update in a
+     * fresh request (ExtensionPendingUpdate marker).
+     *
+     * @return array ['error' => 0|1, 'msg' => string, 'reason'? => string, 'pending_apply'? => 1, 'pre_change'? => 1, 'pre_change_detail'? => list<array>]
      *
      * @aidlc-unit plugin-manager
      * @aidlc-story US-PLG-005, US-PLG-pre-change-hook
      * @aidlc-adr system-cli_pre-change-registry
      * @aidlc-adr plugin-manager_extension-update-flow
+     * @aidlc-adr plugin-manager_extension-update-fresh-process
      */
     public function update(string $type, string $key, bool $skipPreChange = false): array
     {
@@ -291,33 +297,45 @@ class ExtensionUpdateManager
             File::deleteDirectory(public_path($appPath));
             File::copyDirectory($folderNew.'/public', public_path($appPath));
             File::copyDirectory($folderNew, app_path($appPath));
+            ExtensionPendingUpdate::invalidateOpcache(app_path($appPath));
 
-            $namespace = gp247_extension_get_namespace(type: $type, key: $key).'\AppConfig';
-            if (!class_exists($namespace)) {
-                throw new \Exception('Class not found');
+            // WHY: PHP cannot reload a class. When this request already loaded the extension's
+            // code from its folder, update() here would run the OLD hook (MultiVendor 1.1.4 →
+            // 1.1.5, 2026-11-17). Leave the hook to a fresh request; it restores this backup
+            // when the hook fails (ADR plugin-manager_extension-update-fresh-process).
+            $deferred = ExtensionPendingUpdate::codeLoaded($type, $key);
+            if ($deferred) {
+                ExtensionPendingUpdate::write($type, $key, $oldVersion, (string) $newVersion, $backupPath);
+            } else {
+                $this->runUpdateHook($type, $key, $oldVersion);
+                gp247_extension_set_installed_version($type, $key, (string) $newVersion);
             }
-            $response = (new $namespace)->update($oldVersion);
-            if (!is_array($response) || ($response['error'] ?? 1) != 0) {
-                throw new \Exception($response['msg'] ?? 'Update hook failed');
-            }
-            gp247_extension_set_installed_version($type, $key, (string) $newVersion);
         } catch (\Throwable $e) {
             $this->restore($backupPath, $type, $key);
+            ExtensionPendingUpdate::forget($type, $key);
             File::deleteDirectory($pathTmp);
             gp247_report(msg: 'Extension update rolled back ('.$key.'): '.$e->getMessage(), channel: null);
             return ['error' => 1, 'msg' => gp247_language_render('admin.extension.update_rollback', ['msg' => $e->getMessage()])];
         }
 
         File::deleteDirectory($pathTmp);
-        $this->pruneBackups($type, $key);
-        $this->forgetUpdate($type, $key);
-        gp247_extension_after_update();
-
         // A successful paid update means the server accepted the license — record
         // the valid status (server-truth) so a stale/edited flag self-heals.
         if (!empty($item['require_license'])) {
             $this->syncLicenseStatus($type, $key, 'none', $item['license_expire_at'] ?? null);
         }
+
+        if ($deferred) {
+            return [
+                'error' => 0,
+                'pending_apply' => 1,
+                'msg' => gp247_language_render('admin.extension.update_data_pending', ['key' => $key, 'version' => $newVersion]),
+            ];
+        }
+
+        $this->pruneBackups($type, $key);
+        $this->forgetUpdate($type, $key);
+        gp247_extension_after_update();
 
         return [
             'error' => 0,
@@ -692,6 +710,63 @@ class ExtensionUpdateManager
         } catch (\Throwable $e) {
             gp247_report(msg: 'Extension backup prune error ('.$key.'): '.$e->getMessage(), channel: null);
         }
+    }
+
+    /**
+     * Call AppConfig::update() of the extension now on disk.
+     *
+     * @param string      $type
+     * @param string      $key
+     * @param string|null $fromVersion Version the files had before the update.
+     * @return void
+     * @throws \Exception When the class is missing or the hook reports an error.
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005
+     */
+    protected function runUpdateHook(string $type, string $key, ?string $fromVersion): void
+    {
+        $namespace = gp247_extension_get_namespace(type: $type, key: $key).'\AppConfig';
+        if (!class_exists($namespace)) {
+            throw new \Exception('Class not found');
+        }
+        $response = (new $namespace)->update($fromVersion);
+        if (!is_array($response) || ($response['error'] ?? 1) != 0) {
+            throw new \Exception($response['msg'] ?? 'Update hook failed');
+        }
+    }
+
+    /**
+     * Close a library update whose data hook was left to a fresh request (see update()).
+     * Called by ExtensionDataUpdater once the hook of the new code has run.
+     *
+     * Hook succeeded ⇒ prune old backups and drop the "update available" entry. Hook failed ⇒
+     * restore the files of the backup written in the marker, like a failed one-request update.
+     * The marker is removed in both cases; the caller records the version.
+     *
+     * @param string $type          Plugins|Templates.
+     * @param string $key           Extension key.
+     * @param array  $marker        Marker read by ExtensionPendingUpdate::read().
+     * @param bool   $hookSucceeded Result of the hook.
+     * @param string $hookMsg       Message of a failed hook (for the report).
+     * @return void
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-005, US-PLG-local-update-data-converge
+     * @aidlc-adr plugin-manager_extension-update-fresh-process
+     */
+    public function settlePending(string $type, string $key, array $marker, bool $hookSucceeded, string $hookMsg = ''): void
+    {
+        $type = ($type === 'Templates') ? 'Templates' : 'Plugins';
+        ExtensionPendingUpdate::forget($type, $key);
+        if ($hookSucceeded) {
+            $this->pruneBackups($type, $key);
+            $this->forgetUpdate($type, $key);
+
+            return;
+        }
+        $this->restore((string) $marker['backup'], $type, $key);
+        gp247_report(msg: 'Extension update rolled back ('.$key.' '.($marker['from'] ?? '?').' -> '.$marker['to'].', data hook in a fresh request): '.$hookMsg, channel: null);
     }
 
     /**

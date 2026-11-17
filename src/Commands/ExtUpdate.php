@@ -4,6 +4,7 @@ namespace GP247\Core\Commands;
 
 use GP247\Core\Library\ExtensionDataUpdater;
 use GP247\Core\Library\ExtensionUpdateManager;
+use Illuminate\Support\Facades\Process;
 
 /**
  * Apply available marketplace updates for one extension (--key) or all
@@ -17,6 +18,7 @@ use GP247\Core\Library\ExtensionUpdateManager;
  * @aidlc-story US-CLI-002
  * @aidlc-story US-PLG-local-update-data-converge
  * @aidlc-adr system-cli_service-extraction
+ * @aidlc-adr plugin-manager_extension-update-fresh-process
  */
 class ExtUpdate extends ExtCommand
 {
@@ -53,7 +55,7 @@ class ExtUpdate extends ExtCommand
             return $this->handleLocal($type, $all ? null : $key, (bool) $this->option('dry-run'));
         }
 
-        $manager = new ExtensionUpdateManager;
+        $manager = app(ExtensionUpdateManager::class);
 
         $targets = [];
         if ($all) {
@@ -81,6 +83,9 @@ class ExtUpdate extends ExtCommand
         $reasons = [];
         foreach ($targets as $k) {
             $response = $manager->update($type, $k, (bool) $this->option('skip-pre-change'));
+            if (($response['error'] ?? 1) == 0 && !empty($response['pending_apply'])) {
+                $response = $this->finishInChildProcess($type, $k);
+            }
             $reason = $response['reason'] ?? null;
             if (($response['error'] ?? 1) == 0) {
                 $updated[] = $k;
@@ -160,5 +165,43 @@ class ExtUpdate extends ExtCommand
         }
 
         return $this->respondSuccess($data);
+    }
+
+    /**
+     * Finish a library update whose data hook was left to a fresh process: this process had
+     * already loaded the extension's code, so only a new PHP process runs the hook of the new
+     * files (ADR plugin-manager_extension-update-fresh-process). On failure there, the files
+     * were already restored by that process.
+     *
+     * @param string $type Plugins|Templates.
+     * @param string $key  Extension key.
+     * @return array{error: int, msg: string, reason?: string}
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-002
+     */
+    protected function finishInChildProcess(string $type, string $key): array
+    {
+        $cliType = $type === 'Templates' ? 'template' : 'plugin';
+        $command = 'php artisan gp247:ext-update --local --type='.$cliType.' --key='.$key;
+        try {
+            $result = Process::path(base_path())->timeout(600)
+                ->run([PHP_BINARY, base_path('artisan'), 'gp247:ext-update', '--local', '--type='.$cliType, '--key='.$key, '--json']);
+            $envelope = json_decode(trim((string) $result->output()), true);
+        } catch (\Throwable $e) {
+            return ['error' => 1, 'reason' => 'data_update_pending',
+                'msg' => 'Files of '.$key.' were replaced but the data update could not be started ('.$e->getMessage().'). Run: '.$command];
+        }
+
+        if (!is_array($envelope)) {
+            return ['error' => 1, 'reason' => 'data_update_pending',
+                'msg' => 'Files of '.$key.' were replaced but the data update gave no result. Run: '.$command];
+        }
+        if (!empty($envelope['ok'])) {
+            return ['error' => 0, 'msg' => 'updated'];
+        }
+        $failed = (array) ($envelope['data']['failed'] ?? []);
+
+        return ['error' => 1, 'msg' => (string) ($failed[$key] ?? ($envelope['error']['message'] ?? 'Data update failed'))];
     }
 }

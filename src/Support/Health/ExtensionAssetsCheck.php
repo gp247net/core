@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\File;
 
 /**
  * Installed extensions with an `app/.../public` folder whose files never reached
- * `public/GP247/...` (installed from a folder before publishing existed).
+ * `public/GP247/...` (installed from a folder before publishing existed), or reached it in
+ * an older build (files copied over app/ without publishing — mod 20261117T091216).
  * Throws when the database cannot be read; callers treat that as "skipped".
  *
  * Doctor row `extension_assets` — detail text kept word for word.
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\File;
  * @aidlc-unit admin-shell
  * @aidlc-story US-admin-shell-system-alerts, US-CLI-004, US-CLI-extension-asset-repair
  * @aidlc-adr admin-shell_system-alert-registry
+ * @aidlc-adr plugin-manager_extension-update-fresh-process
  */
 class ExtensionAssetsCheck implements AdminAlertCheck
 {
@@ -45,13 +47,13 @@ class ExtensionAssetsCheck implements AdminAlertCheck
         }
 
         $shown = array_slice($missing, 0, self::SHOWN);
-        $detail = count($missing) . ' installed extension(s) miss static files in public/: ' . implode(', ', $shown)
+        $detail = count($missing) . ' installed extension(s) have missing or outdated static files in public/: ' . implode(', ', $shown)
             . (count($missing) > self::SHOWN ? ' (+' . (count($missing) - self::SHOWN) . ' more)' : '')
             . ' — run "php artisan gp247:ext-publish --type=plugin|template --key=<Key>" (or --all)';
 
         return AdminAlert::warning(
             $this->key(),
-            HealthText::t('admin.alerts.extension_assets', ['count' => count($missing)]),
+            HealthText::t('admin.alerts.extension_assets_stale', ['count' => count($missing)]),
             $detail,
             docUrl: HealthText::doc('security-updates-and-incidents'),
             items: $missing,
@@ -59,7 +61,7 @@ class ExtensionAssetsCheck implements AdminAlertCheck
     }
 
     /**
-     * @return array<int, string> "<group>/<key>" of extensions missing public files.
+     * @return array<int, string> "<group>/<key>" of extensions whose public files are missing or outdated.
      */
     private function missing(): array
     {
@@ -78,7 +80,7 @@ class ExtensionAssetsCheck implements AdminAlertCheck
                 continue;
             }
             foreach (File::allFiles($source) as $file) {
-                if (!is_file(public_path($relative . '/' . $file->getRelativePathname()))) {
+                if (!$this->sameFile($file->getPathname(), public_path($relative . '/' . $file->getRelativePathname()))) {
                     $missing[] = $row->group . '/' . $row->key;
                     break;
                 }
@@ -86,5 +88,26 @@ class ExtensionAssetsCheck implements AdminAlertCheck
         }
 
         return $missing;
+    }
+
+    /**
+     * Is the published copy present and identical to the source?
+     *
+     * WHY size first: hashing is only needed when sizes match, which keeps the check cheap.
+     *
+     * @param string $source    File under app/GP247/<type>/<Key>/public.
+     * @param string $published Its copy under public/GP247/<type>/<Key>.
+     * @return bool
+     */
+    private function sameFile(string $source, string $published): bool
+    {
+        if (!is_file($published)) {
+            return false;
+        }
+        if (filesize($source) !== filesize($published)) {
+            return false;
+        }
+
+        return hash_file('sha256', $source) === hash_file('sha256', $published);
     }
 }

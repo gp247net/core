@@ -1378,6 +1378,8 @@ class DataLanguageSeeder extends Seeder
             ['code' => 'admin.extension.update_confirm_template','text' => 'WARNING: updating a template OVERWRITES all files, any local customization of :key will be lost (an automatic backup is kept). Continue?','position' => 'admin.extension','location' => 'en'],
             ['code' => 'admin.extension.update_success','text' => 'Đã cập nhật :key lên phiên bản :version','position' => 'admin.extension','location' => 'vi'],
             ['code' => 'admin.extension.update_success','text' => ':key has been updated to version :version','position' => 'admin.extension','location' => 'en'],
+            ['code' => 'admin.extension.update_data_pending','text' => 'Đã thay file :key bản :version, đang áp dụng cập nhật dữ liệu…','position' => 'admin.extension','location' => 'vi'],
+            ['code' => 'admin.extension.update_data_pending','text' => ':key files replaced with version :version, applying the data update…','position' => 'admin.extension','location' => 'en'],
             ['code' => 'admin.extension.data_pending','text' => 'Data update pending: :from → :to','position' => 'admin.extension','location' => 'en'],
             ['code' => 'admin.extension.data_pending','text' => 'Chờ cập nhật dữ liệu: :from → :to','position' => 'admin.extension','location' => 'vi'],
             ['code' => 'admin.extension.data_pending_hint','text' => 'The files were updated outside the marketplace (git, composer, FTP). Apply to run the data update of the new version.','position' => 'admin.extension','location' => 'en'],

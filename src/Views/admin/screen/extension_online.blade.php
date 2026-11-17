@@ -470,6 +470,7 @@
 (function () {
     const _installUrl = @js($urlAction['install']);
     const _updateUrl = @js($urlAction['update'] ?? '');
+    const _applyDataUrl = @js($urlAction['applyData'] ?? '');
     const _checkUpdateUrl = @js($urlAction['checkUpdate'] ?? '');
     const _saveLicenseUrl = @js($urlAction['saveLicense'] ?? '');
     const _isTemplate = @js($groupType === 'Templates');
@@ -531,6 +532,12 @@
                 }
                 data = await postUpdate(key, true);
             }
+            // Files replaced but the extension's code was already loaded in that request:
+            // the data update runs in a new request, with the new code (pending_apply).
+            if (parseInt(data.error) === 0 && parseInt(data.pending_apply) === 1 && _applyDataUrl) {
+                notify('info', data.msg);
+                data = await postApplyData(key);
+            }
             if (parseInt(data.error) === 0) {
                 notify('success', data.msg);
                 location.reload();
@@ -551,6 +558,15 @@
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body,
+        });
+        return res.json();
+    }
+
+    async function postApplyData(key) {
+        const res = await fetch(_applyDataUrl, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ _token: _csrf, key }),
         });
         return res.json();
     }
