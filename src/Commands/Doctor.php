@@ -4,6 +4,7 @@ namespace GP247\Core\Commands;
 
 use GP247\Core\AdminShell\Domain\AdminAlertCheck;
 use GP247\Core\AdminShell\Infrastructure\AdminAlert;
+use GP247\Core\AdminShell\Support\AdminAlertRegistry;
 use GP247\Core\Console\GP247Command;
 use GP247\Core\Support\Health\ApiExposureCheck;
 use GP247\Core\Support\Health\AppDebugCheck;
@@ -139,6 +140,10 @@ class Doctor extends GP247Command
         // Security rows shared with the dashboard "System alerts" block (one source of logic).
         // Never `fail` — the exit code stays driven by the environment checks above.
         array_push($checks, ...$this->securityChecks($installed, $dbOk));
+
+        // Checks other packages and plugins registered for "System alerts" (US-CLI-doctor-registered-checks):
+        // same mapping as the rows above, never `fail`, never a name already printed.
+        array_push($checks, ...$this->registeredChecks($installed, $dbOk, array_column($checks, 'name')));
 
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 
@@ -515,6 +520,42 @@ class Doctor extends GP247Command
             new SupportLineCheck,
             new RawOutputScanCheck,
         ] as $check) {
+            $rows[] = $this->healthRow($check, 'skipped (check failed)');
+        }
+
+        return $rows;
+    }
+
+    /**
+     * One row per check registered in AdminAlertRegistry that the fixed list above has not
+     * printed yet — so a package or plugin check (e.g. `seo_audit` of gp247/front) reaches
+     * the CLI without core knowing the package (NFR-MAINT-001).
+     *
+     * @param bool          $installed
+     * @param bool          $dbOk
+     * @param array<string> $printed Names of the rows already collected.
+     * @return array<int, array{name: string, status: string, detail: string, items?: array<int, string>}>
+     *
+     * @aidlc-unit system-cli
+     * @aidlc-story US-CLI-doctor-registered-checks
+     * @aidlc-adr admin-shell_system-alert-registry
+     */
+    protected function registeredChecks(bool $installed, bool $dbOk, array $printed): array
+    {
+        if (!$installed || !$dbOk || !class_exists(AdminAlertRegistry::class)) {
+            return [];
+        }
+        $rows = [];
+        foreach (AdminAlertRegistry::all() as $key => $class) {
+            if (in_array($key, $printed, true)) {
+                continue;
+            }
+            try {
+                $check = app($class);
+            } catch (\Throwable $e) {
+                $rows[] = $this->check((string) $key, 'pass', 'skipped (check failed)');
+                continue;
+            }
             $rows[] = $this->healthRow($check, 'skipped (check failed)');
         }
 
