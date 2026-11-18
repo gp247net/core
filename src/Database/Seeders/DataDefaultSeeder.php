@@ -45,6 +45,10 @@ class DataDefaultSeeder extends Seeder
         // upgrade/2026_11_05_204048_create_login_failure_table.php (US-admin-shell-login-failure-list).
         \GP247\Core\AdminShell\Support\LoginFailuresMenu::ensure($db);
         $db->table(GP247_DB_PREFIX.'admin_config')->insertOrIgnore([\GP247\Core\Support\LoginFailure\LoginFailureSettings::defaultRow()]);
+        // "Security headers" screen + its site-wide settings (US-security-headers-install-lifecycle):
+        // insertOrIgnore keeps what the owner chose; `gp247:update` re-runs this seeder, no upgrade migration.
+        \GP247\Core\SecurityHeaders\Infrastructure\SecurityHeadersMenu::ensure($db);
+        $db->table(GP247_DB_PREFIX.'admin_config')->insertOrIgnore(\GP247\Core\SecurityHeaders\Application\SecurityHeaderSettings::defaultRows());
 
         $dataAdminPermission = $this->dataAdminPermission(GP247_ADMIN_PREFIX);
         $db->table(GP247_DB_PREFIX.'admin_permission')->insertOrIgnore($dataAdminPermission);

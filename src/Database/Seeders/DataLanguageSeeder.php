@@ -1964,7 +1964,8 @@ class DataLanguageSeeder extends Seeder
             \GP247\Core\Support\LoginFailure\LoginFailureLanguage::rows(),
             \GP247\Core\Support\PreChange\PreChangeLanguage::rows(),
             \GP247\Core\Backup\Infrastructure\Install\BackupLanguage::rows(),
-            \GP247\Core\Support\ListSearch\ListSearchLanguage::rows()
+            \GP247\Core\Support\ListSearch\ListSearchLanguage::rows(),
+            \GP247\Core\SecurityHeaders\Infrastructure\SecurityHeadersLanguage::rows()
         );
     }
 }

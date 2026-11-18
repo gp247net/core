@@ -20,6 +20,18 @@ return [
         'decrypt_report_ttl'      => (int) env('GP247_DECRYPT_REPORT_TTL', 3600),
     ],
 
+    // Security headers added to web / API responses (US-security-headers-*, ADR
+    // security-headers_response-middleware). Which header is on is chosen on the admin
+    // "Security headers" screen; `enabled` is the emergency switch that wins over it.
+    'security_headers' => [
+        // GP247_SECURITY_HEADERS=0 sends no security header at all — for when a setting
+        // breaks the admin and the screen cannot be reached.
+        'enabled'           => (bool) env('GP247_SECURITY_HEADERS', true),
+        // Browser features an extension needs on its pages ('camera', 'microphone',
+        // 'geolocation'); a plugin appends its own in Provider.php (runtime-config-append idiom).
+        'permissions_allow' => [],
+    ],
+
     // "Before change" registrants (ADR system-cli_pre-change-registry): asked before
     // gp247:update, an extension update or a template switch changes data; any of them may
     // ask to stop (e.g. the backup feature while it snapshots). Callable, or

@@ -35,7 +35,8 @@ use GP247\Core\Support\TemplateSourceAudit;
 class Doctor extends GP247Command
 {
     /** @var string */
-    protected $signature = 'gp247:doctor';
+    protected $signature = 'gp247:doctor
+        {--probe-headers : Also request APP_URL and compare the security headers that really arrive with the settings}';
 
     /** @var string */
     protected $description = 'Check the environment for running/installing GP247';
@@ -144,6 +145,13 @@ class Doctor extends GP247Command
         // Checks other packages and plugins registered for "System alerts" (US-CLI-doctor-registered-checks):
         // same mapping as the rows above, never `fail`, never a name already printed.
         array_push($checks, ...$this->registeredChecks($installed, $dbOk, array_column($checks, 'name')));
+
+        // Live security headers (US-security-headers-doctor-checks): only when asked — it is a
+        // network call to the site itself, which shared hosts often block. Never `fail`.
+        if ($this->input !== null && $this->input->hasOption('probe-headers') && $this->option('probe-headers')) {
+            $probe = app(\GP247\Core\SecurityHeaders\Infrastructure\LiveHeaderProbe::class)->probe((string) config('app.url'));
+            $checks[] = $this->check('security_headers_live', $probe['status'], $probe['detail'], $probe['items']);
+        }
 
         $hasFail = (bool) array_filter($checks, fn ($c) => $c['status'] === 'fail');
 

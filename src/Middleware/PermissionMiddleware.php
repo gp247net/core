@@ -188,6 +188,8 @@ class PermissionMiddleware
             GP247_ADMIN_PREFIX . '/login_failures',
             // Backup settings: backup password, recovery key, destinations (US-backup-admin-permissions).
             GP247_ADMIN_PREFIX . '/backup/settings',
+            // Security headers: a wrong setting can break the whole site (US-security-headers-settings).
+            GP247_ADMIN_PREFIX . '/security_headers',
         ];
     }
 }

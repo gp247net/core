@@ -233,6 +233,7 @@ class CoreServiceProvider extends ServiceProvider
         foreach ([
             \GP247\Core\Support\Health\AppDebugCheck::class,
             \GP247\Core\Support\Health\HttpsCheck::class,
+            \GP247\Core\SecurityHeaders\Infrastructure\SecurityHeadersCheck::class,
             \GP247\Core\Support\Health\TrustedProxiesCheck::class,
             \GP247\Core\Support\Health\DefaultAdminPasswordCheck::class,
             \GP247\Core\Support\Health\PasswordPolicyCheck::class,
@@ -767,6 +768,16 @@ class CoreServiceProvider extends ServiceProvider
             $kernel->prependToMiddlewarePriority(\GP247\Core\Api\Middleware\ApiEnabled::class);
             $kernel->prependToMiddlewarePriority(ForceJsonResponse::class);
             $kernel->prependToMiddlewarePriority(\GP247\Core\Api\Middleware\ApiRequestId::class);
+        }
+
+        // Security headers (US-security-headers-defaults, ADR security-headers_response-middleware).
+        // WHY first in `web` and `api`: on the way out it runs last, so it only fills headers no
+        // controller, plugin or other middleware has set. WHY on the kernel: its groups are the
+        // source the router is synced from (same reason as the priority list above).
+        if (method_exists($kernel, 'prependMiddlewareToGroup')) {
+            foreach (['web', 'api'] as $group) {
+                $kernel->prependMiddlewareToGroup($group, \GP247\Core\SecurityHeaders\Http\SecurityHeadersMiddleware::class);
+            }
         }
 
         $this->registerApiRateLimiters();
