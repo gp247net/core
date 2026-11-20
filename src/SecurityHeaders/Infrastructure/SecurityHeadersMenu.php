@@ -19,8 +19,15 @@ final class SecurityHeadersMenu
 
     private const PARENT_KEY = 'ADMIN_SECURITY';
 
+    /** Icon of the menu item — distinct from the shield of the Security group and System alerts. */
+    public const ICON = 'fas fa-globe';
+
+    /** Icon that core 3.16.0 wrote; replaced on update unless the owner picked another one. */
+    private const OLD_ICON = 'fas fa-shield-alt';
+
     /**
-     * Insert the menu item when no row has its uri yet. Idempotent.
+     * Insert the menu item when no row has its uri yet, and replace the icon core 3.16.0
+     * wrote. Idempotent.
      *
      * @param ConnectionInterface $db Connection holding the admin tables.
      * @return void
@@ -29,6 +36,9 @@ final class SecurityHeadersMenu
     {
         $table = GP247_DB_PREFIX . 'admin_menu';
         if ($db->table($table)->where('uri', self::URI)->exists()) {
+            // WHY: only the old default is replaced, so an icon the owner chose on the Menu screen is kept.
+            $db->table($table)->where('uri', self::URI)->where('icon', self::OLD_ICON)->update(['icon' => self::ICON]);
+
             return;
         }
         $parent = (int) $db->table($table)->where('key', self::PARENT_KEY)->value('id');
@@ -36,7 +46,7 @@ final class SecurityHeadersMenu
             'parent_id' => $parent,
             'sort' => 2,
             'title' => 'admin.menu_titles.security_headers',
-            'icon' => 'fas fa-shield-alt',
+            'icon' => self::ICON,
             'uri' => self::URI,
             'key' => null,
             'type' => 0,
