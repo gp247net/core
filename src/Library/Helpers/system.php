@@ -148,17 +148,35 @@ if (!function_exists('gp247_uuid') && !in_array('gp247_uuid', config('gp247_func
 
 if (!function_exists('gp247_generate_id') && !in_array('gp247_generate_id', config('gp247_functions_except', []))) {
     /**
-     * Generate ID
-     *     *
-     * @return  [type]         [return description]
+     * Generate a primary key, optionally carrying a readable prefix ("PRD-…", "ODD-…").
+     *
+     * A prefixed id is the upper-cased prefix, a dash and a ULID: 26 Crockford base32
+     * characters (48-bit millisecond time + 80 random bits from a CSPRNG).
+     *
+     * WHY a ULID and not a short random suffix: key columns are char(36) with a
+     * case-insensitive collation, so the old 5-character Str::random() suffix left about
+     * 44 million distinct values and collided at tens of thousands of rows — every
+     * collision a failed save (order lines at checkout included). A ULID has a single
+     * letter case, cannot collide in practice and grows with time, so new rows append
+     * to the end of the primary-key index instead of scattering across it.
+     *
+     * WHY the fallback: a prefix longer than 9 characters would overflow char(36); a
+     * plain ordered UUID still fits, and throwing here would break the model save.
+     *
+     * @param string|null $prefix Short record-type prefix; empty for a plain ordered UUID.
+     * @return string Id of at most 36 characters.
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-prefixed-id-collision-safe
+     * @aidlc-adr compat-foundation_prefixed-id-ulid
      */
     function gp247_generate_id($prefix = null)
     {
-        if ($prefix) {
-            return strtoupper($prefix).'-'.gp247_token(5);
-        } else {
+        // WHY empty(): an empty or "0" prefix has always meant "no prefix" here.
+        if (empty($prefix) || strlen((string) $prefix) > 9) {
             return gp247_uuid();
         }
+        return strtoupper((string) $prefix).'-'.(string) \Illuminate\Support\Str::ulid();
     }
 }
 
