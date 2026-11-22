@@ -170,7 +170,8 @@ GP247 3.x
 
 ご自身のプラグインのテストを書くときは、`GP247\Core\Testing` のトレイトを再利用できます。`GuardsTestDatabase`
 （テスト用ではないデータベースを拒否）と、`GuardsDdlInTransaction` + `ReopensTransactionAfterDdl`（MySQL でテーブルを
-作成する必要があるテストを分離したまま保つ）です。
+作成する必要があるテストを分離したまま保つ）、`InteractsWithAdminUser` + `FakeAdminUser`（任意の権限を持つ管理者として
+操作し、操作が拒否されることを確認する）です。
 
 ## 役立つ情報：
 

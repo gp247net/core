@@ -168,7 +168,8 @@ Bộ test của `gp247/core` nằm ở thư mục `tests/` của repo này và c
 
 Khi viết test cho plugin của bạn, có thể dùng lại các trait trong `GP247\Core\Testing`: `GuardsTestDatabase` (từ chối
 cơ sở dữ liệu không phải để test) và `GuardsDdlInTransaction` + `ReopensTransactionAfterDdl` (giữ test cô lập khi cần tạo
-bảng trên MySQL).
+bảng trên MySQL), và `InteractsWithAdminUser` + `FakeAdminUser` (đóng vai quản trị viên với quyền tuỳ chọn và kiểm
+một thao tác bị từ chối).
 
 ## Thông tin hữu ích:
 

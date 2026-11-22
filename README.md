@@ -170,7 +170,8 @@ clone the repository:
 
 When you write tests for your own plugin, you can reuse the traits in `GP247\Core\Testing`: `GuardsTestDatabase` (refuses
 a database that is not meant for tests) and `GuardsDdlInTransaction` + `ReopensTransactionAfterDdl` (keep a test isolated
-when it has to create tables on MySQL).
+when it has to create tables on MySQL), and `InteractsWithAdminUser` + `FakeAdminUser` (act as an admin with
+chosen permissions and assert that an action is denied).
 
 ## Useful information:
 
