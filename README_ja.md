@@ -21,7 +21,7 @@ core のインストール（Laravel が既にある場合）：
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
 
 ## GP247 について
-GP247 は、Laravel をベースに構築された、強力・安全・柔軟で、AI エージェントとの親和性が高いオープンソースシステムです。
+GP247 は、業務向け Web アプリケーションを構築するための Laravel ベースのオープンソース・エコシステムです。
 
 **GP247/core 3.x の技術スタック：** PHP ≥ 8.3 · [Laravel 13](https://github.com/laravel/laravel) · [Livewire 4](https://livewire.laravel.com) · Tailwind CSS 3（ビルド済み — Node 不要） · MySQL / MariaDB
 
@@ -30,8 +30,9 @@ GP247 エコシステムの主な構成要素：
 - **[Package] GP247/core**：エコシステム全体のコアです。GP247/core は、単独で Laravel 管理画面として動作させることもできます。
 - **[Package] GP247/front**：企業向け CMS の基本機能を提供するパッケージです。
 - **[Package] GP247/shop**：EC サイトに必要な機能をすべて提供します。
+- **[Package] GP247/mcp**：AI エージェントが同じ管理者権限の範囲でサイトを操作できるようにします。
 
- `[Project] S-Cart = GP247/core + GP247/front + GP247/shop`
+ `[Project] S-Cart = GP247/core + GP247/front + GP247/shop + GP247/mcp`
 
 
 ## Laravel コア：

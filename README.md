@@ -21,7 +21,7 @@ Install the core (Laravel already set up):
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
 
 ## About GP247
-GP247 is a powerful, secure, flexible, and AI-agent-friendly open-source system built on the Laravel framework.
+GP247 is an open-source ecosystem on Laravel for building business web applications.
 
 **GP247/core 3.x tech stack:** PHP ≥ 8.3 · [Laravel 13](https://github.com/laravel/laravel) · [Livewire 4](https://livewire.laravel.com) · Tailwind CSS 3 (prebuilt — no Node needed) · MySQL / MariaDB
 
@@ -30,8 +30,9 @@ Main components in the GP247 ecosystem:
 - **[Package] GP247/core**: The core of the entire ecosystem. GP247/core can operate independently as a Laravel admin.
 - **[Package] GP247/front**: A package that provides the basic features for a business CMS.
 - **[Package] GP247/shop**: Provides the full features of an e-commerce website.
+- **[Package] GP247/mcp**: Lets AI agents work with the site under the same admin permissions.
 
- `[Project] S-Cart = GP247/core + GP247/front + GP247/shop`
+ `[Project] S-Cart = GP247/core + GP247/front + GP247/shop + GP247/mcp`
 
 
 ## Laravel core:

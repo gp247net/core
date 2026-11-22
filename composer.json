@@ -1,6 +1,6 @@
 {
   "name": "gp247/core",
-  "description": "Core laravel admin for all systems (ecommerce, cms, pmo...)",
+  "description": "Core of GP247, an open-source ecosystem on Laravel for building business web applications: admin, permissions, extensions",
   "keywords": ["core admin","website admin","backend system"],
   "homepage": "https://gp247.net",
   "license": "MIT",
