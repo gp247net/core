@@ -84,7 +84,8 @@ class DataDefaultSeeder extends Seeder
         $dataAdminStore = $this->dataAdminStore($this->adminEmail, $this->language_default, str_replace(['http://','https://'], '', url('/')));
         $db->table(GP247_DB_PREFIX.'admin_store')->insertOrIgnore($dataAdminStore);
 
-        $dataAdminStoreDescription = $this->dataAdminStoreDescription($this->title_en, $this->title_vi, $this->title_ja);
+        $names = $this->storeNames();
+        $dataAdminStoreDescription = $this->dataAdminStoreDescription($names['en'], $names['vi'], $names['ja']);
         $db->table(GP247_DB_PREFIX.'admin_store_description')->insertOrIgnore($dataAdminStoreDescription);
 
         $this->seedLanguageList($db);
@@ -277,6 +278,27 @@ class DataDefaultSeeder extends Seeder
         }
 
         return $path;
+    }
+
+    /**
+     * Name the root store gets per default language: the declared product name, or the
+     * $title_* defaults when no product is declared.
+     *
+     * @return array{en: string, vi: string, ja: string}
+     *
+     * @aidlc-unit installer-deploy
+     * @aidlc-story US-DEP-install-default-product-name
+     * @aidlc-adr installer-deploy_install-default-product-name
+     */
+    public function storeNames(): array
+    {
+        $product = \GP247\Core\Support\InstallDefaults::productName();
+
+        return [
+            'en' => $product ?? $this->title_en,
+            'vi' => $product ?? $this->title_vi,
+            'ja' => $product ?? $this->title_ja,
+        ];
     }
 
     public function dataAdminStoreDescription($titleE, $titleV, $titleJ = null) {

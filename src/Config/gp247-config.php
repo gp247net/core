@@ -311,6 +311,11 @@ return [
     'install' => [
         'store_logo' => env('GP247_INSTALL_LOGO', '/GP247/Core/logo/logo.png'),
         'store_icon' => env('GP247_INSTALL_ICON', '/GP247/Core/logo/icon.png'),
+        // Product the install is made for (US-DEP-install-default-product-name): its name goes into the
+        // default store name, admin name/title, home welcome and — with a valid http(s) address — the first
+        // menu link. Not declared = today's wording. Read through GP247\Core\Support\InstallDefaults.
+        'product_name' => env('GP247_INSTALL_PRODUCT_NAME'),
+        'product_url'  => env('GP247_INSTALL_PRODUCT_URL'),
     ],
 
     //Config for env

@@ -24,8 +24,9 @@ class DataStoreSeeder extends Seeder
     
     public function dataConfig($storeId) {
         $dataConfig = [
-            ['group' => '','code' => 'admin_config','key' => 'ADMIN_NAME','value' => 'GP247 System','sort' => '0','detail' => 'admin.env.ADMIN_NAME','store_id' => $storeId],
-            ['group' => '','code' => 'admin_config','key' => 'ADMIN_TITLE','value' => 'GP247 Admin','sort' => '0','detail' => 'admin.env.ADMIN_TITLE','store_id' => $storeId],
+            // WHY InstallDefaults: a product built on GP247 names its admin (US-DEP-install-default-product-name).
+            ['group' => '','code' => 'admin_config','key' => 'ADMIN_NAME','value' => \GP247\Core\Support\InstallDefaults::adminName('GP247 System'),'sort' => '0','detail' => 'admin.env.ADMIN_NAME','store_id' => $storeId],
+            ['group' => '','code' => 'admin_config','key' => 'ADMIN_TITLE','value' => \GP247\Core\Support\InstallDefaults::adminTitle('GP247 Admin'),'sort' => '0','detail' => 'admin.env.ADMIN_TITLE','store_id' => $storeId],
             ['group' => '','code' => 'admin_config','key' => 'hidden_copyright_footer','value' => '0','sort' => '0','detail' => 'admin.env.hidden_copyright_footer','store_id' => $storeId],
             ['group' => '','code' => 'admin_config','key' => 'hidden_copyright_footer_admin','value' => '0','sort' => '0','detail' => 'admin.env.hidden_copyright_footer_admin','store_id' => $storeId],
             ['group' => '','code' => 'email_action','key' => 'email_action_mode','value' => '0','sort' => '0','detail' => 'email.email_action.email_action_mode','store_id' => $storeId],
