@@ -305,6 +305,14 @@ return [
         ],
     ],
 
+    // Images the installer gives the root store (US-DEP-install-default-logo). A product built on
+    // GP247 points these at its own files under public/; read once, by gp247:install. A value that
+    // is not a file in public/ falls back to the GP247 image (DataDefaultSeeder).
+    'install' => [
+        'store_logo' => env('GP247_INSTALL_LOGO', '/GP247/Core/logo/logo.png'),
+        'store_icon' => env('GP247_INSTALL_ICON', '/GP247/Core/logo/icon.png'),
+    ],
+
     //Config for env
     'env' => [
         'GP247_ACTIVE'        => env('GP247_ACTIVE', 1), // 1: active, 0: deactive - prevent load vencore package

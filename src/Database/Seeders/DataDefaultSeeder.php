@@ -17,6 +17,16 @@ class DataDefaultSeeder extends Seeder
      */
     public const SEED_ADMIN_ID = 'AU-AAAAA';
 
+    /**
+     * Logo and icon of the root store when the installing product declares none,
+     * or declares one that is not a file in public/.
+     *
+     * @aidlc-unit installer-deploy
+     * @aidlc-story US-DEP-install-default-logo
+     */
+    public const DEFAULT_STORE_LOGO = '/GP247/Core/logo/logo.png';
+    public const DEFAULT_STORE_ICON = '/GP247/Core/logo/icon.png';
+
     public $adminUser = 'admin';
     public $adminPassword = '$2y$10$JcmAHe5eUZ2rS0jU1GWr/.xhwCnh2RU13qwjTPcqfmtZXjZxcryPO';
     public $adminEmail = 'admin@gp247.local';
@@ -221,8 +231,8 @@ class DataDefaultSeeder extends Seeder
     public function dataAdminStore($email, $language, $domain) {
         $dataAdminStore = [
             ['id' => 1,
-            'logo' => '/GP247/Core/logo/logo.png',
-            'icon' => '/GP247/Core/logo/icon.png',
+            'logo' => $this->installImage('store_logo', self::DEFAULT_STORE_LOGO),
+            'icon' => $this->installImage('store_icon', self::DEFAULT_STORE_ICON),
             // WHY: no bundled share image — the owner sets their own (US-DEP-no-default-og-image).
             'og_image' => null,
             'phone' => '0123456789',
@@ -236,6 +246,37 @@ class DataDefaultSeeder extends Seeder
             'domain' => $domain]
         ];
         return $dataAdminStore;
+    }
+
+    /**
+     * Resolve an image the installer gives the root store from `gp247-config.install`.
+     *
+     * The declared value must name a file inside public/; anything else (not set, empty,
+     * a folder, a path leaving public/, a remote address) yields the GP247 image, so an
+     * install never ends with a broken logo.
+     *
+     * @param string $key     Key under `gp247-config.install` (`store_logo`, `store_icon`).
+     * @param string $default GP247 image used when the declared value is refused.
+     * @return string Path relative to public/, with a leading slash.
+     *
+     * @aidlc-unit installer-deploy
+     * @aidlc-story US-DEP-install-default-logo
+     * @aidlc-adr installer-deploy_install-default-logo-config
+     */
+    protected function installImage(string $key, string $default): string
+    {
+        $declared = config('gp247-config.install.'.$key);
+        if (!is_string($declared) || trim($declared) === '') {
+            return $default;
+        }
+
+        $path = '/'.ltrim(str_replace('\\', '/', trim($declared)), '/');
+        // WHY refuse "..": the value is stored and later served as a public URL; it must stay inside public/.
+        if (in_array('..', explode('/', $path), true) || !is_file(public_path(ltrim($path, '/')))) {
+            return $default;
+        }
+
+        return $path;
     }
 
     public function dataAdminStoreDescription($titleE, $titleV, $titleJ = null) {
