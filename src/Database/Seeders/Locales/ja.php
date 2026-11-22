@@ -687,7 +687,7 @@ return [
     'admin.maintain.description' => '説明',
     'admin.maintain.description_note' => 'メンテナンスに関するメモ',
     'admin.admin_custom_config.facebook_url' => 'Facebook URL',
-    'admin.admin_custom_config.fanpage_url' => 'ファンページ URL',
+    'admin.admin_custom_config.group_url' => 'Facebook グループ URL',
     'admin.admin_custom_config.twitter_url' => 'Twitter URL',
     'admin.admin_custom_config.instagram_url' => 'Instagram URL',
     'admin.admin_custom_config.youtube_url' => 'YouTube URL',

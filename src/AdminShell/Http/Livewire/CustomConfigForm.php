@@ -15,7 +15,7 @@ use Livewire\Attributes\Locked;
  * the legacy "Cấu hình tùy chỉnh" tab (AdminStoreConfigController). A free-form
  * key/value editor: it lists every admin_custom_config row (the seeded social links
  * are just defaults among them), supports adding a new config (detail/key/value),
- * deleting a row and editing values live inline.
+ * deleting a row and editing values inline, written on an explicit Save.
  *
  * **Per-store (independent, NOT inherited) — US-AUI-core-config-store-scope.** Unlike
  * StoreConfigForm's fixed-key screens (which inherit ROOT and override), this is a
@@ -140,12 +140,18 @@ class CustomConfigForm extends GP247AdminComponent
     /**
      * Seed the editable key => value map from the current rows.
      *
+     * @param bool $keepEdits Keep unsaved buffered values of rows that still exist
+     *                        (add/delete must not discard edits the admin has not saved yet).
      * @return void
      */
-    private function syncValues(): void
+    private function syncValues(bool $keepEdits = false): void
     {
+        $buffer = $keepEdits ? $this->values : [];
+
         $this->values = $this->rows()
-            ->mapWithKeys(fn (AdminConfig $c) => [$c->key => (string) $c->value])
+            ->mapWithKeys(fn (AdminConfig $c) => [
+                $c->key => array_key_exists($c->key, $buffer) ? (string) $buffer[$c->key] : (string) $c->value,
+            ])
             ->all();
     }
 
@@ -185,21 +191,36 @@ class CustomConfigForm extends GP247AdminComponent
     }
 
     /**
-     * Persist a single value the moment it changes (live editing, Layer-2 gated).
+     * Write every edited value of the effective store (explicit save, Layer-2 gated).
+     * Values are edited in a deferred buffer like the other configuration tabs, so a
+     * half-typed URL never reaches the storefront. Only keys that already exist for
+     * this store are written — a forged `values.<key>` cannot create a new row.
      *
-     * @param mixed  $value The new value.
-     * @param string $key   The changed config key (the `values.<key>` segment).
      * @return void
      * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-UI-005
      */
-    public function updatedValues($value, string $key): void
+    public function save(): void
     {
         $this->authorizeAction('update');
 
-        AdminConfig::where('key', $key)
-            ->where('code', self::CODE)
-            ->where('store_id', (string) $this->effectiveStore())
-            ->update(['value' => gp247_text_plain((string) $value)]);
+        foreach ($this->rows() as $row) {
+            if (!array_key_exists($row->key, $this->values)) {
+                continue;
+            }
+            $value = gp247_text_plain((string) $this->values[$row->key]);
+            if ($value === (string) $row->value) {
+                continue;
+            }
+            AdminConfig::where('key', $row->key)
+                ->where('code', self::CODE)
+                ->where('store_id', (string) $this->effectiveStore())
+                ->update(['value' => $value]);
+        }
+
+        $this->syncValues();
 
         $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
@@ -244,7 +265,7 @@ class CustomConfigForm extends GP247AdminComponent
         $this->newDetail = '';
         $this->newKey = '';
         $this->newValue = '';
-        $this->syncValues();
+        $this->syncValues(true);
 
         $this->notify('success', gp247_language_render('action.update_success'));
     }
@@ -266,7 +287,7 @@ class CustomConfigForm extends GP247AdminComponent
             ->delete();
 
         unset($this->values[$key]);
-        $this->syncValues();
+        $this->syncValues(true);
 
         $this->notify('success', gp247_language_render('action.delete_success'));
     }

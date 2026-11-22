@@ -1,7 +1,7 @@
 {{--
     Free-form custom config editor (admin_custom_config, ADR-005): the modern port
     of the legacy "Cấu hình tùy chỉnh" tab. Columns — Detail | Key | Value | (action).
-    Values edit inline and persist live (text-blur); a trailing row adds a new config
+    Values edit inline and are written by the Save button; a trailing row adds a new config
     (detail/key/value); each row can be deleted. Social links appear here as seeded
     defaults — they are not a special form.
 
@@ -65,7 +65,7 @@
                             {{ $row->key }}
                         </td>
                         <td class="px-5 py-3 align-middle">
-                            <input type="text" wire:model.live.blur="values.{{ $row->key }}"
+                            <input type="text" wire:model="values.{{ $row->key }}" data-testid="custom-config-value-{{ $row->key }}"
                                 class="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
                         </td>
                         <td class="px-5 py-3 align-middle text-right">
@@ -106,4 +106,18 @@
             </tbody>
         </table>
     </div>
+
+    {{-- Explicit save, same as the other configuration tabs (ConfigForm): values are
+         edited in a deferred buffer and only written on click. Add (+) and delete stay
+         immediate row actions. --}}
+    @if ($rows->isNotEmpty())
+        <div class="mt-4 flex justify-end">
+            <button type="button" wire:click="save" data-testid="custom-config-submit"
+                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60 dark:focus:ring-offset-gray-800"
+                wire:loading.attr="disabled" wire:target="save">
+                <i class="fas fa-save"></i>
+                {{ gp247_language_render('admin.save') }}
+            </button>
+        </div>
+    @endif
 </div>
