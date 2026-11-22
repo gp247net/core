@@ -12,3 +12,5 @@ src/public/GP247/** linguist-vendored
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+/tests export-ignore
+/phpunit.xml.dist export-ignore

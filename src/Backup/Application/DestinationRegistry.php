@@ -9,7 +9,7 @@ use GP247\Core\Backup\Domain\DestinationType;
 
 /**
  * Types of external destination, gathered from gp247-config.backup.destinations (the core
- * registers s3 and sftp; BackupPro appends its own at boot). An entry that is not a
+ * registers s3 and sftp; a plugin may append its own at boot). An entry that is not a
  * DestinationFactory class is skipped and reported — one broken plugin never hides the others.
  *
  * @aidlc-unit backup-storage

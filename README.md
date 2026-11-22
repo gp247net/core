@@ -153,6 +153,25 @@ Default, GP247 uses mysql. The configuration will be saved in the .env file as f
 
   This code will help you handle exceptions through the `gp247_handle_exception` function if it exists.
 
+## Running the tests
+
+The `gp247/core` test suite lives in the `tests/` folder of this repository and runs automatically on GitHub Actions for
+every change (PHP 8.3 / 8.4 × MySQL / MariaDB). The tests are not part of the Composer package; to run them yourself,
+clone the repository:
+
+1. Create a blank Laravel application and install `gp247/core` (`php artisan gp247:install`) with a database **reserved
+   for tests** — its name must end with `_test` or `_testing`. The suite refuses any other database so it never touches
+   real data; to use another name, confirm it with `GP247_TEST_DATABASE=<database name>`.
+2. Clone this repository, then from the application's root run:
+
+   ```bash
+   GP247_HOST_APP="$PWD" vendor/bin/phpunit -c /path/to/core/phpunit.xml.dist
+   ```
+
+When you write tests for your own plugin, you can reuse the traits in `GP247\Core\Testing`: `GuardsTestDatabase` (refuses
+a database that is not meant for tests) and `GuardsDdlInTransaction` + `ReopensTransactionAfterDdl` (keep a test isolated
+when it has to create tables on MySQL).
+
 ## Useful information:
 
 > 📖 **Full command-line reference.** The commands below are the most common ones.

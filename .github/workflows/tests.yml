@@ -1,0 +1,94 @@
+# Runs the gp247/core test suite on a blank Laravel application with only gp247/core
+# installed, for every supported PHP version and database.
+#
+# Least privilege: read-only token, no secrets, no pull_request_target, every
+# third-party action pinned to a full commit SHA (tag in the comment).
+
+name: tests
+
+on:
+  push:
+    branches: [master]
+    tags: ['*']
+  pull_request:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }} · ${{ matrix.db }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+        db: ['mysql:8.4', 'mariadb:11.4']
+
+    services:
+      database:
+        image: ${{ matrix.db }}
+        env:
+          # Throw-away credentials of a CI-only container — not a secret.
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gp247_test
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: gp247_test
+        ports:
+          - 3306:3306
+
+    steps:
+      - name: Check out the package
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: package
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_mysql, intl, gd, zip, bcmath, mbstring, fileinfo
+          coverage: none
+          tools: composer:v2
+
+      - name: Create a blank Laravel application
+        run: composer create-project laravel/laravel app "^13.0" --no-interaction --prefer-dist --no-progress
+
+      - name: Install gp247/core from this commit
+        working-directory: app
+        run: |
+          composer config repositories.package '{"type": "path", "url": "../package", "options": {"symlink": false}}'
+          composer require "gp247/core:*@dev" --no-interaction --no-progress --with-all-dependencies
+
+      - name: Point the application to the test database
+        working-directory: app
+        run: |
+          sed -i -E '/^#? ?DB_(CONNECTION|HOST|PORT|DATABASE|USERNAME|PASSWORD)=/d' .env
+          printf 'DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306\nDB_DATABASE=gp247_test\nDB_USERNAME=root\nDB_PASSWORD=root\n' >> .env
+          for i in $(seq 1 60); do
+            php -r 'try { new PDO("mysql:host=127.0.0.1;port=3306;dbname=gp247_test", "root", "root"); exit(0); } catch (Throwable $e) { exit(1); }' && exit 0
+            sleep 2
+          done
+          echo "::error::The test database did not accept connections within 120 seconds."
+          exit 1
+
+      - name: Install GP247
+        working-directory: app
+        run: php artisan gp247:install --force=1
+
+      # WHY from the checkout: the installed copy in app/vendor follows .gitattributes
+      # export-ignore (no tests/, no phpunit.xml.dist), exactly as a site receives it.
+      - name: Run the tests
+        working-directory: app
+        env:
+          GP247_HOST_APP: ${{ github.workspace }}/app
+        run: vendor/bin/phpunit -c ../package/phpunit.xml.dist

@@ -4,7 +4,7 @@ namespace GP247\Core\Backup\Application;
 
 /**
  * Chooses which successful archives may be removed. Free uses {@see CountRetentionPolicy};
- * BackupPro can register another strategy (daily / weekly / monthly) through
+ * a plugin can register another strategy through
  * `gp247-config.backup.retention_policy` without touching the core.
  *
  * Contract every policy must keep: never select a pinned archive, the newest successful

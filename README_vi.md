@@ -151,6 +151,25 @@ Mặc định, GP247 sử dụng mysql. Cấu hình sẽ được lưu trong fil
   ```
 
   Đoạn mã này sẽ giúp bạn xử lý các ngoại lệ thông qua hàm `gp247_handle_exception` nếu hàm này tồn tại.
+
+## Chạy test
+
+Bộ test của `gp247/core` nằm ở thư mục `tests/` của repo này và chạy tự động trên GitHub Actions cho mỗi thay đổi
+(PHP 8.3 / 8.4 × MySQL / MariaDB). Thư mục test không có trong gói Composer, nên muốn tự chạy thì clone repo:
+
+1. Tạo một ứng dụng Laravel trắng và cài `gp247/core` (`php artisan gp247:install`) với một cơ sở dữ liệu **chỉ dùng
+   cho test** — tên kết thúc bằng `_test` hoặc `_testing`. Bộ test từ chối chạy trên cơ sở dữ liệu khác để không đụng
+   tới dữ liệu thật; muốn dùng tên khác thì khai rõ `GP247_TEST_DATABASE=<tên cơ sở dữ liệu>`.
+2. Clone repo này, rồi từ thư mục gốc của ứng dụng chạy:
+
+   ```bash
+   GP247_HOST_APP="$PWD" vendor/bin/phpunit -c /đường/dẫn/tới/core/phpunit.xml.dist
+   ```
+
+Khi viết test cho plugin của bạn, có thể dùng lại các trait trong `GP247\Core\Testing`: `GuardsTestDatabase` (từ chối
+cơ sở dữ liệu không phải để test) và `GuardsDdlInTransaction` + `ReopensTransactionAfterDdl` (giữ test cô lập khi cần tạo
+bảng trên MySQL).
+
 ## Thông tin hữu ích:
 
 > 📖 **Tham chiếu dòng lệnh đầy đủ.** Các lệnh dưới đây chỉ là những lệnh thông

@@ -114,9 +114,8 @@ if (!function_exists('gp247_store_check_multi_partner_installed') && !in_array('
         function gp247_store_check_multi_partner_installed()
         {
             return 
-            gp247_config_global('MultiVendorPro') 
-            || gp247_config_global('MultiVendor')
-            || gp247_config_global('Pmo247');
+            gp247_config_global('MultiVendorPro')
+            || gp247_config_global('MultiVendor');
         }
 }
 
@@ -129,7 +128,7 @@ if (!function_exists('gp247_store_check_multi_store_installed') && !in_array('gp
      * WHY two keys: the Free edition was renamed `MultiStorePro` -> `MultiStore`
      * (P0.5). Reading both keeps sites that installed the old key working, and is
      * semantically correct — Free or Pro, either one enables multi-store. Mirrors
-     * gp247_store_check_multi_partner_installed() above, which checks three keys.
+     * gp247_store_check_multi_partner_installed() above, which checks both marketplace keys.
      *
      * @return
      */

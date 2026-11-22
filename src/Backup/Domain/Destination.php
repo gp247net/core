@@ -3,7 +3,7 @@
 namespace GP247\Core\Backup\Domain;
 
 /**
- * An external place archives are copied to (S3-compatible, SFTP; BackupPro adds more types
+ * An external place archives are copied to (S3-compatible, SFTP; a plugin may add more types
  * through gp247-config.backup.destinations). Only primitive file operations: what the
  * credential is allowed to do is found out by trying (ConnectionProbe), so a write-only
  * credential is a complete, valid configuration.

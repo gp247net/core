@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Test suite of gp247/core. The tests are not part of the Composer package: clone this
+    repository, then run them against a Laravel application that has gp247/core installed
+    (php artisan gp247:install), from that application's root:
+
+        GP247_HOST_APP="$PWD" vendor/bin/phpunit -c /path/to/core-clone/phpunit.xml.dist
+
+    The tests use the database of the application's .env (DB_DATABASE). It must be reserved
+    for tests: the suite refuses any database whose name does not end with _test or _testing
+    (or that GP247_TEST_DATABASE does not name).
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.0/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="GP247_SEO_LANG" value="0"/>
+    </php>
+</phpunit>

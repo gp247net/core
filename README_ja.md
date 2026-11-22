@@ -152,6 +152,26 @@ GP247 3.x
   ```
 
   このコードにより、`gp247_handle_exception` 関数が存在する場合、その関数を通じて例外を処理できるようになります。
+
+## テストの実行
+
+`gp247/core` のテストはこのリポジトリの `tests/` フォルダーにあり、変更のたびに GitHub Actions で自動実行されます
+（PHP 8.3 / 8.4 × MySQL / MariaDB）。テストは Composer パッケージに含まれないため、自分で実行するにはリポジトリを
+クローンしてください。
+
+1. 空の Laravel アプリケーションを作成し、**テスト専用**のデータベース（名前が `_test` または `_testing` で終わるもの）
+   で `gp247/core` をインストールします（`php artisan gp247:install`）。実データに触れないよう、それ以外のデータベースでは
+   テストは実行を拒否します。別の名前を使う場合は `GP247_TEST_DATABASE=<データベース名>` で明示してください。
+2. このリポジトリをクローンし、アプリケーションのルートで次を実行します。
+
+   ```bash
+   GP247_HOST_APP="$PWD" vendor/bin/phpunit -c /path/to/core/phpunit.xml.dist
+   ```
+
+ご自身のプラグインのテストを書くときは、`GP247\Core\Testing` のトレイトを再利用できます。`GuardsTestDatabase`
+（テスト用ではないデータベースを拒否）と、`GuardsDdlInTransaction` + `ReopensTransactionAfterDdl`（MySQL でテーブルを
+作成する必要があるテストを分離したまま保つ）です。
+
 ## 役立つ情報：
 
 > 📖 **コマンドラインリファレンス（完全版）。** 以下は最もよく使うコマンドだけです。
