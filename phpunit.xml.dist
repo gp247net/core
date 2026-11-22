@@ -15,6 +15,7 @@
          bootstrap="tests/bootstrap.php"
          cacheDirectory=".phpunit.cache"
          colors="true"
+         failOnEmptyTestSuite="true"
 >
     <testsuites>
         <testsuite name="Unit">
