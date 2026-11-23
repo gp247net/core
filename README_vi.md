@@ -19,7 +19,7 @@ Cài đặt core (khi đã có laravel):
 [![Tổng lượt tải](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![Phiên bản ổn định mới nhất](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![Giấy phép](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247net/core)
 
 ## Giới thiệu về GP247
 GP247 là hệ sinh thái mã nguồn mở trên Laravel để xây dựng ứng dụng web cho doanh nghiệp.

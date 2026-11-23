@@ -19,7 +19,7 @@ core のインストール（Laravel が既にある場合）：
 [![総ダウンロード数](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![最新の安定版](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![ライセンス](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247net/core)
 
 ## GP247 について
 GP247 は、業務向け Web アプリケーションを構築するための Laravel ベースのオープンソース・エコシステムです。

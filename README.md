@@ -19,7 +19,7 @@ Install the core (Laravel already set up):
 [![Total Downloads](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![Latest Stable Version](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![License](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gp247net/core)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247net/core)
 
 ## About GP247
 GP247 is an open-source ecosystem on Laravel for building business web applications.
