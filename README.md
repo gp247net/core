@@ -9,14 +9,13 @@
 
 > 🌐 **Language:** [🇻🇳 Tiếng Việt](./README_vi.md) · 🇬🇧 English (current) · [🇯🇵 日本語](./README_ja.md)
 
-[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
-
 Install the core (Laravel already set up):
 
 > composer require gp247/core
 
 [Home page](https://gp247.net) | [Official documentation](https://github.com/gp247net/gp247-docs) | [Official agent skills](https://github.com/gp247net/gp247-skills) | [Official fanpage](https://www.facebook.com/GP247.official/)
 
+[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
 [![Total Downloads](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![Latest Stable Version](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![License](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)

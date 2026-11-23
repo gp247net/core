@@ -9,14 +9,13 @@
 
 > 🌐 **言語:** [🇻🇳 Tiếng Việt](./README_vi.md) · [🇬🇧 English](./README.md) · 🇯🇵 日本語（現在）
 
-[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
-
 core のインストール（Laravel が既にある場合）：
 
 > composer require gp247/core
 
 [ホーム](https://gp247.net) | [公式ドキュメント](https://github.com/gp247net/gp247-docs) | [公式エージェントスキル](https://github.com/gp247net/gp247-skills) | [公式ファンページ](https://www.facebook.com/GP247.official/)
 
+[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
 [![総ダウンロード数](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![最新の安定版](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![ライセンス](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)

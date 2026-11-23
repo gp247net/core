@@ -9,14 +9,13 @@
 
 > 🌐 **Ngôn ngữ:** 🇻🇳 Tiếng Việt (hiện tại) · [🇬🇧 English](./README.md) · [🇯🇵 日本語](./README_ja.md)
 
-[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
-
 Cài đặt core (khi đã có laravel):
 
 > composer require gp247/core
 
 [Trang chủ](https://gp247.net) | [Tài liệu chính thức](https://github.com/gp247net/gp247-docs) | [Skill agent chính thức](https://github.com/gp247net/gp247-skills) | [Fanpage chính thức](https://www.facebook.com/GP247.official/)
 
+[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
 [![Tổng lượt tải](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![Phiên bản ổn định mới nhất](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![Giấy phép](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
