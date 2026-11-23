@@ -9,6 +9,8 @@
 
 > 🌐 **Ngôn ngữ:** 🇻🇳 Tiếng Việt (hiện tại) · [🇬🇧 English](./README.md) · [🇯🇵 日本語](./README_ja.md)
 
+[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
+
 Cài đặt core (khi đã có laravel):
 
 > composer require gp247/core

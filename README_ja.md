@@ -9,6 +9,8 @@
 
 > 🌐 **言語:** [🇻🇳 Tiếng Việt](./README_vi.md) · [🇬🇧 English](./README.md) · 🇯🇵 日本語（現在）
 
+[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
+
 core のインストール（Laravel が既にある場合）：
 
 > composer require gp247/core
