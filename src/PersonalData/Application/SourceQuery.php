@@ -40,6 +40,15 @@ final class SourceQuery
 
     /**
      * @param PersonalDataSource $source
+     * @return bool Whether the source's table exists on this site.
+     */
+    public static function sourceExists(PersonalDataSource $source): bool
+    {
+        return self::db()->getSchemaBuilder()->hasTable($source->physicalTable());
+    }
+
+    /**
+     * @param PersonalDataSource $source
      * @param DataSubject        $subject
      * @return Builder Rows of the source that belong to the subject.
      */
@@ -56,7 +65,7 @@ final class SourceQuery
      */
     private static function build(PersonalDataSource $source, DataSubject $subject, int $depth): Builder
     {
-        $query = self::db()->table(GP247_DB_PREFIX . $source->table);
+        $query = self::db()->table($source->physicalTable());
         foreach ($source->equals() as $column => $value) {
             $query->where($column, $value);
         }

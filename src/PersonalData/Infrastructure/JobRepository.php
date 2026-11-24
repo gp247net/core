@@ -126,6 +126,19 @@ final class JobRepository
     }
 
     /**
+     * @param string $kind
+     * @param string $customerId
+     * @return string|null Id of an unfinished job of this kind for this customer.
+     */
+    public function activeFor(string $kind, string $customerId): ?string
+    {
+        $id = $this->table()->where('kind', $kind)->where('subject_customer_id', $customerId)
+            ->whereIn('status', self::ACTIVE)->orderBy('created_at')->value('id');
+
+        return $id === null ? null : (string) $id;
+    }
+
+    /**
      * @return string|null Id of an active job whose lease is free or expired.
      */
     public function nextRunnable(): ?string

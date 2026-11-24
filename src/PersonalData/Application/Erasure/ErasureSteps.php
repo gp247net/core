@@ -51,7 +51,7 @@ final class ErasureSteps
     {
         $tables = [];
         foreach (PersonalDataRegistry::sources() as $source) {
-            if (SourceQuery::exists($source->table)) {
+            if (SourceQuery::sourceExists($source)) {
                 $tables[] = $source->table;
             }
         }
@@ -140,7 +140,7 @@ final class ErasureSteps
         }
         $keys = array_map(fn (array $r) => $r[$source->key], $rows);
         if ($source->rowRule() === RowRule::Delete) {
-            SourceQuery::db()->table(GP247_DB_PREFIX . $source->table)->whereIn($source->key, $keys)->delete();
+            SourceQuery::db()->table($source->physicalTable())->whereIn($source->key, $keys)->delete();
         } else {
             $this->anonymiser->apply($source, $keys, KnownValues::of((array) $cursor['known']));
         }

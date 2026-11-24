@@ -6,8 +6,9 @@ use GP247\Core\PersonalData\Domain\DataSubject;
 
 /**
  * What the site holds about one subject: rows per declared source, and every email known for a
- * customer (the account's addresses plus those typed on its orders), so guest orders placed with
- * the same address are found too.
+ * customer from the columns a package declares as the customer's own (identity emails — e.g. the
+ * account's address, never an address typed on an order, which may be someone else's), so guest
+ * orders placed with that address are found too.
  *
  * @aidlc-unit personal-data-registry
  * @aidlc-story US-personal-data-registry-subject-lookup
@@ -29,7 +30,7 @@ final class SubjectLookup
         $customerOnly = DataSubject::customer($subject->customerId);
         $emails = [];
         foreach (PersonalDataRegistry::sources() as $source) {
-            if ($source->emailColumns() === [] || !SourceQuery::exists($source->table)) {
+            if ($source->emailColumns() === [] || !SourceQuery::sourceExists($source)) {
                 continue;
             }
             foreach ($source->emailColumns() as $column) {
@@ -51,7 +52,7 @@ final class SubjectLookup
     {
         $out = [];
         foreach (PersonalDataRegistry::sources() as $source) {
-            if (!SourceQuery::exists($source->table)) {
+            if (!SourceQuery::sourceExists($source)) {
                 continue;
             }
             $out[] = [

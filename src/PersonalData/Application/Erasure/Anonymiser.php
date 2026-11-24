@@ -31,7 +31,7 @@ final class Anonymiser
         if ($keys === []) {
             return 0;
         }
-        $table = GP247_DB_PREFIX . $source->table;
+        $table = $source->physicalTable();
         $db = SourceQuery::db();
         $constant = [];
         $scrub = [];

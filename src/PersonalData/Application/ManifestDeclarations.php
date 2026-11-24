@@ -21,6 +21,10 @@ use GP247\Core\PersonalData\Domain\SubjectLink;
  *   ]
  *
  * A broken entry is reported and skipped — one extension's typo must not stop the site.
+ * Extensions that are disabled or uninstalled (their tables kept) are read too: their data must
+ * not escape an erasure. An entry may not name a table of the platform: those are declared by
+ * core / front / shop, and a manifest pointing at them (e.g. admin accounts by email) could
+ * erase unrelated data.
  *
  * @aidlc-unit personal-data-registry
  * @aidlc-story US-personal-data-registry-declare-sources
@@ -28,16 +32,21 @@ use GP247\Core\PersonalData\Domain\SubjectLink;
  */
 final class ManifestDeclarations
 {
+    /** Table name prefixes reserved to the platform. */
+    private const RESERVED_PREFIXES = ['admin_', 'api_', 'personal_data_', 'personal_access_tokens'];
+
     /**
      * @return array<string, PersonalDataSource> Keyed by table.
      */
     public static function read(): array
     {
         $out = [];
+        $platform = self::platformTables();
         foreach (DataGroupRegistry::extensionManifests() as $id => $manifest) {
             foreach ((array) ($manifest['personalData'] ?? []) as $entry) {
                 try {
                     $source = self::parse(is_array($entry) ? $entry : [], (string) $id);
+                    self::assertNotPlatform($source->table, $platform);
                     $out[$source->table] = $source;
                 } catch (\Throwable $e) {
                     if (function_exists('gp247_report')) {
@@ -48,6 +57,37 @@ final class ManifestDeclarations
         }
 
         return $out;
+    }
+
+    /**
+     * @param string       $table
+     * @param list<string> $platform Tables declared by the platform for backups.
+     * @return void
+     * @throws \InvalidArgumentException When the table belongs to the platform.
+     */
+    public static function assertNotPlatform(string $table, array $platform): void
+    {
+        foreach (self::RESERVED_PREFIXES as $prefix) {
+            if (str_starts_with($table, $prefix)) {
+                throw new \InvalidArgumentException('Table reserved to the platform: ' . $table);
+            }
+        }
+        if (in_array($table, $platform, true)) {
+            throw new \InvalidArgumentException('Table reserved to the platform: ' . $table);
+        }
+    }
+
+    /**
+     * @return list<string> Tables core / front / shop declared in their backup groups.
+     */
+    private static function platformTables(): array
+    {
+        $tables = (array) config('gp247-config.backup.excluded_tables', []);
+        foreach ((array) config('gp247-config.backup.data_groups', []) as $group) {
+            $tables = array_merge($tables, (array) ($group['tables'] ?? []));
+        }
+
+        return array_values(array_unique(array_map('strval', $tables)));
     }
 
     /**

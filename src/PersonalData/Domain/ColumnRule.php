@@ -30,7 +30,8 @@ final class ColumnRule
 
     /**
      * @param string       $kind
-     * @param list<string> $keys Dot paths for scrubJson.
+     * @param list<string> $keys scrubJson: dot paths emptied; known values are also removed from
+     *                           every other string value (keys and numbers are left alone).
      */
     private function __construct(public readonly string $kind, public readonly array $keys = [])
     {
@@ -40,15 +41,12 @@ final class ColumnRule
      * @param string       $kind
      * @param list<string> $keys
      * @return self
-     * @throws \InvalidArgumentException When the kind is unknown or scrubJson has no key.
+     * @throws \InvalidArgumentException When the kind is unknown.
      */
     public static function of(string $kind, array $keys = []): self
     {
         if (!in_array($kind, self::KINDS, true)) {
             throw new \InvalidArgumentException('Unknown column rule: ' . $kind);
-        }
-        if ($kind === self::SCRUB_JSON && $keys === []) {
-            throw new \InvalidArgumentException('scrubJson needs at least one key');
         }
 
         return new self($kind, array_values(array_map('strval', $keys)));

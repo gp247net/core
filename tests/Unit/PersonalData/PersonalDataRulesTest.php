@@ -39,14 +39,36 @@ class PersonalDataRulesTest extends TestCase
 
     public function test_a_numeric_value_is_not_replaced_inside_a_longer_number(): void
     {
-        $known = KnownValues::of(['70000']);
+        $known = KnownValues::of(['700000']);
 
-        $this->assertSame('Postcode [deleted], total 1700000', $known->scrub('Postcode 70000, total 1700000'));
+        $this->assertSame('Postcode [deleted], total 17000000', $known->scrub('Postcode 700000, total 17000000'));
     }
 
     public function test_text_values_match_without_case(): void
     {
         $this->assertSame('Mail [deleted]', KnownValues::of(['an@example.com'])->scrub('Mail AN@Example.com'));
+    }
+
+    public function test_accented_text_matches_without_case(): void
+    {
+        $this->assertSame('Giao cho [deleted]', KnownValues::of(['Trần Đức'])->scrub('Giao cho TRẦN ĐỨC'));
+    }
+
+    public function test_a_short_number_is_never_a_known_value(): void
+    {
+        $this->assertSame([], KnownValues::of(['100', '12-34'])->all());
+        $this->assertSame('qty 100', KnownValues::of(['100'])->scrub('qty 100'));
+    }
+
+    public function test_json_keys_and_numbers_are_kept_and_only_string_values_are_scrubbed(): void
+    {
+        $json = (string) json_encode(['access_token' => 'tok-1', 'amount' => 100, 'payer' => ['name' => 'Ken Sato']]);
+
+        $out = json_decode(JsonScrubber::scrub($json, [], KnownValues::of(['Ken', 'Ken Sato'])), true);
+
+        $this->assertSame('tok-1', $out['access_token']);
+        $this->assertSame(100, $out['amount']);
+        $this->assertSame('[deleted]', $out['payer']['name']);
     }
 
     public function test_json_paths_are_emptied_in_objects_and_in_every_element_of_a_list(): void
@@ -109,6 +131,20 @@ class PersonalDataRulesTest extends TestCase
         $this->assertSame(['author_email'], $source->emailColumns());
         $this->assertSame('Plugins/ProductRating', $source->owner());
         $this->assertSame(30, $source->sortOrder());
+    }
+
+    public function test_an_extension_cannot_declare_a_table_of_the_platform(): void
+    {
+        foreach ([['admin_user', []], ['personal_access_tokens', []], ['shop_order', ['shop_order']]] as [$table, $platform]) {
+            try {
+                ManifestDeclarations::assertNotPlatform($table, $platform);
+                $this->fail($table . ' accepted');
+            } catch (\InvalidArgumentException $e) {
+                $this->assertStringContainsString($table, $e->getMessage());
+            }
+        }
+        ManifestDeclarations::assertNotPlatform('shop_discount_customer', ['shop_order']);
+        $this->addToAssertionCount(1);
     }
 
     public function test_a_manifest_entry_with_an_unknown_rule_is_refused(): void

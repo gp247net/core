@@ -46,6 +46,9 @@ final class ErasureService
      */
     public function blockers(DataSubject $subject): array
     {
+        // WHY expand: a guest order placed with the customer's email is erased with the
+        // customer, so an open one must block too.
+        $subject = $this->lookup->expand($subject);
         $out = [];
         foreach (PersonalDataRegistry::blockers() as $blocker) {
             foreach ($blocker->blockers($subject) as $reason) {
@@ -73,6 +76,14 @@ final class ErasureService
         }
         if (!self::ready()) {
             throw new \RuntimeException('Run php artisan gp247:update before erasing personal data.');
+        }
+        if ($subject->customerId !== null) {
+            // WHY: two admins (or two clicks) must not start a second erasure of the same
+            // customer while one runs — the second caller follows the running one instead.
+            $running = $this->jobs->activeFor('erase', $subject->customerId);
+            if ($running !== null) {
+                return new ErasureOutcome($this->runner->status($running), $running, (string) ($this->jobs->find($running)->erasure_id ?? ''));
+            }
         }
         $blockers = $this->blockers($subject);
         if ($blockers !== []) {
@@ -107,6 +118,45 @@ final class ErasureService
     public function status(string $jobId): string
     {
         return $this->runner->status($jobId);
+    }
+
+    /**
+     * @param string      $jobId
+     * @param DataSubject $subject
+     * @return bool Whether the job erases this subject (a screen must not drive another one's job).
+     */
+    public function isJobFor(string $jobId, DataSubject $subject): bool
+    {
+        $job = $this->jobs->find($jobId);
+
+        return $job !== null && $subject->customerId !== null && (string) $job->subject_customer_id === $subject->customerId;
+    }
+
+    /**
+     * @param string $jobId
+     * @return array{done: int, total: int} Steps finished out of all steps (each declared table
+     *         is read once, then erased once), for a progress line on screen.
+     */
+    public function progress(string $jobId): array
+    {
+        $job = $this->jobs->find($jobId);
+        if ($job === null) {
+            return ['done' => 0, 'total' => 0];
+        }
+        $cursor = $this->jobs->cursor($job);
+        if ($cursor === []) {
+            // WHY: the cursor is emptied when the job ends.
+            return ['done' => 1, 'total' => 1];
+        }
+        $tables = count((array) ($cursor['tables'] ?? []));
+        $index = (int) ($cursor['index'] ?? 0);
+        $done = match ($cursor['phase'] ?? null) {
+            ErasureSteps::COLLECT => $index,
+            ErasureSteps::ERASE => $tables + $index,
+            default => 2 * $tables,
+        };
+
+        return ['done' => min($done, 2 * $tables), 'total' => 2 * $tables];
     }
 
     /**

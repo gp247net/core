@@ -37,10 +37,24 @@ final class PersonalDataLanguage
             'admin.personal_data.deleted_marker' => ['Deleted customer', 'Khách đã xoá', '削除済みの顧客'],
             'admin.personal_data.status.running' => ['Erasing… :done of :total steps', 'Đang xoá… :done / :total bước', '削除中… :done / :total'],
             'admin.personal_data.status.done' => ['The customer and their personal data were erased.', 'Đã xoá khách hàng và dữ liệu cá nhân của khách.', '顧客と個人データを削除しました。'],
-            'admin.personal_data.status.failed' => ['The erasure stopped on an error. It will be retried; if it keeps failing, check the system log.', 'Việc xoá dừng vì lỗi. Hệ thống sẽ thử lại; nếu vẫn lỗi, hãy xem nhật ký hệ thống.', 'エラーで削除が止まりました。再試行されます。失敗が続く場合はシステムログを確認してください。'],
+            'admin.personal_data.status.failed' => ['The erasure stopped on an error. Click Delete again to continue where it stopped; if it keeps failing, check the system log.', 'Việc xoá dừng vì lỗi. Bấm Xoá lại để làm tiếp phần còn lại; nếu vẫn lỗi, hãy xem nhật ký hệ thống.', 'エラーで削除が止まりました。もう一度「削除」を押すと続きから処理します。失敗が続く場合はシステムログを確認してください。'],
             'admin.personal_data.source.login_failures' => ['Failed sign-ins', 'Lần đăng nhập sai', 'ログイン失敗'],
             'admin.personal_data.not_ready' => ['Run php artisan gp247:update first.', 'Hãy chạy php artisan gp247:update trước.', '先に php artisan gp247:update を実行してください。'],
         ];
+    }
+
+    /**
+     * @param string|array<string, string> $label A source label: a language key, or texts by locale.
+     * @return string The text for the current locale (then English, then the first text given).
+     */
+    public static function label(string|array $label): string
+    {
+        if (is_string($label)) {
+            return $label === '' ? '' : (string) gp247_language_render($label);
+        }
+        $locale = app()->getLocale();
+
+        return (string) ($label[$locale] ?? $label['en'] ?? (reset($label) ?: ''));
     }
 
     /**

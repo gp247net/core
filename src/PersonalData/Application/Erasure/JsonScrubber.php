@@ -6,8 +6,9 @@ use GP247\Core\PersonalData\Domain\KnownValues;
 
 /**
  * Empties the declared keys of a JSON document (dot paths, also inside lists: a path is applied
- * to every element of a list it meets). The document stays valid JSON; keys that do not exist
- * are left alone. Text that is not JSON is scrubbed as free text instead.
+ * to every element of a list it meets), then removes known values from every remaining string
+ * value. Keys and numbers are never changed, so gateway payloads and amounts stay readable and
+ * the document stays valid JSON. Text that is not JSON is scrubbed as free text instead.
  *
  * @aidlc-unit personal-data-registry
  * @aidlc-story US-personal-data-registry-free-text-scrub
@@ -34,8 +35,27 @@ final class JsonScrubber
         foreach ($paths as $path) {
             $data = self::clear($data, explode('.', $path));
         }
+        $data = self::scrubValues($data, $known);
 
         return (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * @param array<int|string, mixed> $data
+     * @param KnownValues              $known
+     * @return array<int|string, mixed> The data with known values removed from string values only.
+     */
+    private static function scrubValues(array $data, KnownValues $known): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $data[$key] = self::scrubValues($value, $known);
+            } elseif (is_string($value) && $value !== '') {
+                $data[$key] = $known->scrub($value);
+            }
+        }
+
+        return $data;
     }
 
     /**

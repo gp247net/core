@@ -18,6 +18,8 @@ namespace GP247\Core\PersonalData\Domain;
 final class KnownValues
 {
     public const MIN_LENGTH = 3;
+    /** A value made of digits only (house number, short code) is too common below this many digits. */
+    public const MIN_DIGITS = 6;
 
     /** @var list<string> */
     private array $values;
@@ -88,7 +90,8 @@ final class KnownValues
                 $text = (string) preg_replace('/(?<!\d)' . preg_quote($value, '/') . '(?!\d)/u', $replacement, $text);
                 continue;
             }
-            $text = str_ireplace($value, $replacement, $text);
+            // WHY /iu: str_ireplace folds ASCII only, so "ĐỨC" would not match "Đức".
+            $text = (string) preg_replace_callback('/' . preg_quote($value, '/') . '/iu', fn () => $replacement, $text);
         }
 
         return $text;
@@ -105,6 +108,10 @@ final class KnownValues
         }
         $text = trim((string) $value);
         if (mb_strlen($text) < self::MIN_LENGTH || $text === ColumnRule::MARKER) {
+            return [];
+        }
+        if (preg_match('/^[\d\s+().-]+$/', $text) === 1 && strlen((string) preg_replace('/\D+/', '', $text)) < self::MIN_DIGITS) {
+            // WHY: "100" as an address line would replace amounts and quantities elsewhere.
             return [];
         }
         $variants = [$text, htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'), htmlspecialchars($text, ENT_QUOTES, 'UTF-8')];

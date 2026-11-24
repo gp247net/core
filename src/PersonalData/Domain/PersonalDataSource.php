@@ -34,6 +34,7 @@ final class PersonalDataSource
     /** @var string|array<string, string> */
     private string|array $label = '';
     private string $owner = '';
+    private bool $prefixed = true;
 
     /**
      * @param string $table Logical table name (without GP247_DB_PREFIX).
@@ -189,6 +190,26 @@ final class PersonalDataSource
         $copy->owner = $owner;
 
         return $copy;
+    }
+
+    /**
+     * @return self The table is named without GP247_DB_PREFIX (a framework table such as
+     *              Sanctum's personal_access_tokens).
+     */
+    public function unprefixed(): self
+    {
+        $copy = clone $this;
+        $copy->prefixed = false;
+
+        return $copy;
+    }
+
+    /**
+     * @return string Table name in the database.
+     */
+    public function physicalTable(): string
+    {
+        return ($this->prefixed ? GP247_DB_PREFIX : '') . $this->table;
     }
 
     /**
