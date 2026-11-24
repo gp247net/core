@@ -30,14 +30,43 @@ class EncryptionKeyRotateTest extends TestCase
         return 'base64:' . base64_encode(random_bytes(32));
     }
 
+    /** @var string[] Keys the site itself reads its secrets with, in .env form ("base64:..."). */
+    private array $siteKeys = [];
+
+    /**
+     * Remember the site's own keys before a test swaps them.
+     *
+     * @return void
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $keys = gp247_secret_keys();
+        $this->siteKeys = array_map(
+            static fn (string $raw): string => 'base64:' . base64_encode($raw),
+            array_values(array_filter(array_merge([$keys['active']], $keys['previous'])))
+        );
+    }
+
+    /**
+     * Switch the active key; previous keys stay readable.
+     *
+     * Previous keys are given exactly as .env gives them ("base64:..."): raw key bytes passed
+     * through config would be trimmed by key parsing whenever a random key begins or ends with
+     * a whitespace byte. The site's own keys stay readable too, so secrets already in the test
+     * database do not make a rotation fail (every change is rolled back with the test). The
+     * rotation therefore rewrites those rows inside the test transaction: another suite writing
+     * the same database at the same time can hit a lock wait or deadlock.
+     *
+     * @param string   $active   Active key, "base64:...".
+     * @param string[] $previous Previous keys, "base64:...".
+     * @return void
+     */
     private function useKey(string $active, array $previous = []): void
     {
         config([
             'gp247-config.security.encryption_key' => $active,
-            'gp247-config.security.encryption_previous_keys' => array_map(
-                static fn (string $k): string => str_starts_with($k, 'base64:') ? (string) base64_decode(substr($k, 7)) : $k,
-                $previous
-            ),
+            'gp247-config.security.encryption_previous_keys' => array_merge($previous, $this->siteKeys),
         ]);
     }
 
@@ -70,7 +99,7 @@ class EncryptionKeyRotateTest extends TestCase
 
         // Real rotation: re-encrypt under key B.
         $exit = Artisan::call('gp247:encryption-key-rotate', ['--json' => true]);
-        $this->assertSame(0, $exit);
+        $this->assertSame(0, $exit, Artisan::output());
         $rawB = $this->raw('tok');
         $this->assertNotSame($rawA, $rawB);
         $this->assertStringStartsWith('enc:v2:', (string) $rawB);
@@ -80,6 +109,24 @@ class EncryptionKeyRotateTest extends TestCase
         // Idempotent: nothing left to convert.
         Artisan::call('gp247:encryption-key-rotate', ['--json' => true]);
         $this->assertSame($rawB, $this->raw('tok'));
+    }
+
+    public function test_a_previous_key_whose_bytes_start_or_end_with_whitespace_still_reads_old_rows(): void
+    {
+        // Raw key bytes may begin or end with any byte, whitespace included; the previous key
+        // is given exactly as .env gives it ("base64:..."), and must survive key parsing intact.
+        $keyA = 'base64:' . base64_encode("\0" . random_bytes(30) . "\n");
+        $keyB = $this->key();
+
+        $this->useKey($keyA);
+        AdminConfig::setConfigValue(self::GROUP, 'edge', GP247_STORE_ID_GLOBAL, 'PLAIN', 1);
+        $rawA = $this->raw('edge');
+
+        $this->useKey($keyB, [$keyA]);
+        $this->assertSame('PLAIN', gp247_secret_decrypt($rawA));
+
+        $this->assertSame(0, Artisan::call('gp247:encryption-key-rotate', ['--json' => true]), Artisan::output());
+        $this->assertSame('PLAIN', gp247_secret_decrypt((string) $this->raw('edge')));
     }
 
     public function test_rotate_fails_when_a_row_cannot_be_decrypted(): void
