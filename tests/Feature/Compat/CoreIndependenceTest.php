@@ -146,4 +146,66 @@ class CoreIndependenceTest extends TestCase
             'Admin-shell AdminUserContract binding must be registered by CoreServiceProvider (US-CMP-006)'
         );
     }
+
+    /**
+     * laravel/legacy-factories is abandoned (Composer warns on every install or
+     * update of a site) and nothing in core uses it, so core must not require it.
+     * Site code that still needs the Laravel 7 style factories can require the
+     * package itself.
+     */
+    public function test_core_composer_does_not_require_abandoned_legacy_factories(): void
+    {
+        $composer = json_decode(file_get_contents(base_path('vendor/gp247/core/composer.json')), true);
+
+        $this->assertArrayNotHasKey(
+            'laravel/legacy-factories',
+            $composer['require'] ?? [],
+            'gp247/core must not require the abandoned laravel/legacy-factories (US-CMP-006)'
+        );
+    }
+
+    /**
+     * Core code must not depend on the Laravel 7 style factory API that
+     * laravel/legacy-factories provides: the global factory() helper,
+     * $factory->define()/state()/after*() and the Illuminate\Database\Eloquent\Factory
+     * (or FactoryBuilder) classes. Class-based factories
+     * (Illuminate\Database\Eloquent\Factories\Factory) are fine.
+     */
+    public function test_core_source_does_not_use_legacy_factory_api(): void
+    {
+        $patterns = [
+            'global factory() helper' => '/(?<![\w$>:])factory\s*\(/',
+            '$factory->define/state/after*' => '/\$factory\s*->\s*(define|state|afterMaking|afterCreating)\b/',
+            'legacy Factory / FactoryBuilder class' => '/Illuminate\\\\Database\\\\Eloquent\\\\(Factory|FactoryBuilder)\b/',
+        ];
+
+        // WHY: preg_match() returns false on a broken pattern; without this the
+        // scan below would silently find nothing and the guard would always pass.
+        foreach ($patterns as $label => $regex) {
+            $this->assertNotFalse(preg_match($regex, ''), "Invalid guard pattern: {$label}");
+        }
+
+        $offenders = [];
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(base_path('vendor/gp247/core/src'), \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($files as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+            $source = file_get_contents($file->getPathname());
+            foreach ($patterns as $label => $regex) {
+                if (preg_match($regex, $source)) {
+                    $offenders[] = str_replace('\\', '/', $file->getPathname()) . " ({$label})";
+                }
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $offenders,
+            'gp247/core must not use the legacy factory API (US-CMP-006)'
+        );
+    }
 }
