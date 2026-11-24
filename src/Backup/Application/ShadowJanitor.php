@@ -47,15 +47,8 @@ final class ShadowJanitor
             return [];
         }
         $point = $this->ledger->undoPoint();
-        $live = $point !== null && is_string($point['undo_until'] ?? null) && now()->lt($point['undo_until']);
-        $keep = [];
-        foreach ($live ? (array) ($point['tables'] ?? []) : [] as $table) {
-            $keep[TableSwapper::name((string) $table, TableSwapper::OLD)] = true;
-        }
-        foreach ($this->ledger->quarantined() as $table) {
-            $keep[TableSwapper::name($table, TableSwapper::OLD)] = true;
-            $keep[TableSwapper::name($table, TableSwapper::SHADOW)] = true;
-        }
+        $live = self::isLive($point);
+        $keep = $this->kept($point);
 
         $swapper = new TableSwapper(new SchemaInspector(DB::connection(GP247_DB_CONNECTION)));
         $dropped = [];
@@ -77,19 +70,77 @@ final class ShadowJanitor
     }
 
     /**
-     * The cheap path for frequent callers (every idle slice): only when the undo window of the
-     * last restore has ended.
+     * The cheap path for frequent callers (every idle slice): sweeps when the undo window of the
+     * last restore has ended, or when copies exist that the live undo point does not hold — left
+     * by an undone restore or by a restore that a newer one replaced as the undo point.
      *
      * @return list<string> Tables dropped.
+     *
+     * @aidlc-story US-backup-restore-table-restore
      */
     public function sweepExpired(): array
     {
         $point = $this->ledger->undoPoint();
-        if ($point === null || empty($point['tables']) || !is_string($point['undo_until'] ?? null) || now()->lt($point['undo_until'])) {
-            return [];
+        if ($point !== null && !empty($point['tables']) && !self::isLive($point)) {
+            return $this->sweep();
         }
 
-        return $this->sweep();
+        return $this->hasStrayCopies($point) ? $this->sweep() : [];
+    }
+
+    /**
+     * WHY: once undone, or replaced as the undo point, a restore's copies are no longer "expired"
+     * by any date, so before 2026-11-24 they stayed until the next restore and went into every
+     * full backup. A copy holding a site trigger is never dropped, so it does not count here —
+     * otherwise every idle slice would sweep and log the same failure again.
+     *
+     * @param array<string, mixed>|null $point Undo point of the last table-replacing restore.
+     * @return bool A copy exists that neither the live undo point nor the quarantine keeps.
+     */
+    private function hasStrayCopies(?array $point): bool
+    {
+        $schema = new SchemaInspector(DB::connection(GP247_DB_CONNECTION));
+        // Cheap test first: one table listing; most sites have no copy at all.
+        $candidates = array_filter(array_keys($schema->tables()), fn ($name) => TableSwapper::isCopy((string) $name));
+        if ($candidates === []) {
+            return false;
+        }
+        $keep = $this->kept($point);
+        foreach ((new TableSwapper($schema))->copies($this->rawTables()) as $copy) {
+            if (!isset($keep[$copy]) && $schema->triggersOn($copy) === []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed>|null $point
+     * @return bool The undo point still allows an undo.
+     */
+    private static function isLive(?array $point): bool
+    {
+        return $point !== null && is_string($point['undo_until'] ?? null) && now()->lt($point['undo_until']);
+    }
+
+    /**
+     * @param array<string, mixed>|null $point
+     * @return array<string, true> Copies that are never dropped now: the old tables of a live undo
+     *                             point, and both copies of quarantined tables.
+     */
+    private function kept(?array $point): array
+    {
+        $keep = [];
+        foreach (self::isLive($point) ? (array) ($point['tables'] ?? []) : [] as $table) {
+            $keep[TableSwapper::name((string) $table, TableSwapper::OLD)] = true;
+        }
+        foreach ($this->ledger->quarantined() as $table) {
+            $keep[TableSwapper::name($table, TableSwapper::OLD)] = true;
+            $keep[TableSwapper::name($table, TableSwapper::SHADOW)] = true;
+        }
+
+        return $keep;
     }
 
     /**

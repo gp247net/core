@@ -3,6 +3,7 @@
 namespace GP247\Core\Backup\Application;
 
 use GP247\Core\Backup\Domain\DataGroup;
+use GP247\Core\Backup\Infrastructure\Database\TableSwapper;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -19,6 +20,9 @@ use Illuminate\Support\Facades\Schema;
  * declared name matches the prefixed table first, then an unprefixed table of that name.
  * Undeclared unprefixed tables may belong to another application sharing the database, so
  * they are never taken — {@see unassignedRaw()} lists them for warnings (BK-2 decision #3).
+ *
+ * The copies a restore makes (T__bko, T__bkr — {@see TableSwapper::isCopy()}) are not site data:
+ * they belong to no group, never to "Other", and are not reported as undeclared.
  *
  * @aidlc-unit backup-engine
  * @aidlc-story US-backup-engine-data-groups
@@ -196,10 +200,13 @@ final class DataGroupRegistry
             return $this->resolved;
         }
 
-        $existing = array_values((array) ($this->tableLister)());
+        // WHY: a restore copy sitting in "Other" went into every full backup (2026-11-24: a backup
+        // nearly doubled in size after one restore) and inflated the "other tables" count.
+        $notCopy = static fn ($t) => !TableSwapper::isCopy((string) $t);
+        $existing = array_values(array_filter((array) ($this->tableLister)(), $notCopy));
         $usable = array_flip(array_diff($existing, $this->excluded));
         // A prefixed table wins over an unprefixed one of the same name.
-        $rawExisting = array_values(array_filter((array) ($this->rawTableLister)(), fn ($t) => !isset($usable[$t])));
+        $rawExisting = array_values(array_filter((array) ($this->rawTableLister)(), fn ($t) => $notCopy($t) && !isset($usable[$t])));
         $rawUsable = array_flip(array_diff($rawExisting, $this->excluded));
         $claims = [];
         $members = [];
