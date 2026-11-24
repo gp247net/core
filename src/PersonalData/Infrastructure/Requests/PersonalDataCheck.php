@@ -4,6 +4,7 @@ namespace GP247\Core\PersonalData\Infrastructure\Requests;
 
 use GP247\Core\AdminShell\Domain\AdminAlertCheck;
 use GP247\Core\AdminShell\Infrastructure\AdminAlert;
+use GP247\Core\PersonalData\Application\Export\ExportService;
 use GP247\Core\PersonalData\Application\ReapplyService;
 use GP247\Core\PersonalData\Application\Requests\RequestScheduler;
 use GP247\Core\PersonalData\Application\Requests\UndeclaredSources;
@@ -11,7 +12,8 @@ use GP247\Core\Support\Health\HealthText;
 
 /**
  * "System alerts" and `gp247:doctor` check of personal data: an erasure that failed (critical),
- * requests past their due date, tables of customer data nobody declared (warnings). Throws while
+ * requests past their due date, tables of customer data nobody declared, no ZIP support for data
+ * packages (warnings). Throws while
  * the tables do not exist yet, so the registry skips it instead of showing it as passed.
  *
  * @aidlc-unit personal-data-requests
@@ -61,6 +63,10 @@ final class PersonalDataCheck implements AdminAlertCheck
                 'undeclared: ' . implode(', ', array_slice($tables, 0, 10)) . (count($tables) > 10 ? ' …' : ''),
                 ...$fix
             );
+        }
+
+        if (!ExportService::zipAvailable()) {
+            return AdminAlert::warning($this->key(), HealthText::t('admin.alerts.personal_data_no_zip'), 'PHP zip extension missing: data packages cannot be built');
         }
 
         return AdminAlert::ok($this->key(), HealthText::t('admin.alerts.personal_data_ok'));

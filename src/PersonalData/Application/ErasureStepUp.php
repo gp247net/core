@@ -13,7 +13,7 @@ use GP247\Core\Support\StepUp\StepUpGate;
  * attempt (passed, refused, throttled) leaves a row in the admin operation log.
  *
  * @aidlc-unit personal-data-registry
- * @aidlc-story US-customer-privacy-admin-delete-complete
+ * @aidlc-story US-customer-privacy-admin-delete-complete, US-customer-privacy-self-export
  * @aidlc-adr personal-data-registry_shared-step-up, customer-privacy_admin-delete-flow
  */
 final class ErasureStepUp
@@ -35,6 +35,24 @@ final class ErasureStepUp
             audit: static function (string $event, string $result, array $context): void {
                 PersonalDataAudit::record($event, $result, $context);
             },
+        ));
+    }
+
+    /**
+     * The same gate for a customer acting on their own data (download it, later erase it): the
+     * customer types their sign-in password; five wrong tries lock it for a while.
+     *
+     * @param \Closure(): mixed $user Resolves the signed-in customer (web guard or API token).
+     * @return StepUpGate
+     */
+    public static function customer(\Closure $user): StepUpGate
+    {
+        return new StepUpGate(new StepUpContext(
+            user: $user,
+            audience: 'customer',
+            sessionKey: self::SESSION_KEY . '_customer',
+            seconds: self::SECONDS,
+            throttlePrefix: 'personal-data-step-up-customer:',
         ));
     }
 }

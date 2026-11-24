@@ -40,6 +40,21 @@ class PrivacySettingsAndInstallTest extends TestCase
         return DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . $table);
     }
 
+    public function test_the_permission_covers_the_screen_and_the_package_download_under_it_also_on_a_site_installed_before(): void
+    {
+        $db = DB::connection(GP247_DB_CONNECTION);
+        PersonalDataInstaller::ensure($db);
+        $this->rows('admin_permission')->where('slug', PersonalDataInstaller::PERMISSION_SLUG)
+            ->update(['http_uri' => 'ANY::' . GP247_ADMIN_PREFIX . '/personal_data_requests']);
+
+        PersonalDataInstaller::ensure($db);
+
+        $permission = \GP247\Core\Models\AdminPermission::where('slug', PersonalDataInstaller::PERMISSION_SLUG)->first();
+        $this->assertSame(PersonalDataInstaller::permissionUri(GP247_ADMIN_PREFIX), $permission->http_uri);
+        $this->assertTrue($permission->passesFor('GET', GP247_ADMIN_PREFIX . '/personal_data_requests', GP247_ADMIN_PREFIX . '/personal_data_requests'));
+        $this->assertTrue($permission->passesFor('GET', GP247_ADMIN_PREFIX . '/personal_data_requests/download/{export}/{token}', GP247_ADMIN_PREFIX . '/personal_data_requests/download/01J0000000000000000000000A/abc'));
+    }
+
     public function test_installing_twice_gives_one_permission_assigned_to_no_role_one_menu_item_and_the_default_settings(): void
     {
         $db = DB::connection(GP247_DB_CONNECTION);

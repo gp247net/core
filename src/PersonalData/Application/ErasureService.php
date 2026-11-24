@@ -97,6 +97,10 @@ final class ErasureService
 
             return [$jobId, $erasureId];
         });
+        if ($subject->customerId !== null) {
+            // WHY: a package of the customer's data made before the erasure must not outlive it.
+            app(\GP247\Core\PersonalData\Application\Export\ExportService::class)->discardFor($subject->customerId);
+        }
         $status = $runNow ? $this->runner->runSlice($jobId) : JobRepository::QUEUED;
 
         return new ErasureOutcome($status, $jobId, $erasureId);

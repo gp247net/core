@@ -39,6 +39,7 @@ final class PrivacyRequests
      * @param ErasureService    $erasures
      * @param JobRepository     $jobs
      * @param ErasureLedger     $ledger
+     * @param PrivacyExports    $exports
      */
     public function __construct(
         private readonly RequestRepository $requests,
@@ -47,6 +48,7 @@ final class PrivacyRequests
         private readonly ErasureService $erasures,
         private readonly JobRepository $jobs,
         private readonly ErasureLedger $ledger,
+        private readonly PrivacyExports $exports,
     ) {
     }
 
@@ -106,6 +108,10 @@ final class PrivacyRequests
     public function execute(string $requestId, array $actor): array
     {
         $request = $this->mustFind($requestId);
+        if ((string) $request->kind !== RequestKind::Erase->value) {
+            // WHY: running or retrying a data package request must never erase the customer.
+            throw new \DomainException('Only an erasure request can be run');
+        }
         // WHY first: a request cancelled or completed meanwhile (a stale screen) must not reach
         // any side effect below.
         RequestTransitions::assertAllowed(RequestStatus::from((string) $request->status), RequestStatus::Processing);
@@ -237,6 +243,11 @@ final class PrivacyRequests
      */
     private function reconcile(object $request, array $system): void
     {
+        if ((string) $request->kind === RequestKind::Export->value) {
+            $this->exports->reconcile($request, $system);
+
+            return;
+        }
         if ($request->job_id === null || (string) $request->job_id === '') {
             // WHY: claimed, then the process died before the erasure was created.
             if ($request->executed_at === null || now()->diffInMinutes($request->executed_at, true) >= self::START_GRACE_MINUTES) {

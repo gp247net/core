@@ -57,6 +57,10 @@ final class RequestScheduler
         }
         $requests = app(RequestRepository::class);
         app(RequestLog::class)->prune($requests);
+        if (\GP247\Core\PersonalData\Application\Export\ExportService::ready()) {
+            // WHY here: packages downloaded or past their 24 hours leave the server without cron.
+            app(\GP247\Core\PersonalData\Application\Export\ExportService::class)->prune();
+        }
 
         return app(PrivacyRequests::class)->startDue();
     }

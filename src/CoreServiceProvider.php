@@ -290,6 +290,11 @@ class CoreServiceProvider extends ServiceProvider
             \GP247\Core\PersonalData\Application\Events\PersonalDataErased::class,
             [\GP247\Core\PersonalData\Application\Requests\PrivacyRequests::class, 'erased']
         );
+        // A data package request closes when its package is ready (US-customer-privacy-self-export).
+        \Illuminate\Support\Facades\Event::listen(
+            \GP247\Core\PersonalData\Application\Events\PersonalDataExportReady::class,
+            [\GP247\Core\PersonalData\Application\Requests\PrivacyExports::class, 'ready']
+        );
         // "Personal data" tab of the Configuration hub, Administrators only (US-personal-data-requests-settings).
         \GP247\Core\AdminShell\Support\SettingsHubTabRegistry::register(
             key: 'personal_data',

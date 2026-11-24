@@ -3,17 +3,18 @@
 namespace GP247\Core\PersonalData\Application\Erasure;
 
 use GP247\Core\Backup\Application\SliceBudget;
+use GP247\Core\PersonalData\Application\Export\ExportSteps;
 use GP247\Core\PersonalData\Infrastructure\JobRepository;
 use Illuminate\Support\Str;
 
 /**
- * Runs one slice of an erasure job: takes the lease, advances the steps within the time
+ * Runs one slice of a personal data job (erasure, erasure applied again, data package): takes the lease, advances the steps within the time
  * budget (the cursor is saved after every chunk), releases the lease. A request that dies
  * mid-slice loses at most one chunk; the next slice continues from the saved cursor. Three
  * failed attempts mark the job failed (the ledger entry stays, so it can be run again).
  *
  * @aidlc-unit personal-data-registry
- * @aidlc-story US-personal-data-registry-erase-anonymise
+ * @aidlc-story US-personal-data-registry-erase-anonymise, US-personal-data-registry-export-package
  * @aidlc-adr personal-data-registry_erasure-job
  */
 final class ErasureJobRunner
@@ -23,10 +24,14 @@ final class ErasureJobRunner
 
     /**
      * @param JobRepository $jobs
-     * @param ErasureSteps  $steps
+     * @param ErasureSteps  $steps       Erase and reapply jobs.
+     * @param ExportSteps   $exportSteps Data package jobs.
      */
-    public function __construct(private readonly JobRepository $jobs, private readonly ErasureSteps $steps)
-    {
+    public function __construct(
+        private readonly JobRepository $jobs,
+        private readonly ErasureSteps $steps,
+        private readonly ExportSteps $exportSteps,
+    ) {
     }
 
     /**
@@ -53,13 +58,15 @@ final class ErasureJobRunner
 
                 return JobRepository::FAILED;
             }
-            $cursor = $this->steps->advance(
+            // WHY one runner for every kind: one lease, one attempt counter, one resume path.
+            $steps = (string) $job->kind === JobRepository::KIND_EXPORT ? $this->exportSteps : $this->steps;
+            $cursor = $steps->advance(
                 $cursor,
                 microtime(true) + $budget,
                 fn (array $c) => $this->jobs->save($jobId, $owner, $c),
             );
         } catch (\Throwable $e) {
-            $this->fail($jobId, $owner, $cursor, (int) $job->attempts, $e);
+            $this->fail($jobId, $owner, $cursor, (int) $job->attempts, $e, (string) $job->kind);
 
             return $this->status($jobId);
         }
@@ -88,22 +95,24 @@ final class ErasureJobRunner
      * @param array<string, mixed> $cursor
      * @param int                  $attempts
      * @param \Throwable           $e
+     * @param string               $kind Job kind (erase, reapply, export).
      * @return void
      */
-    private function fail(string $jobId, string $owner, array $cursor, int $attempts, \Throwable $e): void
+    private function fail(string $jobId, string $owner, array $cursor, int $attempts, \Throwable $e, string $kind): void
     {
         $final = $attempts + 1 >= self::MAX_ATTEMPTS;
+        $what = $kind === JobRepository::KIND_EXPORT ? 'Data package' : 'Erasure';
         // WHY a fixed message: the exception text may quote a value being erased (SQL error).
         $this->jobs->release(
             $jobId,
             $owner,
             $final ? JobRepository::FAILED : JobRepository::RUNNING,
             $cursor === [] ? null : $cursor,
-            $final ? 'Erasure stopped after repeated errors' : 'Erasure error, will retry',
+            $final ? $what . ' stopped after repeated errors' : $what . ' error, will retry',
             failedAttempt: true,
         );
         if (function_exists('gp247_report')) {
-            gp247_report('Personal data erasure job ' . $jobId . ' failed: ' . get_class($e) . ' at ' . basename($e->getFile()) . ':' . $e->getLine());
+            gp247_report('Personal data ' . strtolower($what) . ' job ' . $jobId . ' failed: ' . get_class($e) . ' at ' . basename($e->getFile()) . ':' . $e->getLine());
         }
     }
 }

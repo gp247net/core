@@ -24,6 +24,7 @@ final class JobRepository
     public const DONE = 'done';
     public const FAILED = 'failed';
     public const ACTIVE = [self::QUEUED, self::RUNNING];
+    public const KIND_EXPORT = 'export';
 
     /**
      * @param string               $kind     erase | reapply
@@ -123,6 +124,18 @@ final class JobRepository
             $values['attempts'] = DB::raw('attempts + 1');
         }
         $this->table()->where('id', $id)->where('lease_owner', $owner)->update($values);
+    }
+
+    /**
+     * Stop a job that must not finish (its subject is being erased).
+     *
+     * @param string $id
+     * @return void
+     */
+    public function cancel(string $id): void
+    {
+        $this->table()->where('id', $id)->whereIn('status', self::ACTIVE)
+            ->update(['status' => self::FAILED, 'cursor' => null, 'error' => 'Cancelled', 'lease_owner' => null, 'lease_until' => null, 'updated_at' => now()]);
     }
 
     /**

@@ -37,6 +37,12 @@ final class PersonalDataInstaller
             // WHY insertOrIgnore: unique (key, store_id) keeps what the owner already chose.
             $db->table($p . 'admin_config')->insertOrIgnore(PrivacySettings::defaultRows());
         }
+        if ($schema->hasTable($p . 'admin_permission')) {
+            // WHY: the first version covered the screen only, not the package download under it.
+            $db->table($p . 'admin_permission')->where('slug', self::PERMISSION_SLUG)
+                ->where('http_uri', 'ANY::' . ($adminPrefix ?? GP247_ADMIN_PREFIX) . '/' . self::SCREEN_PATH)
+                ->update(['http_uri' => self::permissionUri($adminPrefix ?? GP247_ADMIN_PREFIX)]);
+        }
         if ($schema->hasTable($p . 'admin_permission') && !$db->table($p . 'admin_permission')->where('slug', self::PERMISSION_SLUG)->exists()) {
             $db->table($p . 'admin_permission')->insertOrIgnore([
                 'name' => self::PERMISSION_NAME,
@@ -60,10 +66,11 @@ final class PersonalDataInstaller
 
     /**
      * @param string $prefix Admin URL prefix.
-     * @return string RBAC http_uri of the screen (list, actions of the Livewire screen).
+     * @return string RBAC http_uri of the screen (list, actions of the Livewire screen) and of the
+     *         data package download under it.
      */
     public static function permissionUri(string $prefix): string
     {
-        return 'ANY::' . $prefix . '/' . self::SCREEN_PATH;
+        return 'ANY::' . $prefix . '/' . self::SCREEN_PATH . '/*';
     }
 }

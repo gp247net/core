@@ -32,6 +32,7 @@ final class CoreSources
         'personal_data_job' => 'erasure jobs; their cursor is encrypted and emptied when the job ends',
         'personal_data_request' => 'requests: customer id and salted email hash; the email of an open guest request is encrypted and removed when it closes',
         'personal_data_request_log' => 'request history: ids, events and administrators only',
+        'personal_data_export' => 'data packages: customer id and a hash of the download link; the file is removed after 24 hours',
     ];
 
     /**

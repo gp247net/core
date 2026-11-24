@@ -9,13 +9,17 @@ use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
 use GP247\Core\AdminShell\Infrastructure\HasStoreScopeUi;
 use GP247\Core\PersonalData\Application\ErasureStepUp;
 use GP247\Core\PersonalData\Application\PersonalDataRegistry;
+use GP247\Core\PersonalData\Application\Export\ExportService;
+use GP247\Core\PersonalData\Application\Requests\PrivacyExports;
 use GP247\Core\PersonalData\Application\Requests\PrivacyRequests;
 use GP247\Core\PersonalData\Application\Requests\RequestScheduler;
 use GP247\Core\PersonalData\Application\Requests\UndeclaredSources;
 use GP247\Core\PersonalData\Application\SubjectLookup;
 use GP247\Core\PersonalData\Domain\DataSubject;
+use GP247\Core\PersonalData\Domain\Requests\RequestKind;
 use GP247\Core\PersonalData\Domain\Requests\RequestSource;
 use GP247\Core\PersonalData\Domain\Requests\RequestStatus;
+use GP247\Core\PersonalData\Infrastructure\Export\ExportRepository;
 use GP247\Core\PersonalData\Infrastructure\PersonalDataLanguage;
 use GP247\Core\PersonalData\Infrastructure\Requests\RequestLog;
 use GP247\Core\PersonalData\Infrastructure\Requests\RequestRepository;
@@ -52,6 +56,7 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
     public ?string $selectedId = null;
 
     public string $createCustomer = '';
+    public string $createKind = 'erase';
     public string $createChannel = 'email';
     public string $createNote = '';
     public bool $createNow = false;
@@ -129,8 +134,14 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
 
             return;
         }
-        // WHY always: a waiting request still erases the customer when its wait ends.
+        // WHY always: a waiting request still erases the customer when its wait ends, and a data
+        // package shows everything the site holds about the customer.
         if (!$this->requireStepUp('createRequest')) {
+            return;
+        }
+        if ($this->createKind === RequestKind::Export->value) {
+            $this->createExport($found);
+
             return;
         }
         $result = app(PrivacyRequests::class)->adminErase(
@@ -149,6 +160,76 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
         $this->reset(['createCustomer', 'createNote', 'createNow', 'createFound', 'blockers']);
         $this->selectedId = $result['request_id'] ?? null;
         $this->notify('success', gp247_language_render('admin.personal_data.requests.created'));
+    }
+
+    /**
+     * @param array{id: string, store_id: string|null} $found
+     * @return void
+     */
+    private function createExport(array $found): void
+    {
+        try {
+            $result = app(PrivacyExports::class)->request((string) $found['id'], (string) ($found['store_id'] ?? $this->storeContext()), RequestSource::Admin, $this->actor());
+        } catch (\RuntimeException $e) {
+            $this->notify('error', gp247_language_render('admin.personal_data.requests.export_unavailable'));
+
+            return;
+        }
+        $this->reset(['createCustomer', 'createNote', 'createNow', 'createFound', 'blockers', 'createKind']);
+        $this->selectedId = $result['request_id'];
+        $this->notify('success', gp247_language_render($result['reused'] ? 'admin.personal_data.requests.export_reused' : 'admin.personal_data.requests.created'));
+    }
+
+    /**
+     * Build one more slice of the data package of a request (the detail polls while it builds).
+     *
+     * @param string $id
+     * @return void
+     */
+    public function advanceExport(string $id): void
+    {
+        $this->authorizeAction('update');
+        $package = $this->packageOf($id);
+        if ($package !== null && (string) $package->status === ExportRepository::BUILDING) {
+            app(ExportService::class)->continue((string) $package->id);
+        }
+    }
+
+    /**
+     * Download the data package of a request: a link for this administrator only, used once.
+     *
+     * @param string $id
+     * @return void
+     */
+    public function downloadExport(string $id): void
+    {
+        $this->authorizeAction('update');
+        $package = $this->packageOf($id);
+        if ($package === null || !$this->requireStepUp('downloadExport', [$id])) {
+            return;
+        }
+        $user = function_exists('admin') ? admin()->user() : null;
+        $token = $user === null ? null : app(ExportService::class)->issueToken((string) $package->id, 'admin:' . $user->id);
+        if ($token === null) {
+            $this->notify('error', gp247_language_render('admin.personal_data.requests.link_invalid'));
+
+            return;
+        }
+        $this->redirect(gp247_route_admin('admin.personal_data_requests.download', ['export' => (string) $package->id, 'token' => $token]));
+    }
+
+    /**
+     * @param string $id Request id (within the admin's store).
+     * @return object|null The data package of an export request.
+     */
+    private function packageOf(string $id): ?object
+    {
+        $request = $this->findScoped($id);
+        if ($request === null || (string) $request->kind !== RequestKind::Export->value) {
+            return null;
+        }
+
+        return app(ExportRepository::class)->forRequest($id);
     }
 
     /**
@@ -244,7 +325,7 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
      */
     protected function stepUpActions(): array
     {
-        return ['createRequest', 'executeRequest', 'retryRequest'];
+        return ['createRequest', 'executeRequest', 'retryRequest', 'downloadExport'];
     }
 
     /**
@@ -293,7 +374,7 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
 
     /**
      * @param string $id
-     * @return array{request: object, log: list<object>, data: list<array{label: string, rows: int, rule: string}>, customer: array<string, mixed>|null}|null
+     * @return array{request: object, log: list<object>, data: list<array{label: string, rows: int, rule: string}>, customer: array<string, mixed>|null, package: object|null}|null
      */
     private function detail(string $id): ?array
     {
@@ -312,7 +393,9 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
             }
         }
 
-        return ['request' => $request, 'log' => app(RequestLog::class)->forRequest($id), 'data' => $data, 'customer' => $customer];
+        $package = (string) $request->kind === RequestKind::Export->value ? app(ExportRepository::class)->forRequest($id) : null;
+
+        return ['request' => $request, 'log' => app(RequestLog::class)->forRequest($id), 'data' => $data, 'customer' => $customer, 'package' => $package];
     }
 
     /**

@@ -13,7 +13,9 @@ use Illuminate\Database\Schema\Builder;
  *  - personal_data_erasure:        the erasure ledger (backed up, never replaced by a restore);
  *  - personal_data_erasure_email:  salted hashes of the erased emails, one row per address;
  *  - personal_data_request:        export / erase requests and where they stand (never replaced by a restore);
- *  - personal_data_request_log:    append-only history of every request (never replaced by a restore).
+ *  - personal_data_request_log:    append-only history of every request (never replaced by a restore);
+ *  - personal_data_export:         data packages being built or waiting to be downloaded (temporary,
+ *                                  the file is removed once downloaded or after 24 hours).
  *
  * @aidlc-unit personal-data-registry
  * @aidlc-story US-personal-data-registry-erasure-ledger, US-personal-data-registry-erase-anonymise
@@ -26,6 +28,7 @@ final class PersonalDataSchema
     public const ERASURE_EMAIL = 'personal_data_erasure_email';
     public const REQUEST = 'personal_data_request';
     public const REQUEST_LOG = 'personal_data_request_log';
+    public const EXPORT = 'personal_data_export';
 
     /**
      * @param string $logical
@@ -128,6 +131,28 @@ final class PersonalDataSchema
                 $table->index('created_at', 'pdrl_created_idx');
             });
         }
+        if (!$schema->hasTable(self::table(self::EXPORT))) {
+            $schema->create(self::table(self::EXPORT), function (Blueprint $table) {
+                $table->string('id', 26)->primary();
+                $table->string('request_id', 26)->nullable();
+                $table->string('customer_id', 64)->nullable();
+                $table->string('job_id', 26)->nullable();
+                $table->string('audience', 10)->default('customer');
+                $table->string('status', 20);
+                $table->unsignedSmallInteger('downloads')->default(0);
+                $table->unsignedBigInteger('file_size')->nullable();
+                $table->char('token_hash', 64)->nullable();
+                $table->string('token_owner', 80)->nullable();
+                $table->timestamp('created_at')->nullable();
+                $table->timestamp('ready_at')->nullable();
+                $table->timestamp('expires_at')->nullable();
+                $table->timestamp('downloaded_at')->nullable();
+                $table->timestamp('cleaned_at')->nullable();
+                $table->timestamp('updated_at')->nullable();
+                $table->index(['customer_id', 'created_at'], 'pdx_customer_idx');
+                $table->index(['status', 'expires_at'], 'pdx_status_idx');
+            });
+        }
     }
 
     /**
@@ -139,6 +164,7 @@ final class PersonalDataSchema
      */
     public static function drop(Builder $schema): void
     {
+        $schema->dropIfExists(self::table(self::EXPORT));
         $schema->dropIfExists(self::table(self::REQUEST_LOG));
         $schema->dropIfExists(self::table(self::REQUEST));
         $schema->dropIfExists(self::table(self::ERASURE_EMAIL));

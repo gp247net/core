@@ -27,6 +27,10 @@
                 <div class="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-200" data-testid="personal-data-requests-create-form">
                     <p data-testid="personal-data-requests-create-found">{{ $createFound['email'] ?: ('#' . $createFound['id']) }} @if ($createFound['name']) — {{ $createFound['name'] }} @endif</p>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <select wire:model.live="createKind" data-testid="personal-data-requests-create-kind" class="{{ $inputCls }}">
+                            <option value="erase">{{ gp247_language_render('admin.personal_data.requests.kind.erase') }}</option>
+                            <option value="export">{{ gp247_language_render('admin.personal_data.requests.kind.export') }}</option>
+                        </select>
                         <select wire:model="createChannel" data-testid="personal-data-requests-create-channel" class="{{ $inputCls }}">
                             @foreach ($channels as $channel)
                                 <option value="{{ $channel }}">{{ gp247_language_render('admin.personal_data.requests.channel.' . $channel) }}</option>
@@ -35,12 +39,17 @@
                         <input type="text" wire:model="createNote" maxlength="1000" data-testid="personal-data-requests-create-note"
                             placeholder="{{ gp247_language_render('admin.personal_data.requests.note') }}" class="{{ $inputCls }}">
                     </div>
-                    <label class="inline-flex items-center gap-2">
-                        <x-gp247::checkbox wire:model="createNow" value="1" data-testid="personal-data-requests-create-now" />
-                        {{ gp247_language_render('admin.personal_data.requests.now') }}
-                    </label>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.personal_data.requests.now_hint') }}</p>
-                    <x-gp247::button size="sm" variant="danger" wire:click="createRequest" data-testid="personal-data-requests-create-submit">{{ gp247_language_render('admin.personal_data.requests.create') }}</x-gp247::button>
+                    @if ($createKind === 'export')
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.personal_data.requests.export_hint') }}</p>
+                        <x-gp247::button size="sm" variant="primary" wire:click="createRequest" data-testid="personal-data-requests-create-submit">{{ gp247_language_render('admin.personal_data.requests.create_export') }}</x-gp247::button>
+                    @else
+                        <label class="inline-flex items-center gap-2">
+                            <x-gp247::checkbox wire:model="createNow" value="1" data-testid="personal-data-requests-create-now" />
+                            {{ gp247_language_render('admin.personal_data.requests.now') }}
+                        </label>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.personal_data.requests.now_hint') }}</p>
+                        <x-gp247::button size="sm" variant="danger" wire:click="createRequest" data-testid="personal-data-requests-create-submit">{{ gp247_language_render('admin.personal_data.requests.create') }}</x-gp247::button>
+                    @endif
                 </div>
             @endif
             @if ($blockers !== [])
@@ -116,8 +125,19 @@
                             @endforeach
                         </ul>
                     @endif
+                    @if ($detail['package'])
+                        @php($package = $detail['package'])
+                        <div data-testid="personal-data-requests-package" @if ($package->status === 'building') wire:poll.3s="advanceExport('{{ $req->id }}')" @endif>
+                            <p>{{ gp247_language_render('admin.personal_data.requests.package.' . $package->status) }}
+                                @if ($package->status === 'ready' && $package->expires_at) · {{ gp247_language_render('admin.personal_data.requests.package_expires', ['at' => $package->expires_at]) }} @endif</p>
+                            @if ($package->status === 'ready')
+                                <x-gp247::button size="sm" variant="primary" class="mt-2" wire:click="downloadExport('{{ $req->id }}')" data-testid="personal-data-requests-download">{{ gp247_language_render('admin.personal_data.requests.download') }}</x-gp247::button>
+                            @endif
+                        </div>
+                    @endif
                     <div class="flex flex-wrap gap-2">
-                        @if (in_array($req->status, ['waiting', 'on_hold'], true))
+                        @if ($req->kind !== 'erase')
+                        @elseif (in_array($req->status, ['waiting', 'on_hold'], true))
                             <x-gp247::button size="sm" variant="danger" wire:click="executeRequest('{{ $req->id }}')" data-testid="personal-data-requests-execute">{{ gp247_language_render('admin.personal_data.requests.execute') }}</x-gp247::button>
                             <x-gp247::button size="sm" variant="secondary" wire:click="cancelRequest('{{ $req->id }}')" data-testid="personal-data-requests-cancel">{{ gp247_language_render('admin.personal_data.requests.cancel') }}</x-gp247::button>
                         @elseif ($req->status === 'failed')

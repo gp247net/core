@@ -65,6 +65,8 @@ return [
             'backup_archive', 'backup_job', 'backup_download_token',
             // Erasure jobs may hold, encrypted, the values being erased (US-personal-data-registry-erase-anonymise).
             'personal_data_job',
+            // Data packages waiting to be downloaded: temporary, and their download links must not come back.
+            'personal_data_export',
             // Laravel's own temporary tables (relevant when GP247_DB_PREFIX is empty).
             'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs', 'password_reset_tokens',
         ],

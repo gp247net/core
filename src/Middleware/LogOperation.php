@@ -25,7 +25,7 @@ class LogOperation
             $adminLogExcept = self::exceptKeys();
             $log = [
                 'user_id' => admin()->user()->id,
-                'path' => substr($request->path(), 0, 255),
+                'path' => substr(self::loggedPath($request), 0, 255),
                 'method' => $request->method(),
                 'ip' => gp247_get_real_ip_client(),
                 'user_agent' => $request->header('User-Agent'),
@@ -44,10 +44,21 @@ class LogOperation
     }
 
     /**
-     * @param Request $request
+     * The request path as written to the log: a `{token}` route parameter (single-use download
+     * links) is masked, so the log never holds a link that could be used.
      *
-     * @return bool
+     * @param Request $request
+     * @return string
      */
+    public static function loggedPath(Request $request): string
+    {
+        $path = $request->path();
+        $route = $request->route();
+        $token = is_object($route) && method_exists($route, 'parameter') ? $route->parameter('token') : null;
+
+        return is_string($token) && $token !== '' ? str_replace($token, '***', $path) : $path;
+    }
+
     /**
      * Input keys that never reach the operation log: credentials and secrets
      * (the secret admin_config field names included) plus whatever the site adds
@@ -72,6 +83,11 @@ class LogOperation
         ), fn ($k) => $k !== ''));
     }
 
+    /**
+     * @param Request $request
+     *
+     * @return bool
+     */
     protected function shouldLogOperation(Request $request)
     {
         return config('gp247-config.admin.admin_log')
