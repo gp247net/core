@@ -113,7 +113,7 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
-                @if (!$extensions)
+                @if (!$extensions && empty($arrOrphans))
                     <tr>
                         <td colspan="8" class="px-4 py-12 text-center">
                             <i class="fas fa-box-open mb-3 text-3xl text-gray-300 dark:text-gray-600"></i>
@@ -390,6 +390,40 @@
                         @endif
                     @endforeach
                 @endif
+                {{-- Installed in the database but the source is gone (site moved without the folder):
+                     no AppConfig to read, so a row of its own with the only action that works without
+                     the source — Forget (US-PLG-orphan-forget-registration). Never hidden by the filter. --}}
+                @foreach (($arrOrphans ?? []) as $orphanKey => $orphanVersion)
+                    <tr class="bg-amber-50 dark:bg-amber-900/20" data-testid="plugin-manager-extension-orphan-row-{{ $orphanKey }}">
+                        <td class="px-4 py-3">
+                            <i class="fas fa-exclamation-triangle text-xl text-amber-500"></i>
+                        </td>
+                        <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">{{ $orphanKey }}</td>
+                        <td class="px-4 py-3">
+                            <code class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-300">{{ $orphanKey }}</code>
+                        </td>
+                        <td class="px-4 py-3"><span class="gp247-ext-muted">—</span></td>
+                        <td class="px-4 py-3" colspan="3">
+                            <span title="{{ gp247_language_render('admin.extension.orphan_source_missing', ['key' => $orphanKey, 'version' => $orphanVersion ?? '?', 'type' => $groupType, 'cli_type' => $groupType === 'Templates' ? 'template' : 'plugin']) }}"
+                                class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                {{ gp247_language_render('admin.extension.orphan_badge') }} · {{ $orphanVersion ?? '?' }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex justify-end">
+                                <button type="button"
+                                    data-testid="plugin-manager-extension-forget-{{ $orphanKey }}"
+                                    title="{{ gp247_language_render('admin.extension.orphan_forget') }}"
+                                    onclick="extensionAction('forget', @js((string) $orphanKey))"
+                                    class="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                    <i class="fas fa-unlink text-xs"></i>
+                                    {{ gp247_language_render('admin.extension.orphan_forget') }}
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                @endforeach
                 @if ($groupType === 'Plugins')
                     {{-- Picked groups hide every row (US-PLG-config-code-filter) --}}
                     <tr x-show="$store.pluginConfigFilter?.empty() ?? false" style="display: none" data-testid="plugin-config-filter-empty">
@@ -575,6 +609,7 @@
     const _csrf  = @js(csrf_token());
     const _msgOk = @js(gp247_language_render('admin.msg_change_success'));
     const _msgConfirm = @js(gp247_language_render('action.action_confirm_warning'));
+    const _msgForget = @js(gp247_language_render('admin.extension.orphan_forget_confirm'));
 
     function notify(type, msg) {
         window.dispatchEvent(new CustomEvent('notify', { detail: { type, message: msg } }));
@@ -589,6 +624,9 @@
         if (action === 'delete' || action === 'remove') {
             if (!confirm(_msgConfirm)) return;
         }
+        if (action === 'forget') {
+            if (!confirm(_msgForget)) return;
+        }
 
         const urlMap = {
             install: _urls.install,
@@ -596,6 +634,7 @@
             disable: _urls.disable,
             delete:  _urls.uninstall,
             remove:  _urls.uninstall,
+            forget:  _urls.uninstall,
             applyData: _urls.applyData,
         };
 
@@ -605,6 +644,8 @@
         // The confirm() above is the screen's --purge: without it the folder of an extension
         // that is on disk but not installed could never be removed from the admin.
         if (action === 'remove') body.append('purge', '1');
+        // The confirm() above is the screen's --forget (orphan rows only).
+        if (action === 'forget') body.append('forget', '1');
         // Per-store enable/disable: scope the toggle to one store (list per-store mode).
         if (storeId !== undefined && storeId !== null && storeId !== '') body.append('store_id', storeId);
 

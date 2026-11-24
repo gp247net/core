@@ -22,6 +22,7 @@ namespace GP247\Core\Library;
  * @aidlc-story US-PLG-local-update-data-converge, US-PLG-005
  * @aidlc-adr plugin-manager_local-update-data-converge
  * @aidlc-adr plugin-manager_extension-update-fresh-process
+ * @aidlc-adr plugin-manager_orphan-forget-registration
  */
 class ExtensionDataUpdater
 {
@@ -82,6 +83,13 @@ class ExtensionDataUpdater
                 $results[] = $item + ['status' => 'skipped', 'msg' => 'files are older than the installed version'];
                 continue;
             }
+            $from = $marker !== null ? $marker['from'] : $item['from'];
+            $belowFloor = $this->belowFloor($from, $item['floor']);
+            if ($belowFloor !== null) {
+                gp247_report(msg: 'Extension data update skipped for '.$item['type'].'/'.$item['key'].': '.$belowFloor, channel: null);
+                $results[] = $item + ['status' => 'skipped', 'msg' => $belowFloor];
+                continue;
+            }
             if ($dryRun) {
                 $results[] = $item + ['status' => 'pending', 'msg' => 'would run update('.($item['from'] ?? 'null').')'];
                 continue;
@@ -95,7 +103,6 @@ class ExtensionDataUpdater
                 continue;
             }
 
-            $from = $marker !== null ? $marker['from'] : $item['from'];
             $response = $this->runHook($item['type'], $item['key'], $from);
             if (($response['error'] ?? 1) != 0) {
                 $msg = (string) ($response['msg'] ?? 'Update hook failed');
@@ -161,7 +168,7 @@ class ExtensionDataUpdater
      * with the recorded version and the manifest version.
      *
      * @param string|null $type
-     * @return array<int, array{type: string, key: string, from: ?string, to: string}>
+     * @return array<int, array{type: string, key: string, from: ?string, to: string, floor: string}>
      */
     private function candidates(?string $type): array
     {
@@ -188,11 +195,35 @@ class ExtensionDataUpdater
                     'key' => $key,
                     'from' => gp247_extension_installed_version($t, $key),
                     'to' => $to,
+                    'floor' => gp247_extension_min_update_from(is_array($manifest) ? $manifest : []),
                 ];
             }
         }
 
         return $items;
+    }
+
+    /**
+     * Why the recorded data is too old for the files on disk, or null when it may be updated.
+     *
+     * Same floor as a library update (gp247.json "minUpdateFrom"): the files of a much newer
+     * release — copied over an orphan, for instance — must not run their hook on data they
+     * do not support. A site that never recorded its version keeps rule 1a (no floor).
+     *
+     * @param string|null $from  Recorded data version.
+     * @param string      $floor Minimum version the manifest can update from ('' = none).
+     * @return string|null
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-local-update-data-converge
+     */
+    private function belowFloor(?string $from, string $floor): ?string
+    {
+        if ($from === null || $from === '' || $floor === '' || version_compare($from, $floor, '>=')) {
+            return null;
+        }
+
+        return 'data '.$from.' is older than '.$floor.', the oldest version these files can update from: install '.$floor.' (or a release between) first';
     }
 
     /**

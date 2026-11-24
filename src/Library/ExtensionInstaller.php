@@ -372,6 +372,12 @@ class ExtensionInstaller
             return ['error' => 0, 'msg' => 'Removed files for "'.$key.'" (was not installed)'];
         }
 
+        // An orphan (source gone) has no uninstall() to run: say how to get out of that
+        // state instead of "Method uninstall not found" (US-PLG-orphan-source-missing-notice).
+        if (!gp247_extension_source_exists($groupType, $key, true)) {
+            return $this->installedRefusal($groupType, $key);
+        }
+
         $class = $this->appConfigClass($groupType, $key);
         if (!$class || !method_exists($class, 'uninstall')) {
             return ['error' => 1, 'msg' => 'Method uninstall not found'];
@@ -391,6 +397,45 @@ class ExtensionInstaller
         }
 
         return is_array($response) ? $response : ['error' => 1, 'msg' => 'Unexpected uninstall response'];
+    }
+
+    /**
+     * Forget an orphaned extension: remove only the records core keeps for it, so it can be
+     * installed again like a new one. Its own data (tables, menus, language rows, settings,
+     * license) stays — only its uninstall() knows what that is, and its source is gone.
+     *
+     * @param string $groupType Plugins|Templates.
+     * @param string $key       Extension key.
+     * @return array{error: int, msg: string, detail?: string}
+     *
+     * @aidlc-unit plugin-manager
+     * @aidlc-story US-PLG-orphan-forget-registration
+     * @aidlc-adr plugin-manager_orphan-forget-registration
+     */
+    public function forgetOrphan(string $groupType, string $key): array
+    {
+        $groupType = $this->normalizeType($groupType);
+        if (!self::isValidKey($key)) {
+            return $this->invalidKey($key);
+        }
+        $reason = $this->blockReason($groupType, $key, 'uninstall');
+        if ($reason !== null) {
+            return ['error' => 1, 'msg' => $reason, 'detail' => 'blocked'];
+        }
+        // WHY registered keys, not check_installed(): a settings row of the group is not an extension.
+        if (!in_array($key, ExtensionRegistration::registeredKeys($groupType), true)) {
+            return ['error' => 1, 'msg' => 'Extension "'.$key.'" is not installed', 'detail' => 'not_found'];
+        }
+        if (gp247_extension_source_exists($groupType, $key, true)) {
+            $msg = $this->label('orphan_forget_has_source', '":key" still has its source on this site: use the regular uninstall.', ['key' => $key]);
+            return ['error' => 1, 'msg' => $msg, 'detail' => 'not_orphan_use_uninstall'];
+        }
+
+        ExtensionRegistration::forget($groupType, $key);
+        $this->afterUpdate();
+
+        $msg = $this->label('orphan_forgotten', '":key" is no longer registered. You can install it again like a new extension.', ['key' => $key]);
+        return ['error' => 0, 'msg' => $msg, 'detail' => 'orphan_forgotten'];
     }
 
     /**
@@ -670,12 +715,8 @@ class ExtensionInstaller
     {
         $groupType = $this->normalizeType($groupType);
         $orphans = [];
-        foreach (gp247_extension_get_installed(type: $groupType, active: false) as $key => $row) {
-            $key = (string) $key;
-            // WHY: the installed-version record shares the group but is not an extension.
-            if (($row->code ?? '') === 'extension_version' || !self::isValidKey($key)) {
-                continue;
-            }
+        // WHY registered keys only: version and settings rows share the group but are not extensions.
+        foreach (ExtensionRegistration::registeredKeys($groupType) as $key) {
             // WHY: admin-only listing — read the disk, not a memo another step of this request may have made stale.
             if (!gp247_extension_source_exists($groupType, $key, true)) {
                 $orphans[$key] = gp247_extension_installed_version($groupType, $key);
@@ -715,9 +756,7 @@ class ExtensionInstaller
         $version = gp247_extension_installed_version($groupType, $key);
         $msg = $this->label(
             'orphan_source_missing',
-            '":key" is installed in the database (data version :version) but this site has no source for it. GP247 does not install over existing data: '
-                .'copy app/GP247/:type/:key and public/GP247/:type/:key from the site this database came from (same version :version). '
-                .'If you can only copy app/, run "php artisan gp247:ext-publish --type=:cli_type --key=:key".',
+            ExtensionRegistration::ORPHAN_NOTICE_EN,
             ['key' => $key, 'version' => $version ?? '?', 'type' => $groupType, 'cli_type' => $groupType === 'Templates' ? 'template' : 'plugin']
         );
 

@@ -42,6 +42,10 @@ trait  ExtensionController
         // (US-PLG-local-update-data-converge).
         $arrDataPending = (new \GP247\Core\Library\ExtensionDataUpdater)->pending($this->groupType);
 
+        // Installed in the database but source missing (site moved without the folder): listed
+        // with a "Forget" way out, since they have no row of their own (US-PLG-orphan-forget-registration).
+        $arrOrphans = (new ExtensionInstaller)->orphans($this->groupType);
+
         // Per-store enable context (Plugins only). On a multi-store/marketplace site the
         // root admin can pick a store and toggle each storeScope=store plugin on/off for
         // just that store; single-store sites see no selector and behave exactly as before
@@ -76,6 +80,7 @@ trait  ExtensionController
                 "listUrlAction"       => $listUrlAction,
                 "arrUpdates"          => $arrUpdates,
                 "arrDataPending"      => $arrDataPending,
+                "arrOrphans"          => $arrOrphans,
                 "perStoreEnable"      => $perStoreEnable,
                 "storeList"           => $storeList,
                 "selectedStoreId"     => $selectedStoreId,
@@ -128,16 +133,22 @@ trait  ExtensionController
     }
 
     /**
-     * Uninstall an extension, or remove the files of one that is on disk but not installed.
+     * Uninstall an extension, remove the files of one that is on disk but not installed, or
+     * forget an orphan (installed, source missing).
      *
      * @return \Illuminate\Http\JsonResponse
      *
      * @aidlc-unit plugin-manager
      * @aidlc-story US-PLG-remove-not-installed
+     * @aidlc-story US-PLG-orphan-forget-registration
      */
     public function uninstall()
     {
-        $key = request('key');
+        $key = (string) request('key');
+        // Sent by the Forget button of an orphan row only after the admin confirmed (the CLI's --forget).
+        if (request('forget')) {
+            return response()->json((new ExtensionInstaller)->forgetOrphan($this->groupType, $key));
+        }
         $onlyRemoveData = (bool) request('onlyRemoveData');
         // Sent by the trash button only after the admin confirmed (the CLI's --purge).
         $purge = (bool) request('purge');
