@@ -5,6 +5,7 @@ namespace GP247\Core\PersonalData\Application\Requests;
 use GP247\Core\PersonalData\Application\ErasureLedger;
 use GP247\Core\PersonalData\Application\ErasureService;
 use GP247\Core\PersonalData\Application\Events\PersonalDataErased;
+use GP247\Core\PersonalData\Application\PersonalDataRegistry;
 use GP247\Core\PersonalData\Domain\DataSubject;
 use GP247\Core\PersonalData\Domain\Requests\RequestKind;
 use GP247\Core\PersonalData\Domain\Requests\RequestSource;
@@ -113,10 +114,15 @@ final class PrivacyRequests
             throw new \DomainException('Only an erasure request can be run');
         }
         // WHY first: a request cancelled or completed meanwhile (a stale screen) must not reach
-        // any side effect below.
-        RequestTransitions::assertAllowed(RequestStatus::from((string) $request->status), RequestStatus::Processing);
+        // any side effect below — and one not yet proven or approved never runs.
+        $from = RequestStatus::from((string) $request->status);
+        if (!in_array($from, [RequestStatus::Waiting, RequestStatus::OnHold, RequestStatus::Failed], true)) {
+            throw new \DomainException('This request cannot run from ' . $from->value);
+        }
+        RequestTransitions::assertAllowed($from, RequestStatus::Processing);
         $subject = $this->subjectOf($request);
-        $blockers = $this->erasures->blockers($subject);
+        $matchEmails = $this->matchesEmails($request);
+        $blockers = $this->erasures->blockers($subject, $matchEmails);
         if ($blockers !== []) {
             $this->hold($request, $actor, $blockers);
 
@@ -130,7 +136,7 @@ final class PrivacyRequests
             'executed_at' => now(),
         ]);
         try {
-            $outcome = $this->erasures->request($subject, $this->originOf($request), (string) ($actor['type'] ?? 'system'), isset($actor['id']) ? (string) $actor['id'] : null, runNow: false);
+            $outcome = $this->erasures->request($subject, $this->originOf($request), (string) ($actor['type'] ?? 'system'), isset($actor['id']) ? (string) $actor['id'] : null, runNow: false, matchEmails: $matchEmails, notify: $this->notifyAddress($request, $subject, $matchEmails));
         } catch (\Throwable $e) {
             $this->workflow->transition($request, RequestStatus::Failed, $actor, 'erasure_failed', ['error' => $e::class]);
             throw $e;
@@ -163,6 +169,50 @@ final class PrivacyRequests
             return;
         }
         $this->workflow->transition($request, RequestStatus::OnHold, $actor, null, ['blockers' => array_column($blockers, 'reason')], $next);
+    }
+
+    /**
+     * An administrator approves a guest erasure whose email was verified: it waits the days set
+     * for the site (the shopper may still call it off with the link in their email), then runs.
+     *
+     * @param string                                $requestId
+     * @param array{type: string, id?: string|null} $actor
+     * @return void
+     * @throws \DomainException When the request is not waiting for approval.
+     */
+    public function approve(string $requestId, array $actor): void
+    {
+        $request = $this->mustFind($requestId);
+        $runsAt = now()->addDays(PrivacySettings::waitDays());
+        $this->workflow->transition($request, RequestStatus::Waiting, $actor, null, [], ['wait_until' => $runsAt]);
+        $email = PrivacyNotices::emailOf($request);
+        if ($email !== null) {
+            PrivacyNotices::send(fn ($mail) => $mail->erasureScheduled($email, $requestId, $runsAt), (string) $request->store_id);
+        }
+    }
+
+    /**
+     * An administrator turns down a guest erasure; the shopper is told why.
+     *
+     * @param string                                $requestId
+     * @param array{type: string, id?: string|null} $actor
+     * @param string                                $reason
+     * @return void
+     * @throws \DomainException When the reason is empty or the request is not waiting for approval.
+     */
+    public function reject(string $requestId, array $actor, string $reason): void
+    {
+        $reason = mb_substr(trim($reason), 0, 500);
+        if ($reason === '') {
+            throw new \DomainException('A reason is required');
+        }
+        $request = $this->mustFind($requestId);
+        // WHY read first: closing the request removes the encrypted address.
+        $email = PrivacyNotices::emailOf($request);
+        $this->workflow->transition($request, RequestStatus::Rejected, $actor, $reason);
+        if ($email !== null) {
+            PrivacyNotices::send(fn ($mail) => $mail->rejected($email, $reason), (string) $request->store_id);
+        }
     }
 
     /**
@@ -291,6 +341,11 @@ final class PrivacyRequests
             return;
         }
         $this->workflow->transition($request, RequestStatus::Completed, ['type' => RequestLog::ACTOR_SYSTEM], null, ['rows' => $event->counts]);
+        // WHY only when the person asked: an erasure an administrator ran is announced by them.
+        $email = $event->emails[0] ?? null;
+        if ($email !== null && (string) $request->source !== RequestSource::Admin->value) {
+            PrivacyNotices::send(fn ($mail) => $mail->erased($email), (string) $request->store_id);
+        }
     }
 
     /**
@@ -362,7 +417,48 @@ final class PrivacyRequests
         if ($request->customer_id !== null && (string) $request->customer_id !== '') {
             return DataSubject::customer((string) $request->customer_id);
         }
+        $email = PrivacyNotices::emailOf($request);
+        if ((string) $request->source === RequestSource::Guest->value && $email !== null) {
+            return DataSubject::guest($email);
+        }
         throw new \DomainException('This request names no customer');
+    }
+
+    /**
+     * @param object      $request
+     * @param DataSubject $subject
+     * @param bool        $matchEmails
+     * @return string|null Where to say "your data is erased" (kept only by the erasure, never stored):
+     *                     the proven address of the person who asked; none when an administrator asked.
+     */
+    private function notifyAddress(object $request, DataSubject $subject, bool $matchEmails): ?string
+    {
+        $source = (string) $request->source;
+        if ($source === RequestSource::Guest->value) {
+            return $subject->emails[0] ?? null;
+        }
+        if (!$matchEmails || !in_array($source, [RequestSource::Customer->value, RequestSource::Api->value], true) || empty($request->customer_id)) {
+            return null;
+        }
+        $email = PersonalDataRegistry::findCustomer((string) $request->customer_id)['email'] ?? null;
+
+        return $email === null || $email === '' ? null : (string) $email;
+    }
+
+    /**
+     * @param object $request
+     * @return bool Whether rows found by the account's email are part of the erasure: always when an
+     *              administrator asked, only for a verified email when the customer asked (anyone can
+     *              sign up with someone else's address) — checked when the erasure runs.
+     */
+    private function matchesEmails(object $request): bool
+    {
+        if (!in_array((string) $request->source, [RequestSource::Customer->value, RequestSource::Api->value], true) || empty($request->customer_id)) {
+            return true;
+        }
+        $customer = PersonalDataRegistry::findCustomer((string) $request->customer_id);
+
+        return $customer !== null && ($customer['verified'] ?? false) === true;
     }
 
     /**

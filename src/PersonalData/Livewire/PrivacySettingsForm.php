@@ -10,7 +10,7 @@ use GP247\Core\PersonalData\Application\Requests\PrivacySettings;
 /**
  * "Personal data" tab of the Configuration hub: one policy for the whole site — how long an
  * erasure waits so the customer can change their mind (0–30 days), and after how many days an
- * unhandled request is overdue. Administrators only: the path is in administratorOnly(), and
+ * unhandled request is overdue, whether shoppers without an account may use the public request form. Administrators only: the path is in administratorOnly(), and
  * the form checks again because a hub tab is not opened through its own route.
  *
  * @aidlc-unit personal-data-requests
@@ -74,7 +74,7 @@ class PrivacySettingsForm extends ConfigForm
      */
     protected function keys(): array
     {
-        return [PrivacySettings::WAIT_DAYS, PrivacySettings::OVERDUE_DAYS];
+        return [PrivacySettings::WAIT_DAYS, PrivacySettings::OVERDUE_DAYS, PrivacySettings::GUEST_FORM];
     }
 
     /**
@@ -82,7 +82,7 @@ class PrivacySettingsForm extends ConfigForm
      */
     protected function fieldTypes(): array
     {
-        return [PrivacySettings::WAIT_DAYS => 'number', PrivacySettings::OVERDUE_DAYS => 'number'];
+        return [PrivacySettings::WAIT_DAYS => 'number', PrivacySettings::OVERDUE_DAYS => 'number', PrivacySettings::GUEST_FORM => 'toggle'];
     }
 
     /**
@@ -93,6 +93,7 @@ class PrivacySettingsForm extends ConfigForm
         return [
             PrivacySettings::WAIT_DAYS => (string) gp247_language_render('admin.personal_data.settings.erase_wait_days_hint'),
             PrivacySettings::OVERDUE_DAYS => (string) gp247_language_render('admin.personal_data.settings.overdue_days_hint'),
+            PrivacySettings::GUEST_FORM => (string) gp247_language_render('admin.personal_data.settings.guest_form_hint'),
         ];
     }
 

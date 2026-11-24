@@ -110,7 +110,7 @@ final class PersonalDataRegistry
 
     /**
      * @param string $idOrEmail
-     * @return array{id: string, email: string|null, name: string|null, store_id: string|null}|null The customer, or null
+     * @return array{id: string, email: string|null, name: string|null, store_id: string|null, verified?: bool}|null The customer, or null
      *         when none matches or no package resolves customers.
      */
     public static function findCustomer(string $idOrEmail): ?array

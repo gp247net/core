@@ -549,6 +549,13 @@ class CoreServiceProvider extends ServiceProvider
     {
         $this->restrictTrustedProxyHeaders();
 
+        // Emails of personal data requests: gp247/shop binds the real sender; without it nothing
+        // is sent (US-customer-privacy-customer-emails).
+        $this->app->bindIf(
+            \GP247\Core\PersonalData\Domain\Requests\PrivacyMailer::class,
+            \GP247\Core\PersonalData\Infrastructure\Requests\NullPrivacyMailer::class
+        );
+
         // admin-shell-rbac (ADR-001/002/005, merged 20260708T160000): container
         // bindings for the authorization core. Not gated on gp247-installed.txt -
         // no DB access here, same as Core's other bindings below.

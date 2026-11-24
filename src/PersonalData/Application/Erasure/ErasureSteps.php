@@ -64,9 +64,10 @@ final class ErasureSteps
     /**
      * @param DataSubject $subject
      * @param string      $erasureId
+     * @param string|null $notify    Address told when the erasure ends.
      * @return array<string, mixed> Cursor of a new erasure.
      */
-    public static function start(DataSubject $subject, string $erasureId): array
+    public static function start(DataSubject $subject, string $erasureId, ?string $notify = null): array
     {
         $tables = [];
         foreach (PersonalDataRegistry::sources() as $source) {
@@ -78,6 +79,7 @@ final class ErasureSteps
         return [
             'subject' => ['customer' => $subject->customerId, 'emails' => $subject->emails],
             'erasure' => $erasureId,
+            'notify' => $notify,
             'tables' => $tables,
             'phase' => self::COLLECT,
             'index' => 0,
@@ -288,7 +290,7 @@ final class ErasureSteps
                 // WHY caught: the data is erased and the ledger completed — a listener failing must
                 // not turn a finished erasure into a failed job (it is reported, by class only).
                 try {
-                    event(new PersonalDataErased((string) $cursor['erasure'], array_map('intval', (array) $cursor['counts'])));
+                    event(new PersonalDataErased((string) $cursor['erasure'], array_map('intval', (array) $cursor['counts']), empty($cursor['notify']) ? [] : [(string) $cursor['notify']]));
                 } catch (\Throwable $e) {
                     if (function_exists('gp247_report')) {
                         gp247_report('PersonalDataErased listener failed: ' . $e::class);
@@ -296,7 +298,7 @@ final class ErasureSteps
                 }
             }
 
-            return array_merge($cursor, ['phase' => self::DONE, 'known' => [], 'subject' => null]);
+            return array_merge($cursor, ['phase' => self::DONE, 'known' => [], 'subject' => null, 'notify' => null]);
         }
         if ($source->rowRule() === RowRule::Retain) {
             return $this->nextSource($cursor);

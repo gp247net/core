@@ -19,6 +19,7 @@ final class PrivacySettings
     public const WAIT_DAYS = 'personal_data_erase_wait_days';
     public const OVERDUE_DAYS = 'personal_data_overdue_days';
     public const NOT_CUSTOMER_TABLES = 'personal_data_not_customer_tables';
+    public const GUEST_FORM = 'personal_data_guest_form';
 
     public const DEFAULT_WAIT_DAYS = 3;
     public const DEFAULT_OVERDUE_DAYS = 20;
@@ -39,6 +40,14 @@ final class PrivacySettings
     public static function overdueDays(): int
     {
         return self::clampOverdue(self::read(self::OVERDUE_DAYS, (string) self::DEFAULT_OVERDUE_DAYS));
+    }
+
+    /**
+     * @return bool Whether shoppers without an account may ask for their data on the public form.
+     */
+    public static function guestFormEnabled(): bool
+    {
+        return self::read(self::GUEST_FORM, '1') === '1';
     }
 
     /**
@@ -96,6 +105,7 @@ final class PrivacySettings
         return [
             $row(self::WAIT_DAYS, (string) self::DEFAULT_WAIT_DAYS, 1),
             $row(self::OVERDUE_DAYS, (string) self::DEFAULT_OVERDUE_DAYS, 2),
+            $row(self::GUEST_FORM, '1', 3),
             $row(self::NOT_CUSTOMER_TABLES, '[]', 9),
         ];
     }

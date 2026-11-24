@@ -136,7 +136,14 @@
                         </div>
                     @endif
                     <div class="flex flex-wrap gap-2">
-                        @if ($req->kind !== 'erase')
+                        @if ($req->status === 'pending_approval')
+                            <div class="w-full space-y-2" data-testid="personal-data-requests-approval">
+                                <x-gp247::button size="sm" variant="danger" wire:click="approveRequest('{{ $req->id }}')" data-testid="personal-data-requests-approve">{{ gp247_language_render('admin.personal_data.requests.approve') }}</x-gp247::button>
+                                <input type="text" wire:model="rejectReason" maxlength="500" data-testid="personal-data-requests-reject-reason"
+                                    placeholder="{{ gp247_language_render('admin.personal_data.requests.reject_reason') }}" class="{{ $inputCls }}">
+                                <x-gp247::button size="sm" variant="secondary" wire:click="rejectRequest('{{ $req->id }}')" data-testid="personal-data-requests-reject">{{ gp247_language_render('admin.personal_data.requests.reject') }}</x-gp247::button>
+                            </div>
+                        @elseif ($req->kind !== 'erase')
                         @elseif (in_array($req->status, ['waiting', 'on_hold'], true))
                             <x-gp247::button size="sm" variant="danger" wire:click="executeRequest('{{ $req->id }}')" data-testid="personal-data-requests-execute">{{ gp247_language_render('admin.personal_data.requests.execute') }}</x-gp247::button>
                             <x-gp247::button size="sm" variant="secondary" wire:click="cancelRequest('{{ $req->id }}')" data-testid="personal-data-requests-cancel">{{ gp247_language_render('admin.personal_data.requests.cancel') }}</x-gp247::button>

@@ -11,6 +11,7 @@ use GP247\Core\PersonalData\Application\ErasureStepUp;
 use GP247\Core\PersonalData\Application\PersonalDataRegistry;
 use GP247\Core\PersonalData\Application\Export\ExportService;
 use GP247\Core\PersonalData\Application\Requests\PrivacyExports;
+use GP247\Core\PersonalData\Application\Requests\PrivacyNotices;
 use GP247\Core\PersonalData\Application\Requests\PrivacyRequests;
 use GP247\Core\PersonalData\Application\Requests\RequestScheduler;
 use GP247\Core\PersonalData\Application\Requests\UndeclaredSources;
@@ -65,6 +66,7 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
     /** @var list<array{reason: string, ref: string, label: string}> */
     public array $blockers = [];
     public bool $showUndeclared = false;
+    public string $rejectReason = '';
 
     /**
      * @return void
@@ -86,7 +88,7 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
      */
     public function operationLogHidden(): array
     {
-        return ['createCustomer', 'createFound', 'createNote', 'keyword'];
+        return ['createCustomer', 'createFound', 'createNote', 'keyword', 'rejectReason'];
     }
 
     /**
@@ -279,6 +281,51 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
     }
 
     /**
+     * Approve the erasure a shopper without an account asked for (email verified): it then waits
+     * the days set for the site, like any erasure.
+     *
+     * @param string $id
+     * @return void
+     */
+    public function approveRequest(string $id): void
+    {
+        $this->authorizeAction('update');
+        if ($this->findScoped($id) === null || !$this->requireStepUp('approveRequest', [$id])) {
+            return;
+        }
+        $this->report(function () use ($id) {
+            app(PrivacyRequests::class)->approve($id, $this->actor());
+
+            return ['status' => RequestStatus::Waiting->value];
+        });
+    }
+
+    /**
+     * Turn down a guest erasure; the reason is emailed to the shopper.
+     *
+     * @param string $id
+     * @return void
+     */
+    public function rejectRequest(string $id): void
+    {
+        $this->authorizeAction('update');
+        if ($this->findScoped($id) === null) {
+            return;
+        }
+        if (trim($this->rejectReason) === '') {
+            $this->notify('error', gp247_language_render('admin.personal_data.requests.reason_required'));
+
+            return;
+        }
+        $this->report(function () use ($id) {
+            app(PrivacyRequests::class)->reject($id, $this->actor(), $this->rejectReason);
+            $this->rejectReason = '';
+
+            return ['status' => RequestStatus::Rejected->value];
+        });
+    }
+
+    /**
      * Show the undeclared tables, read from the database now.
      *
      * @return void
@@ -325,7 +372,7 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
      */
     protected function stepUpActions(): array
     {
-        return ['createRequest', 'executeRequest', 'retryRequest', 'downloadExport'];
+        return ['createRequest', 'executeRequest', 'retryRequest', 'downloadExport', 'approveRequest'];
     }
 
     /**
@@ -384,9 +431,18 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
         }
         $data = [];
         $customer = null;
-        if ($request->customer_id !== null && !RequestStatus::from((string) $request->status)->isClosed()) {
+        $open = !RequestStatus::from((string) $request->status)->isClosed();
+        $subject = null;
+        if ($request->customer_id !== null && $open) {
             $customer = PersonalDataRegistry::findCustomer((string) $request->customer_id);
-            foreach (app(SubjectLookup::class)->counts(app(SubjectLookup::class)->expand(DataSubject::customer((string) $request->customer_id))) as $count) {
+            $subject = app(SubjectLookup::class)->expand(DataSubject::customer((string) $request->customer_id));
+        } elseif ($open && ($email = PrivacyNotices::emailOf($request)) !== null) {
+            // WHY shown: the administrator approving a guest erasure must see whose data it is.
+            $customer = ['id' => '', 'email' => $email, 'name' => null];
+            $subject = DataSubject::guest($email);
+        }
+        if ($subject !== null) {
+            foreach (app(SubjectLookup::class)->counts($subject) as $count) {
                 if ($count['rows'] > 0) {
                     $data[] = ['label' => PersonalDataLanguage::label($count['label']), 'rows' => (int) $count['rows'], 'rule' => (string) $count['rule']];
                 }
@@ -420,7 +476,9 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
      */
     private function scoped(): Builder
     {
-        $query = app(RequestRepository::class)->table();
+        // WHY: a submission of the public form is shown once it was looked up (it may be nothing).
+        $query = app(RequestRepository::class)->table()
+            ->where(fn (Builder $q) => $q->where('source', '!=', RequestSource::Guest->value)->orWhereNotNull('checked_at'));
         if (!$this->isRootScope()) {
             $query->where('store_id', (string) $this->storeContext());
         }

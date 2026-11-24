@@ -108,6 +108,16 @@ final class PersonalDataLanguage
             'admin.personal_data.requests.col.due_at' => ['Due', 'Hạn xử lý', '期限'],
             'admin.personal_data.requests.kind.export' => ['Export', 'Xuất dữ liệu', 'エクスポート'],
             'admin.personal_data.requests.kind.erase' => ['Erase', 'Xoá dữ liệu', '削除'],
+            'admin.personal_data.settings.guest_form' => ['Request form for shoppers without an account', 'Form yêu cầu cho khách không có tài khoản', 'アカウントのないお客様向けの請求フォーム'],
+            'admin.personal_data.settings.guest_form_hint' => [
+                'A public page where a guest shopper asks for, or asks to erase, the data of their orders (checked by email). Off, or with outgoing email off, the page does not exist.',
+                'Trang công khai để khách mua không tạo tài khoản xin tải hoặc xin xoá dữ liệu đơn hàng của mình (xác minh qua email). Tắt, hoặc khi site tắt gửi email, trang này không tồn tại.',
+                'アカウントを作らずに購入したお客様が、注文データのダウンロードや削除を申請できる公開ページです（メールで確認）。オフ、またはメール送信がオフのときはページがありません。',
+            ],
+            'admin.personal_data.requests.approve' => ['Approve the erasure', 'Duyệt xoá', '削除を承認'],
+            'admin.personal_data.requests.reject' => ['Turn down', 'Từ chối', '却下'],
+            'admin.personal_data.requests.reject_reason' => ['Reason (sent to the shopper)', 'Lý do (gửi cho khách)', '理由（お客様に送信されます）'],
+            'admin.personal_data.requests.reason_required' => ['Write the reason first.', 'Hãy nhập lý do trước.', '先に理由を入力してください。'],
             'admin.personal_data.requests.create_export' => ['Prepare the data package', 'Chuẩn bị gói dữ liệu', 'データパッケージを作成'],
             'admin.personal_data.requests.export_hint' => [
                 'A ZIP with everything the shop holds about the customer (JSON, CSV, a readable page). Downloadable once, for 24 hours; one package per customer per 24 hours.',

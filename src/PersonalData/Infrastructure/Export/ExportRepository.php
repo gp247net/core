@@ -26,6 +26,7 @@ final class ExportRepository
     public const FAILED = 'failed';
     public const AUDIENCE_CUSTOMER = 'customer';
     public const AUDIENCE_ADMIN = 'admin';
+    public const AUDIENCE_GUEST = 'guest';
     /** A download that breaks halfway must not cost the customer the package: a few tries, then gone. */
     public const MAX_DOWNLOADS = 3;
 
@@ -58,7 +59,7 @@ final class ExportRepository
             'id' => $id,
             'request_id' => $requestId,
             'customer_id' => $customerId,
-            'audience' => $audience === self::AUDIENCE_ADMIN ? self::AUDIENCE_ADMIN : self::AUDIENCE_CUSTOMER,
+            'audience' => in_array($audience, [self::AUDIENCE_ADMIN, self::AUDIENCE_GUEST], true) ? $audience : self::AUDIENCE_CUSTOMER,
             'status' => self::BUILDING,
             'created_at' => now(),
             'updated_at' => now(),

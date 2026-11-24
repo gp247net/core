@@ -42,13 +42,14 @@ final class ErasureService
 
     /**
      * @param DataSubject $subject
+     * @param bool        $matchEmails Rows found by the account's email are part of the erasure.
      * @return list<array{reason: string, ref: string, label: string}> Reasons not to erase now.
      */
-    public function blockers(DataSubject $subject): array
+    public function blockers(DataSubject $subject, bool $matchEmails = true): array
     {
         // WHY expand: a guest order placed with the customer's email is erased with the
         // customer, so an open one must block too.
-        $subject = $this->lookup->expand($subject);
+        $subject = $matchEmails ? $this->lookup->expand($subject) : $subject;
         $out = [];
         foreach (PersonalDataRegistry::blockers() as $blocker) {
             foreach ($blocker->blockers($subject) as $reason) {
@@ -65,11 +66,15 @@ final class ErasureService
      * @param string|null $actorGuard Guard of the person who asked (admin, customer), if any.
      * @param string|null $actorId
      * @param bool        $runNow     Run the first slice in this request.
+     * @param bool        $matchEmails Also erase rows found by the account's email (guest orders,
+     *                                 messages). False when the customer asked and their email is not
+     *                                 verified: anyone can sign up with someone else's address.
+     * @param string|null $notify      Address told when the erasure ends (carried by the job, encrypted, never stored elsewhere).
      * @return ErasureOutcome
      * @throws \InvalidArgumentException When the origin is unknown.
      * @throws \RuntimeException         When the feature tables are missing (site not updated).
      */
-    public function request(DataSubject $subject, string $origin, ?string $actorGuard = null, ?string $actorId = null, bool $runNow = true): ErasureOutcome
+    public function request(DataSubject $subject, string $origin, ?string $actorGuard = null, ?string $actorId = null, bool $runNow = true, bool $matchEmails = true, ?string $notify = null): ErasureOutcome
     {
         if (!in_array($origin, self::ORIGINS, true)) {
             throw new \InvalidArgumentException('Unknown erasure origin');
@@ -85,14 +90,14 @@ final class ErasureService
                 return new ErasureOutcome($this->runner->status($running), $running, (string) ($this->jobs->find($running)->erasure_id ?? ''));
             }
         }
-        $blockers = $this->blockers($subject);
+        $blockers = $this->blockers($subject, $matchEmails);
         if ($blockers !== []) {
             return new ErasureOutcome(ErasureOutcome::BLOCKED, blockers: $blockers);
         }
-        $subject = $this->lookup->expand($subject);
-        [$jobId, $erasureId] = SourceQuery::db()->transaction(function () use ($subject, $origin, $actorGuard, $actorId) {
+        $subject = $matchEmails ? $this->lookup->expand($subject) : $subject;
+        [$jobId, $erasureId] = SourceQuery::db()->transaction(function () use ($subject, $origin, $actorGuard, $actorId, $notify) {
             $erasureId = $this->ledger->open($subject->customerId, $subject->emails, $origin);
-            $jobId = $this->jobs->create('erase', $origin, $subject->customerId, $actorGuard, $actorId, $erasureId, ErasureSteps::start($subject, $erasureId));
+            $jobId = $this->jobs->create('erase', $origin, $subject->customerId, $actorGuard, $actorId, $erasureId, ErasureSteps::start($subject, $erasureId, $notify));
             $this->ledger->attachJob($erasureId, $jobId);
 
             return [$jobId, $erasureId];

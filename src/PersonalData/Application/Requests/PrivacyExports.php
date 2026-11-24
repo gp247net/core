@@ -4,6 +4,7 @@ namespace GP247\Core\PersonalData\Application\Requests;
 
 use GP247\Core\PersonalData\Application\Events\PersonalDataExportReady;
 use GP247\Core\PersonalData\Application\Export\ExportService;
+use GP247\Core\PersonalData\Application\PersonalDataRegistry;
 use GP247\Core\PersonalData\Domain\DataSubject;
 use GP247\Core\PersonalData\Domain\Requests\RequestKind;
 use GP247\Core\PersonalData\Domain\Requests\RequestSource;
@@ -121,7 +122,76 @@ final class PrivacyExports
         if ($request === null || (string) $request->status !== RequestStatus::Processing->value) {
             return;
         }
+        // WHY before closing: closing the request removes the encrypted address of a guest.
+        $notify = $this->readyNotice($request, $event->exportId);
         $this->workflow->transition($request, RequestStatus::Completed, ['type' => RequestLog::ACTOR_SYSTEM], null, ['rows' => $event->counts]);
+        if ($notify !== null) {
+            PrivacyNotices::send($notify, (string) $request->store_id);
+        }
+    }
+
+    /**
+     * A shopper without an account proved their address: their package is prepared (rows found by
+     * that address only).
+     *
+     * @param object                                $request A guest export request waiting for its link.
+     * @param array{type: string, id?: string|null} $actor
+     * @return string|null Package id, or null when it cannot be made on this server.
+     */
+    public function startForGuest(object $request, array $actor): ?string
+    {
+        $email = PrivacyNotices::emailOf($request);
+        if ($email === null || !ExportService::ready()) {
+            return null;
+        }
+        $this->workflow->transition($request, RequestStatus::Processing, $actor, null, ['verified' => true], ['executed_at' => now()]);
+        try {
+            $exportId = $this->exports->start(DataSubject::guest($email), (string) $request->id, 'guest', 'guest', null, true, ExportRepository::AUDIENCE_GUEST);
+        } catch (\Throwable $e) {
+            $current = $this->requests->find((string) $request->id);
+            if ($current !== null) {
+                $this->workflow->transition($current, RequestStatus::Failed, $actor, 'export_failed', ['error' => $e::class]);
+            }
+
+            return null;
+        }
+        $this->requests->update((string) $request->id, ['job_id' => $this->packages->find($exportId)->job_id ?? null]);
+        $this->exports->continue($exportId);
+
+        return $exportId;
+    }
+
+    /**
+     * @param string $requestId
+     * @return string|null The package of a request, if one was made.
+     */
+    public function packageIdOf(string $requestId): ?string
+    {
+        $package = $this->packages->forRequest($requestId);
+
+        return $package === null ? null : (string) $package->id;
+    }
+
+    /**
+     * @param object $request
+     * @param string $exportId
+     * @return \Closure|null The "your data is ready" email to send once the request is closed.
+     */
+    private function readyNotice(object $request, string $exportId): ?\Closure
+    {
+        $source = (string) $request->source;
+        if ($source === RequestSource::Guest->value) {
+            $email = PrivacyNotices::emailOf($request);
+
+            return $email === null ? null : fn ($mail) => $mail->exportReady($email, (string) $request->id, $exportId, true);
+        }
+        if (in_array($source, [RequestSource::Customer->value, RequestSource::Api->value], true) && !empty($request->customer_id)) {
+            $email = PersonalDataRegistry::findCustomer((string) $request->customer_id)['email'] ?? null;
+
+            return $email === null || $email === '' ? null : fn ($mail) => $mail->exportReady((string) $email, (string) $request->id, $exportId, false);
+        }
+
+        return null;
     }
 
     /**

@@ -105,6 +105,7 @@ final class PersonalDataSchema
                 $table->timestamp('next_check_at')->nullable();
                 $table->timestamp('executed_at')->nullable();
                 $table->timestamp('closed_at')->nullable();
+                $table->timestamp('checked_at')->nullable();
                 $table->string('erasure_id', 26)->nullable();
                 $table->string('job_id', 26)->nullable();
                 $table->string('created_by', 64)->nullable();
