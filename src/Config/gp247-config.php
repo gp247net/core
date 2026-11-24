@@ -63,6 +63,8 @@ return [
         'excluded_tables' => [
             'personal_access_tokens', 'admin_password_resets', 'api_session', 'api_refresh_token', 'api_idempotency',
             'backup_archive', 'backup_job', 'backup_download_token',
+            // Erasure jobs may hold, encrypted, the values being erased (US-personal-data-registry-erase-anonymise).
+            'personal_data_job',
             // Laravel's own temporary tables (relevant when GP247_DB_PREFIX is empty).
             'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs', 'password_reset_tokens',
         ],
@@ -75,7 +77,9 @@ return [
         ],
         // Backed up, but never replaced by a restore: the record of who did what (a restore must not
         // be a way to erase it). Names without GP247_DB_PREFIX (mod 20261110T164834).
-        'restore_never_replace' => ['admin_log', 'admin_login_failure'],
+        // The erasure ledger too: a restore must not make the site forget who asked to be erased
+        // (US-personal-data-registry-erasure-ledger).
+        'restore_never_replace' => ['admin_log', 'admin_login_failure', 'personal_data_erasure', 'personal_data_erasure_email'],
         // Hours the tables replaced by a restore are kept for "undo" (ADR backup-restore_shadow-table-swap).
         'restore_undo_hours' => 24,
         // Most rows one "add back deleted records" may insert (larger: replace the group instead).

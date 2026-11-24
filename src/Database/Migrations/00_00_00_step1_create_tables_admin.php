@@ -290,6 +290,9 @@ return new class extends Migration
 
         // Failed sign-in log (US-admin-shell-login-failure-log) — same helper as upgrade/2026_11_05_204048_create_login_failure_table.php
         \GP247\Core\Support\LoginFailure\LoginFailureSchema::create($schema);
+
+        // Personal data jobs and erasure ledger (US-personal-data-registry-erasure-ledger) — same helper as upgrade/2026_11_24_200000_create_personal_data_tables.php
+        \GP247\Core\PersonalData\Infrastructure\PersonalDataSchema::create($schema);
     }
 
     /**
@@ -326,6 +329,8 @@ return new class extends Migration
         \GP247\Core\Api\Sync\ApiSyncSchema::drop($schema);
         \GP247\Core\Backup\Infrastructure\Install\BackupSchema::drop($schema);
         \GP247\Core\Support\LoginFailure\LoginFailureSchema::drop($schema);
+        // WARNING: drops the erasure ledger (US-personal-data-registry-erasure-ledger).
+        \GP247\Core\PersonalData\Infrastructure\PersonalDataSchema::drop($schema);
 
     }
 };

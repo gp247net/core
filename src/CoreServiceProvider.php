@@ -269,6 +269,15 @@ class CoreServiceProvider extends ServiceProvider
             [\GP247\Core\Support\LoginFailure\LoginFailureListener::class, 'lockout']
         );
 
+        // Personal data the core keeps about customers; packages and extensions declare theirs
+        // through the same registry (US-personal-data-registry-declare-sources).
+        \GP247\Core\PersonalData\Infrastructure\CoreSources::register();
+        // An erasure whose screen was closed finishes after later admin requests — no cron
+        // (US-personal-data-registry-erase-anonymise).
+        $this->app->terminating(static function (): void {
+            \GP247\Core\PersonalData\Infrastructure\ErasureResume::afterRequest();
+        });
+
         // Ecosystem fingerprint: a versionless GP247 marker (HTTP header + <meta
         // generator>) on every response so technology-detection services can count
         // GP247 adoption. Registered as a global middleware here — not tied to a

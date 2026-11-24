@@ -2,13 +2,10 @@
 
 namespace GP247\Core\Backup\Application;
 
-use GP247\Core\Api\Contracts\LoginChallenge;
-use GP247\Core\Backup\Domain\StepUpMark;
 use GP247\Core\Backup\Domain\StepUpRefused;
-use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\RateLimiter;
+use GP247\Core\Support\StepUp\StepUpContext;
+use GP247\Core\Support\StepUp\StepUpGate;
+use GP247\Core\Support\StepUp\StepUpRefused as SharedStepUpRefused;
 
 /**
  * Confirm the signed-in admin again before a sensitive backup action (download, restore,
@@ -17,26 +14,25 @@ use Illuminate\Support\Facades\RateLimiter;
  * them. The proof lives in the session for a few minutes and only for that session id; wrong
  * answers are limited per admin.
  *
+ * The checks run in the shared step-up gate with the backup feature's own session key,
+ * validity, throttle key and audit log, so the behaviour is the one it always had.
+ *
  * @aidlc-unit backup-admin
  * @aidlc-story US-backup-admin-step-up-auth
- * @aidlc-adr backup-admin_step-up-and-signed-download
+ * @aidlc-adr backup-admin_step-up-and-signed-download, personal-data-registry_shared-step-up
  */
 final class StepUpService
 {
     public const SESSION_KEY = 'gp247_backup_step_up';
-    public const MAX_ATTEMPTS = 5;
-    public const DECAY_SECONDS = 60;
+    public const MAX_ATTEMPTS = StepUpGate::MAX_ATTEMPTS;
+    public const DECAY_SECONDS = StepUpGate::DECAY_SECONDS;
 
     /**
      * @return bool Whether the current admin confirmed in this session within the validity.
      */
     public function isFresh(): bool
     {
-        $admin = admin()->user();
-        $mark = StepUpMark::fromArray(session()->get(self::SESSION_KEY));
-
-        return $admin !== null && $mark !== null
-            && $mark->isValidFor((string) $admin->id, (string) session()->getId(), now()->getTimestamp(), self::seconds());
+        return $this->gate()->isFresh();
     }
 
     /**
@@ -55,9 +51,7 @@ final class StepUpService
      */
     public function codeRequired(): bool
     {
-        $admin = admin()->user();
-
-        return $admin !== null && $this->challenges($admin) !== [];
+        return $this->gate()->codeRequired();
     }
 
     /**
@@ -68,37 +62,12 @@ final class StepUpService
      */
     public function confirm(#[\SensitiveParameter] string $password, #[\SensitiveParameter] string $code = ''): void
     {
-        $admin = admin()->user();
-        if ($admin === null) {
-            throw new StepUpRefused(StepUpRefused::NO_ADMIN);
+        try {
+            $this->gate()->confirm($password, $code);
+        } catch (SharedStepUpRefused $e) {
+            // WHY: backup screens catch the backup refusal class; keep that contract.
+            throw new StepUpRefused($e->reason, $e->retryAfter);
         }
-        $key = 'backup-step-up:' . $admin->id;
-        if (RateLimiter::tooManyAttempts($key, self::MAX_ATTEMPTS)) {
-            $wait = RateLimiter::availableIn($key);
-            BackupAudit::record('step_up', BackupAudit::REFUSED, ['reason' => StepUpRefused::THROTTLED, 'retry_after' => $wait]);
-
-            throw new StepUpRefused(StepUpRefused::THROTTLED, $wait);
-        }
-        $reason = null;
-        if (!Hash::check($password, (string) $admin->password)) {
-            $reason = StepUpRefused::WRONG_PASSWORD;
-        } else {
-            foreach ($this->challenges($admin) as $challenge) {
-                if (!$challenge->verify($admin, $this->answer($code))) {
-                    $reason = StepUpRefused::WRONG_CODE;
-                    break;
-                }
-            }
-        }
-        if ($reason !== null) {
-            RateLimiter::hit($key, self::DECAY_SECONDS);
-            BackupAudit::record('step_up', BackupAudit::REFUSED, ['reason' => $reason]);
-
-            throw new StepUpRefused($reason);
-        }
-        RateLimiter::clear($key);
-        session()->put(self::SESSION_KEY, (new StepUpMark((string) $admin->id, (string) session()->getId(), now()->getTimestamp()))->toArray());
-        BackupAudit::record('step_up', BackupAudit::OK);
     }
 
     /**
@@ -106,7 +75,7 @@ final class StepUpService
      */
     public function forget(): void
     {
-        session()->forget(self::SESSION_KEY);
+        $this->gate()->forget();
     }
 
     /**
@@ -118,35 +87,19 @@ final class StepUpService
     }
 
     /**
-     * @param Authenticatable $admin
-     * @return list<LoginChallenge> Registered admin challenges that apply to this admin.
-     * @throws \UnexpectedValueException When a registration is not a LoginChallenge (never silently skipped).
+     * @return StepUpGate The shared gate with the backup feature's parameters.
      */
-    private function challenges(Authenticatable $admin): array
+    public function gate(): StepUpGate
     {
-        $out = [];
-        foreach ((array) config('gp247-config.api.login_challenge.admin', []) as $entry) {
-            $challenge = is_string($entry) && class_exists($entry) ? app($entry) : $entry;
-            if (!$challenge instanceof LoginChallenge) {
-                throw new \UnexpectedValueException('Invalid login challenge registered for admin');
-            }
-            if ($challenge->required($admin, request()) === true) {
-                $out[] = $challenge;
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param string $code
-     * @return Request The answer in the fields challenges read (digits = code, else recovery code).
-     */
-    private function answer(#[\SensitiveParameter] string $code): Request
-    {
-        $code = trim($code);
-        $field = preg_match('/^\d{4,10}$/', $code) === 1 ? 'code' : 'recovery_code';
-
-        return Request::create('/', 'POST', [$field => $code]);
+        return new StepUpGate(new StepUpContext(
+            user: fn () => admin()->user(),
+            audience: 'admin',
+            sessionKey: self::SESSION_KEY,
+            seconds: self::seconds(),
+            throttlePrefix: 'backup-step-up:',
+            audit: function (string $event, string $result, array $context): void {
+                BackupAudit::record($event, $result === 'ok' ? BackupAudit::OK : BackupAudit::REFUSED, $context);
+            },
+        ));
     }
 }

@@ -25,6 +25,8 @@ final class ConfigRestoreRules
 {
     public const TABLE = 'admin_config';
     public const BACKUP_CODE = 'backup';
+    /** Kept like the backup rows (ADR personal-data-registry_erasure-ledger). */
+    public const PERSONAL_DATA_PEPPER = 'personal_data_pepper';
     private const SHOWN_VALUE_CHARS = 200;
 
     /**
@@ -47,7 +49,9 @@ final class ConfigRestoreRules
      */
     public static function isBackupRow(array $row): bool
     {
-        return strcasecmp((string) ($row['code'] ?? ''), self::BACKUP_CODE) === 0 || stripos((string) ($row['key'] ?? ''), 'backup_') === 0;
+        return strcasecmp((string) ($row['code'] ?? ''), self::BACKUP_CODE) === 0 || stripos((string) ($row['key'] ?? ''), 'backup_') === 0
+            // WHY: the personal data pepper must stay the site's own, or erased emails stop matching.
+            || strcasecmp((string) ($row['key'] ?? ''), self::PERSONAL_DATA_PEPPER) === 0;
     }
 
     /**
@@ -165,7 +169,8 @@ final class ConfigRestoreRules
         // WHY a range and not LIKE 'backup\_%': SQLite has no default LIKE escape character.
         // "`" is the character right after "_", so the range is exactly the keys starting "backup_".
         $query->where('code', self::BACKUP_CODE)
-            ->orWhere(fn (Builder $q) => $q->where('key', '>=', 'backup_')->where('key', '<', 'backup`'));
+            ->orWhere(fn (Builder $q) => $q->where('key', '>=', 'backup_')->where('key', '<', 'backup`'))
+            ->orWhere('key', self::PERSONAL_DATA_PEPPER);
     }
 
     /**
