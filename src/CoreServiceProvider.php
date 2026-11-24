@@ -221,6 +221,11 @@ class CoreServiceProvider extends ServiceProvider
             'gp247-core',
             classNamespace: 'GP247\\Core\\AdminShell\\Http\\Livewire',
         );
+        // Personal data screens (ADR personal-data-registry_module-layout: GP247\Core\PersonalData).
+        Livewire::addNamespace(
+            'gp247-personal-data',
+            classNamespace: 'GP247\\Core\\PersonalData\\Livewire',
+        );
         // Backup area screens (ADR backup-engine_core-module-layout: GP247\Core\Backup\Livewire).
         Livewire::addNamespace(
             'gp247-backup',
@@ -247,6 +252,7 @@ class CoreServiceProvider extends ServiceProvider
             \GP247\Core\Support\Health\ExtensionAssetsCheck::class,
             \GP247\Core\Support\Health\RawOutputScanCheck::class,
             \GP247\Core\Backup\Infrastructure\VaultExposedCheck::class,
+            \GP247\Core\PersonalData\Infrastructure\Requests\PersonalDataCheck::class,
         ] as $alertCheck) {
             \GP247\Core\AdminShell\Support\AdminAlertRegistry::register($alertCheck);
         }
@@ -276,7 +282,22 @@ class CoreServiceProvider extends ServiceProvider
         // (US-personal-data-registry-erase-anonymise).
         $this->app->terminating(static function (): void {
             \GP247\Core\PersonalData\Infrastructure\ErasureResume::afterRequest();
+            // Requests whose wait is over start without cron (US-personal-data-requests-admin-create).
+            \GP247\Core\PersonalData\Application\Requests\RequestScheduler::afterRequest();
         });
+        // A request closes when its erasure ends (personal-data-requests).
+        \Illuminate\Support\Facades\Event::listen(
+            \GP247\Core\PersonalData\Application\Events\PersonalDataErased::class,
+            [\GP247\Core\PersonalData\Application\Requests\PrivacyRequests::class, 'erased']
+        );
+        // "Personal data" tab of the Configuration hub, Administrators only (US-personal-data-requests-settings).
+        \GP247\Core\AdminShell\Support\SettingsHubTabRegistry::register(
+            key: 'personal_data',
+            label: 'admin.personal_data.settings.tab',
+            component: 'gp247-personal-data::privacy-settings-form',
+            authUri: (defined('GP247_ADMIN_PREFIX') ? GP247_ADMIN_PREFIX : 'gp247_admin') . '/personal_data_settings',
+            order: 60,
+        );
         // A restore never brings back a customer erased after the backup was made
         // (US-personal-data-registry-restore-reapply).
         \Illuminate\Support\Facades\Event::listen(

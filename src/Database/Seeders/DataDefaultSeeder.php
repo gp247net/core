@@ -58,6 +58,10 @@ class DataDefaultSeeder extends Seeder
         // "Security headers" screen + its site-wide settings (US-security-headers-install-lifecycle):
         // insertOrIgnore keeps what the owner chose; `gp247:update` re-runs this seeder, no upgrade migration.
         \GP247\Core\SecurityHeaders\Infrastructure\SecurityHeadersMenu::ensure($db);
+        // "Personal data requests" screen: permission (given to no role), menu, default settings —
+        // insertOrIgnore keeps what the owner chose; `gp247:update` re-runs this seeder
+        // (US-personal-data-requests-install-lifecycle).
+        \GP247\Core\PersonalData\Infrastructure\Requests\PersonalDataInstaller::ensure($db);
         $db->table(GP247_DB_PREFIX.'admin_config')->insertOrIgnore(\GP247\Core\SecurityHeaders\Application\SecurityHeaderSettings::defaultRows());
 
         $dataAdminPermission = $this->dataAdminPermission(GP247_ADMIN_PREFIX);

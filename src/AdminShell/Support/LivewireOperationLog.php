@@ -176,13 +176,16 @@ class LivewireOperationLog extends ComponentHook
     {
         try {
             $except = LogOperation::exceptKeys();
+            $hidden = $this->component instanceof \GP247\Core\AdminShell\Domain\HidesFromOperationLog
+                ? array_flip($this->component->operationLogHidden()) : [];
             $input = [
                 'component' => $this->component->getName(),
                 'class' => get_class($this->component),
                 'method' => $method,
                 'params' => $this->scrub($params, $except),
-                'changed' => $this->scrub($this->changed, $except),
-                'data' => $this->scrub($this->publicData(), $except),
+                // WHY: a screen may hold a customer's personal data the log would keep after erasure.
+                'changed' => $this->scrub(array_filter($this->changed, fn ($path) => !isset($hidden[explode('.', (string) $path)[0]]), ARRAY_FILTER_USE_KEY), $except),
+                'data' => $this->scrub(array_diff_key($this->publicData(), $hidden), $except),
             ];
             $json = json_encode($input, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
             if ($json === false || strlen($json) > self::INPUT_MAX) {

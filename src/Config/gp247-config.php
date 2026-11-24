@@ -79,7 +79,7 @@ return [
         // be a way to erase it). Names without GP247_DB_PREFIX (mod 20261110T164834).
         // The erasure ledger too: a restore must not make the site forget who asked to be erased
         // (US-personal-data-registry-erasure-ledger).
-        'restore_never_replace' => ['admin_log', 'admin_login_failure', 'personal_data_erasure', 'personal_data_erasure_email'],
+        'restore_never_replace' => ['admin_log', 'admin_login_failure', 'personal_data_erasure', 'personal_data_erasure_email', 'personal_data_request', 'personal_data_request_log'],
         // Hours the tables replaced by a restore are kept for "undo" (ADR backup-restore_shadow-table-swap).
         'restore_undo_hours' => 24,
         // Most rows one "add back deleted records" may insert (larger: replace the group instead).

@@ -177,6 +177,13 @@ class AdminUser extends Authenticatable
         }
 
         if ($this->isViewAll()) {
+            // WHY: a screen kept out of View.all must not show in its menu either.
+            foreach ((new \GP247\Core\Middleware\PermissionMiddleware())->viewWithout() as $hiddenPath) {
+                if (rtrim((string) $url, '/') === url($hiddenPath)) {
+                    return false;
+                }
+            }
+
             return true;
         }
 

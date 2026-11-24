@@ -11,7 +11,9 @@ use Illuminate\Database\Schema\Builder;
  *
  *  - personal_data_job:            erasure jobs run in slices (temporary, never backed up);
  *  - personal_data_erasure:        the erasure ledger (backed up, never replaced by a restore);
- *  - personal_data_erasure_email:  salted hashes of the erased emails, one row per address.
+ *  - personal_data_erasure_email:  salted hashes of the erased emails, one row per address;
+ *  - personal_data_request:        export / erase requests and where they stand (never replaced by a restore);
+ *  - personal_data_request_log:    append-only history of every request (never replaced by a restore).
  *
  * @aidlc-unit personal-data-registry
  * @aidlc-story US-personal-data-registry-erasure-ledger, US-personal-data-registry-erase-anonymise
@@ -22,6 +24,8 @@ final class PersonalDataSchema
     public const JOB = 'personal_data_job';
     public const ERASURE = 'personal_data_erasure';
     public const ERASURE_EMAIL = 'personal_data_erasure_email';
+    public const REQUEST = 'personal_data_request';
+    public const REQUEST_LOG = 'personal_data_request_log';
 
     /**
      * @param string $logical
@@ -81,10 +85,53 @@ final class PersonalDataSchema
                 $table->index('email_hash', 'pdee_hash_idx');
             });
         }
+        if (!$schema->hasTable(self::table(self::REQUEST))) {
+            $schema->create(self::table(self::REQUEST), function (Blueprint $table) {
+                $table->string('id', 26)->primary();
+                $table->string('kind', 20);
+                $table->string('source', 20);
+                $table->string('channel', 20)->nullable();
+                $table->string('status', 30);
+                $table->string('customer_id', 64)->nullable();
+                $table->char('email_hash', 64)->nullable();
+                $table->text('email_enc')->nullable();
+                $table->string('store_id', 64)->default('1');
+                $table->timestamp('received_at')->nullable();
+                $table->timestamp('due_at')->nullable();
+                $table->timestamp('wait_until')->nullable();
+                $table->timestamp('next_check_at')->nullable();
+                $table->timestamp('executed_at')->nullable();
+                $table->timestamp('closed_at')->nullable();
+                $table->string('erasure_id', 26)->nullable();
+                $table->string('job_id', 26)->nullable();
+                $table->string('created_by', 64)->nullable();
+                $table->text('note')->nullable();
+                $table->timestamp('updated_at')->nullable();
+                $table->index(['status', 'due_at'], 'pdr_status_due_idx');
+                $table->index('customer_id', 'pdr_customer_idx');
+                $table->index('store_id', 'pdr_store_idx');
+                $table->index('erasure_id', 'pdr_erasure_idx');
+            });
+        }
+        if (!$schema->hasTable(self::table(self::REQUEST_LOG))) {
+            $schema->create(self::table(self::REQUEST_LOG), function (Blueprint $table) {
+                $table->string('id', 26)->primary();
+                $table->string('request_id', 26)->nullable();
+                $table->string('event', 40);
+                $table->string('actor_type', 20);
+                $table->string('actor_id', 64)->nullable();
+                $table->string('ip', 45)->nullable();
+                $table->string('reason', 500)->nullable();
+                $table->text('context')->nullable();
+                $table->timestamp('created_at')->nullable();
+                $table->index('request_id', 'pdrl_request_idx');
+                $table->index('created_at', 'pdrl_created_idx');
+            });
+        }
     }
 
     /**
-     * WARNING: drops the tables — the erasure ledger is lost, so a later restore of an older
+     * WARNING: drops the tables — the erasure ledger and the request history are lost, so a later restore of an older
      * backup can no longer erase again the customers erased since.
      *
      * @param Builder $schema
@@ -92,6 +139,8 @@ final class PersonalDataSchema
      */
     public static function drop(Builder $schema): void
     {
+        $schema->dropIfExists(self::table(self::REQUEST_LOG));
+        $schema->dropIfExists(self::table(self::REQUEST));
         $schema->dropIfExists(self::table(self::ERASURE_EMAIL));
         $schema->dropIfExists(self::table(self::ERASURE));
         $schema->dropIfExists(self::table(self::JOB));

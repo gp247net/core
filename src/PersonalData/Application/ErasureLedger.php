@@ -80,6 +80,23 @@ final class ErasureLedger
     }
 
     /**
+     * @param string $entryId
+     * @return array<string, int>|null Rows handled per source table, or null while the erasure is
+     *         not finished (or the entry is unknown).
+     */
+    public function outcome(string $entryId): ?array
+    {
+        $row = SourceQuery::db()->table(PersonalDataSchema::table(PersonalDataSchema::ERASURE))->where('id', $entryId)
+            ->first(['completed_at', 'outcome']);
+        if ($row === null || $row->completed_at === null) {
+            return null;
+        }
+        $outcome = json_decode((string) $row->outcome, true);
+
+        return is_array($outcome) ? $outcome : [];
+    }
+
+    /**
      * @param \DateTimeInterface|null $from Null = every entry (the time of the restored data is unknown).
      * @return list<array{id: string, customer_id: string|null, hashes: list<string>}> Entries a restore
      *         of data from $from must erase again (oldest first): requested at or after $from, or not

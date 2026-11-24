@@ -26,6 +26,10 @@ final class PersonalDataRegistry
     private static array $blockers = [];
     /** @var array<string, PersonalDataSource>|null */
     private static ?array $manifestSources = null;
+    /** @var array<string, string> Table => why it holds no customer data. */
+    private static array $notCustomerData = [];
+    /** @var (\Closure(string): (array{id: string, email: string|null, name: string|null, store_id: string|null}|null))|null */
+    private static ?\Closure $customerResolver = null;
 
     /**
      * @param PersonalDataSource $source
@@ -71,6 +75,56 @@ final class PersonalDataRegistry
     }
 
     /**
+     * A table of the package that looks like personal data by its column names but holds no
+     * customer data (administrator accounts, the shop's own address…). Undeclared-source
+     * detection skips it.
+     *
+     * @param string $table  Logical table name.
+     * @param string $reason Short reason, for developers.
+     * @return void
+     */
+    public static function notCustomerData(string $table, string $reason): void
+    {
+        self::$notCustomerData[$table] = $reason;
+    }
+
+    /**
+     * @return array<string, string> Table => reason.
+     */
+    public static function notCustomerTables(): array
+    {
+        return self::$notCustomerData;
+    }
+
+    /**
+     * The package owning the customer model (gp247/shop) tells the core how to find a customer
+     * by id or email — the core has no customer table of its own.
+     *
+     * @param \Closure(string): (array{id: string, email: string|null, name: string|null, store_id: string|null}|null) $resolver
+     * @return void
+     */
+    public static function customerResolver(\Closure $resolver): void
+    {
+        self::$customerResolver = $resolver;
+    }
+
+    /**
+     * @param string $idOrEmail
+     * @return array{id: string, email: string|null, name: string|null, store_id: string|null}|null The customer, or null
+     *         when none matches or no package resolves customers.
+     */
+    public static function findCustomer(string $idOrEmail): ?array
+    {
+        $value = trim($idOrEmail);
+        if ($value === '' || self::$customerResolver === null) {
+            return null;
+        }
+        $found = (self::$customerResolver)($value);
+
+        return is_array($found) && isset($found['id']) ? $found : null;
+    }
+
+    /**
      * @return list<ErasureBlocker>
      */
     public static function blockers(): array
@@ -86,6 +140,8 @@ final class PersonalDataRegistry
         self::$sources = [];
         self::$blockers = [];
         self::$manifestSources = null;
+        self::$notCustomerData = [];
+        self::$customerResolver = null;
     }
 
     /**

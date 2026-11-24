@@ -143,7 +143,9 @@ class PermissionMiddleware
     public function viewWithout()
     {
         return [
-            // Array item in here
+            // Customers' personal data: given by its own permission, never by View.all
+            // (US-personal-data-requests-permission).
+            GP247_ADMIN_PREFIX . '/personal_data_requests',
         ];
     }
 
@@ -190,6 +192,8 @@ class PermissionMiddleware
             GP247_ADMIN_PREFIX . '/backup/settings',
             // Security headers: a wrong setting can break the whole site (US-security-headers-settings).
             GP247_ADMIN_PREFIX . '/security_headers',
+            // Personal data settings: one policy for the whole site (US-personal-data-requests-settings).
+            GP247_ADMIN_PREFIX . '/personal_data_settings',
         ];
     }
 }

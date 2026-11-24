@@ -1,0 +1,394 @@
+<?php
+
+namespace GP247\Core\PersonalData\Livewire;
+
+use GP247\Core\AdminShell\Domain\AdminUserContract;
+use GP247\Core\AdminShell\Domain\AuthorizationException;
+use GP247\Core\AdminShell\Domain\HidesFromOperationLog;
+use GP247\Core\AdminShell\Infrastructure\GP247AdminComponent;
+use GP247\Core\AdminShell\Infrastructure\HasStoreScopeUi;
+use GP247\Core\PersonalData\Application\ErasureStepUp;
+use GP247\Core\PersonalData\Application\PersonalDataRegistry;
+use GP247\Core\PersonalData\Application\Requests\PrivacyRequests;
+use GP247\Core\PersonalData\Application\Requests\RequestScheduler;
+use GP247\Core\PersonalData\Application\Requests\UndeclaredSources;
+use GP247\Core\PersonalData\Application\SubjectLookup;
+use GP247\Core\PersonalData\Domain\DataSubject;
+use GP247\Core\PersonalData\Domain\Requests\RequestSource;
+use GP247\Core\PersonalData\Domain\Requests\RequestStatus;
+use GP247\Core\PersonalData\Infrastructure\PersonalDataLanguage;
+use GP247\Core\PersonalData\Infrastructure\Requests\RequestLog;
+use GP247\Core\PersonalData\Infrastructure\Requests\RequestRepository;
+use GP247\Core\Support\StepUp\Concerns\ConfirmsStepUp;
+use GP247\Core\Support\StepUp\StepUpGate;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Query\Builder;
+use Livewire\WithPagination;
+
+/**
+ * "Personal data requests" screen: the requests of every channel with their status and due
+ * date, filters, the detail of one request (what the site holds about the customer, history,
+ * actions), an administrator creating an erasure request for a customer, and the tables of
+ * customer data nobody declared. Gated by its own permission (given to no role at install:
+ * Administrators only until the owner assigns it). Erasing at once, running and retrying ask
+ * the administrator to confirm who they are. A store administrator sees the requests of their
+ * store only.
+ *
+ * @aidlc-unit personal-data-requests
+ * @aidlc-story US-personal-data-requests-screen, US-personal-data-requests-permission, US-personal-data-requests-admin-create, US-personal-data-registry-undeclared-detection
+ * @aidlc-adr personal-data-requests_request-model, personal-data-requests_access-and-settings, personal-data-requests_undeclared-sources
+ */
+class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperationLog
+{
+    use ConfirmsStepUp;
+    use HasStoreScopeUi;
+    use WithPagination;
+
+    protected ?string $permission = 'admin_personal_data_requests';
+
+    public string $filterStatus = '';
+    public bool $filterOverdue = false;
+    public string $keyword = '';
+    public ?string $selectedId = null;
+
+    public string $createCustomer = '';
+    public string $createChannel = 'email';
+    public string $createNote = '';
+    public bool $createNow = false;
+    /** @var array{id: string, email: string|null, name: string|null, store_id: string|null}|null */
+    public ?array $createFound = null;
+    /** @var list<array{reason: string, ref: string, label: string}> */
+    public array $blockers = [];
+    public bool $showUndeclared = false;
+
+    /**
+     * @return void
+     * @throws AuthorizationException When the admin only has View.all.
+     */
+    public function mount(): void
+    {
+        $user = app(AdminUserContract::class);
+        // WHY: View.all reads every screen; this one shows customers' personal data and is
+        // given by its own permission only — the same rule as viewWithout() on the route.
+        if (!$user->isAdministrator() && $user->isViewAll()) {
+            throw AuthorizationException::fromReason('personal data requests are not part of View.all');
+        }
+        parent::mount();
+    }
+
+    /**
+     * @return list<string> What the admin typed or found about a customer stays out of admin_log.
+     */
+    public function operationLogHidden(): array
+    {
+        return ['createCustomer', 'createFound', 'createNote', 'keyword'];
+    }
+
+    /**
+     * @return void
+     */
+    public function updating(): void
+    {
+        $this->resetPage();
+    }
+
+    /**
+     * @param string $id
+     * @return void
+     */
+    public function select(string $id): void
+    {
+        $this->selectedId = $this->scoped()->where('id', $id)->exists() ? $id : null;
+        $this->blockers = [];
+    }
+
+    /**
+     * Find the customer the request is for (by id or email), within the admin's store.
+     *
+     * @return void
+     */
+    public function findCustomer(): void
+    {
+        $this->authorizeAction('create');
+        $found = PersonalDataRegistry::findCustomer($this->createCustomer);
+        $this->createFound = $found !== null && $this->inScope((string) ($found['store_id'] ?? '')) ? $found : null;
+        if ($this->createFound === null) {
+            $this->notify('error', gp247_language_render('admin.personal_data.requests.customer_not_found'));
+        }
+    }
+
+    /**
+     * @return void
+     */
+    public function createRequest(): void
+    {
+        $this->authorizeAction('create');
+        $found = $this->createFound === null ? null : PersonalDataRegistry::findCustomer((string) $this->createFound['id']);
+        if ($found === null || !$this->inScope((string) ($found['store_id'] ?? ''))) {
+            $this->notify('error', gp247_language_render('admin.personal_data.requests.customer_not_found'));
+
+            return;
+        }
+        // WHY always: a waiting request still erases the customer when its wait ends.
+        if (!$this->requireStepUp('createRequest')) {
+            return;
+        }
+        $result = app(PrivacyRequests::class)->adminErase(
+            (string) $found['id'],
+            $this->createNow,
+            (string) ($found['store_id'] ?? $this->storeContext()),
+            $this->actor(),
+            in_array($this->createChannel, RequestSource::ADMIN_CHANNELS, true) ? $this->createChannel : null,
+            $this->createNote,
+        );
+        if (($result['status'] ?? '') === PrivacyRequests::BLOCKED) {
+            $this->blockers = (array) $result['blockers'];
+
+            return;
+        }
+        $this->reset(['createCustomer', 'createNote', 'createNow', 'createFound', 'blockers']);
+        $this->selectedId = $result['request_id'] ?? null;
+        $this->notify('success', gp247_language_render('admin.personal_data.requests.created'));
+    }
+
+    /**
+     * Run a waiting request now (skips the rest of the wait).
+     *
+     * @param string $id
+     * @return void
+     */
+    public function executeRequest(string $id): void
+    {
+        $this->authorizeAction('update');
+        $request = $this->findScoped($id);
+        if ($request === null || !$this->requireStepUp('executeRequest', [$id])) {
+            return;
+        }
+        $this->report(fn () => app(PrivacyRequests::class)->execute($id, $this->actor()));
+    }
+
+    /**
+     * @param string $id
+     * @return void
+     */
+    public function retryRequest(string $id): void
+    {
+        $this->authorizeAction('update');
+        if ($this->findScoped($id) === null || !$this->requireStepUp('retryRequest', [$id])) {
+            return;
+        }
+        $this->report(fn () => app(PrivacyRequests::class)->retry($id, $this->actor()));
+    }
+
+    /**
+     * @param string $id
+     * @return void
+     */
+    public function cancelRequest(string $id): void
+    {
+        $this->authorizeAction('update');
+        if ($this->findScoped($id) === null) {
+            return;
+        }
+        $this->report(function () use ($id) {
+            app(PrivacyRequests::class)->cancel($id, $this->actor());
+
+            return ['status' => RequestStatus::Cancelled->value];
+        });
+    }
+
+    /**
+     * Show the undeclared tables, read from the database now.
+     *
+     * @return void
+     */
+    public function checkUndeclared(): void
+    {
+        app(UndeclaredSources::class)->forget();
+        $this->showUndeclared = true;
+    }
+
+    /**
+     * An Administrator says a table holds no customer data, or takes it back.
+     *
+     * @param int    $index Row of the undeclared list shown — the table marked is the one the server lists.
+     * @param string $shown Table name the admin saw on that row; a list that changed meanwhile refuses.
+     * @param bool   $marked
+     * @return void
+     */
+    public function markTable(int $index, string $shown, bool $marked = true): void
+    {
+        $this->authorizeAction('update');
+        if (!app(AdminUserContract::class)->isAdministrator()) {
+            $this->notify('error', gp247_language_render('admin.personal_data.requests.administrator_only'));
+
+            return;
+        }
+        $sources = app(UndeclaredSources::class);
+        $table = $sources->find()[$index]['table'] ?? null;
+        try {
+            if ($table === null || $table !== $shown) {
+                throw new \InvalidArgumentException('Unknown row');
+            }
+            $sources->mark((string) $table, $marked, $this->actor());
+        } catch (\InvalidArgumentException $e) {
+            $this->notify('error', gp247_language_render('admin.personal_data.requests.not_allowed'));
+
+            return;
+        }
+        $this->notify('success', gp247_language_render('admin.personal_data.requests.table_marked'));
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function stepUpActions(): array
+    {
+        return ['createRequest', 'executeRequest', 'retryRequest'];
+    }
+
+    /**
+     * @return StepUpGate
+     */
+    protected function stepUpGate(): StepUpGate
+    {
+        return ErasureStepUp::admin();
+    }
+
+    /**
+     * @return bool
+     */
+    public function stepUpAsksCode(): bool
+    {
+        return $this->stepUpOpen && $this->stepUpNeedsCode();
+    }
+
+    /**
+     * @return View
+     */
+    public function render(): View
+    {
+        $ready = RequestScheduler::ready();
+        $query = $ready ? $this->scoped() : null;
+        if ($query !== null) {
+            if ($this->filterStatus !== '' && RequestStatus::tryFrom($this->filterStatus) !== null) {
+                $query->where('status', $this->filterStatus);
+            }
+            if ($this->filterOverdue) {
+                $query->whereIn('status', RequestStatus::openValues())->where('due_at', '<', now());
+            }
+            $this->applyKeyword($query);
+        }
+
+        return view('gp247-admin::personal_data.requests', [
+            'ready' => $ready,
+            'rows' => $query?->orderByDesc('received_at')->paginate(20),
+            'statuses' => array_map(fn (RequestStatus $s) => $s->value, RequestStatus::cases()),
+            'detail' => $ready && $this->selectedId !== null ? $this->detail($this->selectedId) : null,
+            'undeclared' => $ready && $this->showUndeclared ? app(UndeclaredSources::class)->find() : [],
+            'channels' => RequestSource::ADMIN_CHANNELS,
+            'stepUpMinutes' => intdiv(ErasureStepUp::SECONDS, 60),
+        ])->layout('gp247-admin::layouts.admin', ['title' => gp247_language_render('admin.personal_data.requests.title')]);
+    }
+
+    /**
+     * @param string $id
+     * @return array{request: object, log: list<object>, data: list<array{label: string, rows: int, rule: string}>, customer: array<string, mixed>|null}|null
+     */
+    private function detail(string $id): ?array
+    {
+        $request = $this->findScoped($id);
+        if ($request === null) {
+            return null;
+        }
+        $data = [];
+        $customer = null;
+        if ($request->customer_id !== null && !RequestStatus::from((string) $request->status)->isClosed()) {
+            $customer = PersonalDataRegistry::findCustomer((string) $request->customer_id);
+            foreach (app(SubjectLookup::class)->counts(app(SubjectLookup::class)->expand(DataSubject::customer((string) $request->customer_id))) as $count) {
+                if ($count['rows'] > 0) {
+                    $data[] = ['label' => PersonalDataLanguage::label($count['label']), 'rows' => (int) $count['rows'], 'rule' => (string) $count['rule']];
+                }
+            }
+        }
+
+        return ['request' => $request, 'log' => app(RequestLog::class)->forRequest($id), 'data' => $data, 'customer' => $customer];
+    }
+
+    /**
+     * @param \Closure(): array<string, mixed> $action
+     * @return void
+     */
+    private function report(\Closure $action): void
+    {
+        try {
+            $result = $action();
+        } catch (\DomainException $e) {
+            $this->notify('error', gp247_language_render('admin.personal_data.requests.not_allowed'));
+
+            return;
+        }
+        $this->blockers = (array) ($result['blockers'] ?? []);
+        $this->notify($this->blockers === [] ? 'success' : 'warning', gp247_language_render('admin.personal_data.requests.status.' . ($result['status'] ?? 'processing')));
+    }
+
+    /**
+     * @return Builder Requests the admin may see (their store, or all at the root store).
+     */
+    private function scoped(): Builder
+    {
+        $query = app(RequestRepository::class)->table();
+        if (!$this->isRootScope()) {
+            $query->where('store_id', (string) $this->storeContext());
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param string $id
+     * @return object|null
+     */
+    private function findScoped(string $id): ?object
+    {
+        return $this->scoped()->where('id', $id)->first();
+    }
+
+    /**
+     * @param string $storeId
+     * @return bool
+     */
+    private function inScope(string $storeId): bool
+    {
+        return $this->isRootScope() || $storeId === (string) $this->storeContext();
+    }
+
+    /**
+     * @param Builder $query
+     * @return void
+     */
+    private function applyKeyword(Builder $query): void
+    {
+        $keyword = trim($this->keyword);
+        if ($keyword === '') {
+            return;
+        }
+        $customer = PersonalDataRegistry::findCustomer($keyword);
+        $query->where(function (Builder $q) use ($keyword, $customer) {
+            $q->where('id', $keyword)->orWhere('customer_id', $keyword);
+            if ($customer !== null) {
+                $q->orWhere('customer_id', (string) $customer['id']);
+            }
+        });
+    }
+
+    /**
+     * @return array{type: string, id: string|null}
+     */
+    private function actor(): array
+    {
+        $user = function_exists('admin') ? admin()->user() : null;
+
+        return ['type' => RequestLog::ACTOR_ADMIN, 'id' => $user === null ? null : (string) $user->getAuthIdentifier()];
+    }
+}

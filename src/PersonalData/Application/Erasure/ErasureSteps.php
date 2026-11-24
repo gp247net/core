@@ -4,6 +4,7 @@ namespace GP247\Core\PersonalData\Application\Erasure;
 
 use Closure;
 use GP247\Core\PersonalData\Application\ErasureLedger;
+use GP247\Core\PersonalData\Application\Events\PersonalDataErased;
 use GP247\Core\PersonalData\Application\Pepper;
 use GP247\Core\PersonalData\Application\PersonalDataRegistry;
 use GP247\Core\PersonalData\Application\SourceQuery;
@@ -283,6 +284,16 @@ final class ErasureSteps
             // again after a restore changes neither when nor how much was asked.
             if (empty($cursor['reapply'])) {
                 $this->ledger->complete((string) $cursor['erasure'], (array) $cursor['counts']);
+                // Tells the request this erasure was run for that it is done (personal-data-requests).
+                // WHY caught: the data is erased and the ledger completed — a listener failing must
+                // not turn a finished erasure into a failed job (it is reported, by class only).
+                try {
+                    event(new PersonalDataErased((string) $cursor['erasure'], array_map('intval', (array) $cursor['counts'])));
+                } catch (\Throwable $e) {
+                    if (function_exists('gp247_report')) {
+                        gp247_report('PersonalDataErased listener failed: ' . $e::class);
+                    }
+                }
             }
 
             return array_merge($cursor, ['phase' => self::DONE, 'known' => [], 'subject' => null]);

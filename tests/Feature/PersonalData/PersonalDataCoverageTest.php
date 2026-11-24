@@ -21,30 +21,18 @@ use PHPUnit\Framework\Attributes\Group;
 class PersonalDataCoverageTest extends TestCase
 {
     /** Column names that suggest personal data. */
-    public const PATTERN = '/(^|_)(email|phone|first_name|last_name|address\d*|postcode|ip|ip_address|user_agent|customer_id|address_meta|identity)$/';
+    public const PATTERN = \GP247\Core\PersonalData\Application\PersonalDataColumns::PATTERN;
 
     /** Core tables checked by this guard (logical names; front / shop / extensions guard their own). */
     private const CORE_PREFIXES = ['admin_', 'api_', 'backup_', 'personal_data_', 'personal_access_tokens'];
 
-    /** @var array<string, string> Table => why it is not a customer data source of the core. */
-    private const NOT_CUSTOMER_DATA = [
-        'admin_user' => 'administrator accounts, not customers',
-        'admin_password_resets' => 'reset links of administrator accounts',
-        'admin_store' => 'the shop\'s own contact details',
-        'admin_log' => 'security record of administrator actions; kept for its retention period, never edited',
-        'api_session' => 'API sessions; the package owning the customer model (gp247/shop) declares its customers\' sessions',
-        'personal_access_tokens' => 'API tokens; the package owning the customer model (gp247/shop) declares its customers\' tokens',
-        'personal_data_erasure' => 'the erasure ledger itself: customer id and salted email hashes only',
-        'personal_data_erasure_email' => 'the erasure ledger itself: salted email hashes only',
-        'personal_data_job' => 'erasure jobs; their cursor is encrypted and emptied when the job ends',
-    ];
 
     public function test_every_core_table_with_personal_looking_columns_is_declared_or_explained(): void
     {
         $declared = array_map(fn ($s) => $s->table, PersonalDataRegistry::sources());
         $missing = [];
         foreach ($this->coreTablesWithPersonalColumns() as $table => $columns) {
-            if (!in_array($table, $declared, true) && !array_key_exists($table, self::NOT_CUSTOMER_DATA)) {
+            if (!in_array($table, $declared, true) && !array_key_exists($table, \GP247\Core\PersonalData\Application\PersonalDataRegistry::notCustomerTables())) {
                 $missing[] = $table . ' (' . implode(', ', $columns) . ')';
             }
         }
