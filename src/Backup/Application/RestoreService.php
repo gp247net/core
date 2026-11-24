@@ -4,6 +4,7 @@ namespace GP247\Core\Backup\Application;
 
 use GP247\Core\Support\WriteActivity;
 use GP247\Core\Backup\Domain\Archive;
+use GP247\Core\Backup\Events\RestoreApplied;
 use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\BackupSecret;
 use GP247\Core\Backup\Domain\RestorePlan;
@@ -131,6 +132,12 @@ final class RestoreService
             'dek_wrapped' => $header['dek'],
             'key_id' => $header['key_id'],
             'started' => now()->getTimestamp(),
+            // When the data of this backup is from: what was written after it is applied again
+            // once the tables are in place (RestoreApplied, US-personal-data-registry-restore-reapply).
+            // Only an archive of this site that recorded when its tables were read gives a time;
+            // otherwise "unknown" (everything is applied again).
+            'data_from' => $origin['origin'] === ArchiveReader::ORIGIN_SITE && is_string($reader->manifest()['meta']['data_from'] ?? null)
+                ? (string) $reader->manifest()['meta']['data_from'] : '',
             'phase' => 'verify',
             'step' => 0,
             'ti' => 0,
@@ -182,6 +189,15 @@ final class RestoreService
             return $id;
         });
 
+        // WHY before the revert: once the old tables are back, a request dying here would lose
+        // what was written since the swap (an erasure). Applying again on tables that end up
+        // unchanged is harmless.
+        $reapplied = RestoreApplied::dispatchAndCount(new RestoreApplied(
+            'undo',
+            (string) ($point['swapped_at'] ?? ''),
+            $tables,
+            RestoreApplied::PHASE_UNDO,
+        ));
         try {
             foreach ($tables as $table) {
                 if (ConfigRestoreRules::isConfigTable($table)) {
@@ -208,7 +224,7 @@ final class RestoreService
         ConfigRestoreRules::refreshCaches();
         // Written after the revert: when admin_config was put back, its ledger rows came from the copy.
         $this->ledger->recordUndoPoint(null);
-        $this->ledger->recordLast(['status' => 'undone', 'tables' => $tables, 'undone_at' => now()->toIso8601String()] + $point);
+        $this->ledger->recordLast(['status' => 'undone', 'tables' => $tables, 'undone_at' => now()->toIso8601String(), 'personal_data' => ['reerased' => $reapplied]] + $point);
         $this->jobs->finish($jobId, $owner, Archive::JOB_DONE);
 
         return ['tables' => $tables];

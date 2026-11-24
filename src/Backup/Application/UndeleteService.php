@@ -15,7 +15,8 @@ use Illuminate\Database\QueryException;
  * Only INSERT: a row that exists is never changed, even when it was edited after the backup
  * (Q10 (c) deferred). A row hitting a unique index of the site is skipped and reported; the rest
  * still go in. Tables are never renamed here. The backup feature's own admin_config rows are
- * never added back, and "remember me" tokens are left empty.
+ * never added back, and "remember me" tokens are left empty. Rows a registered veto refuses
+ * (UndeleteVetoes — e.g. an erased customer's data) are skipped with the veto's reason.
  *
  * @aidlc-unit backup-restore
  * @aidlc-story US-backup-restore-deleted-records
@@ -33,11 +34,13 @@ final class UndeleteService
      * @param SchemaInspector $schema
      * @param int             $maxRows Most rows one operation may insert.
      * @param \Closure|null   $tick    Called while the archive is scanned (the job renews its lease).
+     * @param bool            $ownSite The archive is this site's own (told to the vetoes).
      */
     public function __construct(
         private readonly SchemaInspector $schema,
         private readonly int $maxRows = 5000,
         private readonly ?\Closure $tick = null,
+        private readonly bool $ownSite = true,
     ) {
     }
 
@@ -94,6 +97,12 @@ final class UndeleteService
             $parents[] = $row;
             $this->assertWithinLimit(count($parents));
         }
+        foreach (UndeleteVetoes::refuse($parent['real'], $parents, $this->ownSite) as $index => $reason) {
+            // Only a plain id is reported: another column may be personal data (an e-mail).
+            $this->skip($result, $parent['name'], $key === 'id' ? (string) $parents[$index][$key] : null, $reason);
+            unset($parents[$index]);
+        }
+        $parents = array_values($parents);
         $childRows = $this->childRows($reader, $children, array_flip(array_map(fn ($r) => (string) $r[$key], $parents)), count($parents));
 
         $this->schema->db()->transaction(function () use ($parents, $parent, $key, $children, $childRows, &$result) {
@@ -128,11 +137,16 @@ final class UndeleteService
     {
         $plan = $this->schema->describe($child['real']);
         $present = [];
-        foreach ($rows as $row) {
+        $refused = UndeleteVetoes::refuse($child['real'], array_values($rows), $this->ownSite);
+        foreach (array_values($rows) as $index => $row) {
             $parentKey = (string) $row[$child['column']];
             $label = $plan['key'] === ['id'] ? (string) ($row['id'] ?? '') : null;
             if (!isset($inserted[$parentKey])) {
                 $this->skip($result, $child['name'], $label, 'parent_skipped');
+                continue;
+            }
+            if (isset($refused[$index])) {
+                $this->skip($result, $child['name'], $label, $refused[$index]);
                 continue;
             }
             if ($plan['key'] !== []) {
@@ -317,6 +331,8 @@ final class UndeleteService
     private function skip(array &$result, string $table, ?string $key, string $reason): void
     {
         $result['skipped_count']++;
+        // WHY a counter per reason: the list below stops at REPORTED_SKIPS rows.
+        $result['skipped_by_reason'][$reason] = ($result['skipped_by_reason'][$reason] ?? 0) + 1;
         if (count($result['skipped']) < self::REPORTED_SKIPS) {
             $result['skipped'][] = ['table' => $table, 'key' => $key, 'reason' => $reason];
         }

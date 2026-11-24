@@ -26,6 +26,20 @@
     @endif
     @if ($last)
         <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-restore-last">{{ gp247_language_render('admin.backup.restore.last', ['status' => gp247_language_render('admin.backup.restore.status_' . preg_replace('/[^a-z_]/', '', (string) ($last['status'] ?? ''))), 'archive' => (string) ($last['archive_id'] ?? '')]) }}</p>
+        {{-- Erased customers (US-personal-data-registry-restore-reapply): erased again, or not added back. --}}
+        @if (array_key_exists('reerased', (array) ($last['personal_data'] ?? [])) && $last['personal_data']['reerased'] === null)
+            <p class="text-sm text-red-600" data-testid="backup-restore-reerased-unknown">{{ gp247_language_render('admin.backup.restore.reerased_unknown') }}</p>
+        @elseif ((int) ($last['personal_data']['reerased'] ?? 0) > 0)
+            <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-restore-reerased">{{ gp247_language_render('admin.backup.restore.reerased', ['count' => (int) $last['personal_data']['reerased']]) }}</p>
+        @endif
+        @php($erasedRefused = (int) ($last['undelete']['skipped_by_reason']['erased_personal_data'] ?? 0))
+        @if ($erasedRefused > 0)
+            <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-restore-erased-refused">{{ gp247_language_render('admin.backup.restore.erased_refused', ['count' => $erasedRefused]) }}</p>
+        @endif
+    @endif
+    @php($reapplyFailed = \GP247\Core\PersonalData\Application\ReapplyService::failedCount())
+    @if ($reapplyFailed > 0)
+        <p class="text-sm text-red-600" data-testid="backup-restore-reapply-failed">{{ gp247_language_render('admin.backup.restore.reapply_failed', ['count' => $reapplyFailed]) }}</p>
     @endif
 
     @if ($job && in_array($job['type'], ['restore', 'import'], true))

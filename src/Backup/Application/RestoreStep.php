@@ -3,6 +3,7 @@
 namespace GP247\Core\Backup\Application;
 
 use GP247\Core\Backup\Domain\Archive;
+use GP247\Core\Backup\Events\RestoreApplied;
 use GP247\Core\Backup\Domain\ArchiveRejected;
 use GP247\Core\Backup\Domain\CompatibilityGate;
 use GP247\Core\Backup\Domain\RestorePlan;
@@ -205,7 +206,11 @@ final class RestoreStep
                 if ($renamed && $state === 'swapped') {
                     $status = 'done_with_errors';
                     $this->ledger->recordUndoPoint($this->undoPoint($job, $cursor));
+                    // The backup's data is in place even though the restore did not end well.
+                    $cursor['personal_data'] = ['reerased' => $this->announce($cursor, RestoreApplied::PHASE_FAILED_AFTER_SWAP)];
                 } elseif ($state === 'mixed' && !empty($cursor['swapping'])) {
+                    // Some tables may already hold the backup's data: apply again on all of them.
+                    $cursor['personal_data'] = ['reerased' => $this->announce($cursor, RestoreApplied::PHASE_FAILED_AFTER_SWAP)];
                     // Never drop a table whose role is unclear: it may hold the only copy of some data.
                     $this->ledger->quarantine($reals);
                     $status = 'quarantined';
@@ -441,7 +446,8 @@ final class RestoreStep
                 if ($slice->saveDue()) {
                     $slice->save($cursor);
                 }
-            }
+            },
+            ($cursor['origin'] ?? ArchiveReader::ORIGIN_SITE) === ArchiveReader::ORIGIN_SITE,
         );
         $cursor['undelete'] = $undelete->apply($reader, $cursor['tables'][0], (array) ($cursor['children'] ?? []), $cursor['plan']['keys']);
         unset($cursor['dek']);
@@ -476,12 +482,16 @@ final class RestoreStep
             $cursor['post_incident_result'] = [['step' => 'all', 'status' => 'failed', 'count' => 0, 'detail' => 'interrupted']];
             PostIncidentChecklist::open((int) $job->id, $cursor['post_incident_result']);
         }
-        DB::connection(GP247_DB_CONNECTION)->transaction(function () use ($job, $slice, $cursor, $swapping) {
+        DB::connection(GP247_DB_CONNECTION)->transaction(function () use ($job, $slice, &$cursor, $swapping) {
             if (!$this->jobs->finish((int) $job->id, $slice->owner, Archive::JOB_DONE)) {
                 throw new LeaseLost;
             }
             if ($swapping) {
                 $this->ledger->recordUndoPoint($this->undoPoint($job, $cursor));
+                // WHY inside the transaction: what the listeners write (the erasures to apply again)
+                // is committed with the end of the restore, or not at all — a request dying right
+                // after "done" can no longer lose it.
+                $cursor['personal_data'] = ['reerased' => $this->announce($cursor, RestoreApplied::PHASE_DONE)];
             }
             $this->ledger->recordLast($this->entry($job, $cursor, 'done', null));
         });
@@ -544,6 +554,24 @@ final class RestoreStep
     }
 
     /**
+     * @param array<string, mixed> $cursor
+     * @param string               $phase RestoreApplied::PHASE_*
+     * @return int|null What the listeners will apply again (null: unknown).
+     */
+    private function announce(#[\SensitiveParameter] array $cursor, string $phase): ?int
+    {
+        return RestoreApplied::dispatchAndCount(new RestoreApplied(
+            (string) ($cursor['plan']['level'] ?? ''),
+            // "" (unknown: another site's archive, an older archive, a job started before this
+            // field existed) makes the listeners apply everything again — never less.
+            (string) ($cursor['data_from'] ?? ''),
+            array_values(array_column((array) ($cursor['tables'] ?? []), 'real')),
+            $phase,
+            ($cursor['origin'] ?? ArchiveReader::ORIGIN_SITE) === ArchiveReader::ORIGIN_SITE ? RestoreApplied::ORIGIN_SITE : RestoreApplied::ORIGIN_OTHER,
+        ));
+    }
+
+    /**
      * @param object               $job
      * @param array<string, mixed> $cursor
      * @return array<string, mixed>
@@ -583,6 +611,7 @@ final class RestoreStep
             'undelete' => $cursor['undelete'] ?? null,
             'origin' => (string) ($cursor['origin'] ?? ArchiveReader::ORIGIN_SITE),
             'post_incident' => $cursor['post_incident_result'] ?? null,
+            'personal_data' => $cursor['personal_data'] ?? null,
             'undo_replaced' => (array) ($cursor['undo_replaced'] ?? []),
             'warnings' => array_values((array) ($cursor['warnings'] ?? [])),
             'swapped_at' => $cursor['swapped_at'] ?? null,

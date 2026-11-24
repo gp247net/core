@@ -85,6 +85,10 @@ final class BackupStep
                 'archive_id' => $archiveId,
                 'segment_rows' => self::pageRows(),
             ]);
+            // WHY before any table is read: "the data of this backup is from" must not be later than
+            // the first row read (the archive itself is closed much later) — a restore applies again
+            // what happened after it (US-personal-data-registry-restore-reapply).
+            $cursor += ['data_from' => gmdate('Y-m-d\TH:i:s\Z')];
             $cursor += ['phase' => 'tables', 'ti' => 0, 'fi' => 0, 'open' => false, 'after' => null, 'offset' => 0, 'limit' => null,
                 'fpath' => null, 'foffset' => 0, 'fsize' => null, 'fmtime' => null, 'table_slices' => 0, 'snapshot' => true, 'warnings' => []];
         } else {
@@ -281,6 +285,7 @@ final class BackupStep
             'packages' => SiteVersions::packages(),
             'migrations' => SiteVersions::migrations(),
             'warnings' => array_values(array_unique(array_map([CursorValue::class, 'label'], $cursor['warnings']))),
+            'data_from' => $cursor['data_from'] ?? null,
         ], $this->keys->signingKey());
 
         $archiveId = (string) $job->archive_id;

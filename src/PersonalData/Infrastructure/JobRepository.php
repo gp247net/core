@@ -139,6 +139,23 @@ final class JobRepository
     }
 
     /**
+     * @param string $erasureId
+     * @return bool Whether an unfinished job already applies this ledger entry again.
+     */
+    public function hasActiveReapply(string $erasureId): bool
+    {
+        return $this->table()->where('kind', 'reapply')->where('erasure_id', $erasureId)->whereIn('status', self::ACTIVE)->exists();
+    }
+
+    /**
+     * @return int Jobs applying an erasure again after a restore that gave up (failed).
+     */
+    public function failedReapplies(): int
+    {
+        return $this->table()->where('kind', 'reapply')->where('status', self::FAILED)->count();
+    }
+
+    /**
      * @return string|null Id of an active job whose lease is free or expired.
      */
     public function nextRunnable(): ?string

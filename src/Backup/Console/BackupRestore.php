@@ -321,12 +321,34 @@ class BackupRestore extends GP247Command
             foreach ((array) ($summary['data']['post_incident'] ?? []) as $step) {
                 $this->line('  ' . $step['step'] . ': ' . $step['status'] . ($step['count'] ? ' (' . $step['count'] . ')' : ''));
             }
+            $this->personalDataLines((array) $summary['data']);
         }
         foreach ((array) ($summary['file_results'] ?? []) as $result) {
             $this->info('Files ' . $result['group'] . ': ' . $result['written'] . ' written, ' . count($result['skipped']) . ' skipped' . ($result['kept'] ? ', previous versions kept in ' . $result['copies'] : '') . '.');
         }
         if (!empty($summary['data']['post_incident'])) {
             $this->warn('Still to do by hand: put a new GP247_ENCRYPTION_KEY in .env, move the old one to GP247_ENCRYPTION_PREVIOUS_KEYS, run "php artisan gp247:encryption-key-rotate", remove the old key only after it finished; reinstall the code from its source; change the database and hosting passwords; run "php artisan gp247:doctor".');
+        }
+    }
+
+    /**
+     * What the restore did about erased customers (US-personal-data-registry-restore-reapply).
+     *
+     * @param array<string, mixed> $result A restore result (RestoreService::last()).
+     * @return void
+     */
+    private function personalDataLines(array $result): void
+    {
+        $marker = (array) ($result['personal_data'] ?? []);
+        $reerased = array_key_exists('reerased', $marker) ? $marker['reerased'] : 0;
+        if ($reerased === null) {
+            $this->warn('Erased customers could not be checked; see the system log.');
+        } elseif ((int) $reerased > 0) {
+            $this->line('Customers erased since this backup: ' . (int) $reerased . ' — their data is erased again (continues after the next admin requests).');
+        }
+        $refused = (int) ($result['undelete']['skipped_by_reason']['erased_personal_data'] ?? 0);
+        if ($refused > 0) {
+            $this->line('Not added back: ' . $refused . ' row(s) of erased customers.');
         }
     }
 
@@ -342,13 +364,15 @@ class BackupRestore extends GP247Command
             return $this->respondFailure(RestoreRefused::CONFIRMATION_REQUIRED, 'Not undone.');
         }
         try {
-            $result = (new RestoreService)->undo();
+            $service = new RestoreService;
+            $result = $service->undo();
         } catch (\Throwable $e) {
             return $this->refusal($e);
         }
         BackupAudit::record('restore_undo', BackupAudit::OK, ['tables' => count($result['tables'])]);
         if (!$this->isJson()) {
             $this->info('Put back ' . count($result['tables']) . ' table(s).');
+            $this->personalDataLines((array) ($service->last() ?? []));
         }
 
         return $this->respondSuccess($result);

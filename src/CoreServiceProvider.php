@@ -277,6 +277,13 @@ class CoreServiceProvider extends ServiceProvider
         $this->app->terminating(static function (): void {
             \GP247\Core\PersonalData\Infrastructure\ErasureResume::afterRequest();
         });
+        // A restore never brings back a customer erased after the backup was made
+        // (US-personal-data-registry-restore-reapply).
+        \Illuminate\Support\Facades\Event::listen(
+            \GP247\Core\Backup\Events\RestoreApplied::class,
+            [\GP247\Core\PersonalData\Application\ReapplyService::class, 'handle']
+        );
+        \GP247\Core\Backup\Application\UndeleteVetoes::register(\GP247\Core\PersonalData\Application\ErasedRowsVeto::class);
 
         // Ecosystem fingerprint: a versionless GP247 marker (HTTP header + <meta
         // generator>) on every response so technology-detection services can count

@@ -39,6 +39,26 @@ final class PersonalDataLanguage
             'admin.personal_data.status.done' => ['The customer and their personal data were erased.', 'Đã xoá khách hàng và dữ liệu cá nhân của khách.', '顧客と個人データを削除しました。'],
             'admin.personal_data.status.failed' => ['The erasure stopped on an error. Click Delete again to continue where it stopped; if it keeps failing, check the system log.', 'Việc xoá dừng vì lỗi. Bấm Xoá lại để làm tiếp phần còn lại; nếu vẫn lỗi, hãy xem nhật ký hệ thống.', 'エラーで削除が止まりました。もう一度「削除」を押すと続きから処理します。失敗が続く場合はシステムログを確認してください。'],
             'admin.personal_data.source.login_failures' => ['Failed sign-ins', 'Lần đăng nhập sai', 'ログイン失敗'],
+            'admin.backup.restore.reerased' => [
+                'Customers erased since this backup: :count — their data is erased again (it continues in the background after your next clicks).',
+                'Khách đã xoá sau ngày sao lưu: :count — dữ liệu của họ được xoá lại (tiếp tục chạy nền sau các thao tác tiếp theo của bạn).',
+                'このバックアップ以降に削除された顧客: :count 人 — データを再度削除します（以降の操作の裏で続行します）。',
+            ],
+            'admin.backup.restore.reerased_unknown' => [
+                'Erased customers could not be checked after this restore; see the system log.',
+                'Không kiểm được khách đã xoá sau lần khôi phục này; hãy xem nhật ký hệ thống.',
+                'この復元の後、削除済み顧客を確認できませんでした。システムログを確認してください。',
+            ],
+            'admin.backup.restore.reapply_failed' => [
+                'Erasing again after a restore failed :count time(s): erased customers may be back. Check the system log, then restore again or delete those customers again.',
+                'Xoá lại sau khôi phục đã thất bại :count lần: khách đã xoá có thể đã quay lại. Hãy xem nhật ký hệ thống, rồi khôi phục lại hoặc xoá lại các khách đó.',
+                '復元後の再削除が :count 回失敗しました。削除済みの顧客が戻っている可能性があります。システムログを確認し、復元をやり直すか、その顧客を再度削除してください。',
+            ],
+            'admin.backup.restore.erased_refused' => [
+                'Not added back: :count record(s) of erased customers.',
+                'Không thêm lại: :count bản ghi của khách đã xoá.',
+                '削除済み顧客のレコード :count 件は戻していません。',
+            ],
             'admin.personal_data.not_ready' => ['Run php artisan gp247:update first.', 'Hãy chạy php artisan gp247:update trước.', '先に php artisan gp247:update を実行してください。'],
         ];
     }
