@@ -58,17 +58,20 @@ class DataDefaultSeeder extends Seeder
         // "Security headers" screen + its site-wide settings (US-security-headers-install-lifecycle):
         // insertOrIgnore keeps what the owner chose; `gp247:update` re-runs this seeder, no upgrade migration.
         \GP247\Core\SecurityHeaders\Infrastructure\SecurityHeadersMenu::ensure($db);
-        // "Personal data requests" screen: permission (given to no role), menu, default settings —
-        // insertOrIgnore keeps what the owner chose; `gp247:update` re-runs this seeder
-        // (US-personal-data-requests-install-lifecycle).
-        \GP247\Core\PersonalData\Infrastructure\Requests\PersonalDataInstaller::ensure($db);
         $db->table(GP247_DB_PREFIX.'admin_config')->insertOrIgnore(\GP247\Core\SecurityHeaders\Application\SecurityHeaderSettings::defaultRows());
 
         $dataAdminPermission = $this->dataAdminPermission(GP247_ADMIN_PREFIX);
         $db->table(GP247_DB_PREFIX.'admin_permission')->insertOrIgnore($dataAdminPermission);
+        // WHY installers that add a permission come after the line above: the default permissions use
+        // fixed ids 1–4 (given to the Content Manager role below); an automatic id taken earlier would
+        // collide with them on a fresh install.
         // Backup area: switch, create / download / restore permissions, hidden menu item — same helper
         // as upgrade/2026_11_05_090000_create_backup_area.php (US-backup-admin-install-lifecycle).
         \GP247\Core\Backup\Infrastructure\Install\BackupInstaller::ensure($db);
+        // "Personal data requests" screen: permission (given to no role), menu, default settings —
+        // insertOrIgnore keeps what the owner chose; `gp247:update` re-runs this seeder
+        // (US-personal-data-requests-install-lifecycle).
+        \GP247\Core\PersonalData\Infrastructure\Requests\PersonalDataInstaller::ensure($db);
 
         $dataAdminRole = $this->dataAdminRole();
         $db->table(GP247_DB_PREFIX.'admin_role')->insertOrIgnore($dataAdminRole);
