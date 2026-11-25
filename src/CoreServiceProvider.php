@@ -92,6 +92,8 @@ class CoreServiceProvider extends ServiceProvider
         UpdateAll::class,
         CacheRebuild::class,
         EncryptionKeyRotate::class,
+        // Data past its retention period, for sites with cron (US-personal-data-retention-lazy-run).
+        \GP247\Core\Commands\PersonalDataRetention::class,
         // Needs the installed admin_user table, so runtime tier (US-CLI-admin-password-reset).
         \GP247\Core\Commands\AdminPassword::class,
         \GP247\Core\Backup\Console\BackupRun::class,

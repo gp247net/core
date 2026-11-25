@@ -15,7 +15,8 @@ use Illuminate\Database\Schema\Builder;
  *  - personal_data_request:        export / erase requests and where they stand (never replaced by a restore);
  *  - personal_data_request_log:    append-only history of every request (never replaced by a restore);
  *  - personal_data_export:         data packages being built or waiting to be downloaded (temporary,
- *                                  the file is removed once downloaded or after 24 hours).
+ *                                  the file is removed once downloaded or after 24 hours);
+ *  - personal_data_retention:      where each retention item stands (first clean allowed, last run, rows); no customer data.
  *
  * @aidlc-unit personal-data-registry
  * @aidlc-story US-personal-data-registry-erasure-ledger, US-personal-data-registry-erase-anonymise
@@ -29,6 +30,7 @@ final class PersonalDataSchema
     public const REQUEST = 'personal_data_request';
     public const REQUEST_LOG = 'personal_data_request_log';
     public const EXPORT = 'personal_data_export';
+    public const RETENTION = 'personal_data_retention';
 
     /**
      * @param string $logical
@@ -154,6 +156,21 @@ final class PersonalDataSchema
                 $table->index(['status', 'expires_at'], 'pdx_status_idx');
             });
         }
+        if (!$schema->hasTable(self::table(self::RETENTION))) {
+            $schema->create(self::table(self::RETENTION), function (Blueprint $table) {
+                $table->string('item_key', 40)->primary();
+                $table->timestamp('first_allowed_at')->nullable();
+                $table->timestamp('enabled_at')->nullable();
+                $table->timestamp('last_run_at')->nullable();
+                $table->timestamp('next_run_at')->nullable();
+                $table->unsignedInteger('last_rows')->default(0);
+                $table->unsignedBigInteger('total_rows')->default(0);
+                $table->string('last_error', 255)->nullable();
+                $table->unsignedSmallInteger('errors')->default(0);
+                $table->string('cursor', 100)->nullable();
+                $table->timestamp('updated_at')->nullable();
+            });
+        }
     }
 
     /**
@@ -165,6 +182,7 @@ final class PersonalDataSchema
      */
     public static function drop(Builder $schema): void
     {
+        $schema->dropIfExists(self::table(self::RETENTION));
         $schema->dropIfExists(self::table(self::EXPORT));
         $schema->dropIfExists(self::table(self::REQUEST_LOG));
         $schema->dropIfExists(self::table(self::REQUEST));

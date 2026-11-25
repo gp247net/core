@@ -10,8 +10,12 @@ namespace GP247\Core\PersonalData\Domain\Requests;
  * Customer messages carry no personal data beyond what the recipient already knows; messages
  * to the shop carry the request id and a link to the screen only.
  *
+ * Optional, not part of this interface so an older mailer keeps loading: inactiveAccount(string
+ * $email, string $requestId, \DateTimeInterface $runsAt) — an account unused for the retention
+ * period will be erased on that date unless the customer signs in or uses the link.
+ *
  * @aidlc-unit personal-data-requests
- * @aidlc-story US-customer-privacy-customer-emails, US-personal-data-requests-admin-notify
+ * @aidlc-story US-customer-privacy-customer-emails, US-personal-data-requests-admin-notify, US-personal-data-retention-inactive-accounts
  * @aidlc-adr customer-privacy_self-service-surfaces
  */
 interface PrivacyMailer

@@ -93,6 +93,8 @@ final class PreChangeGuard
             PreChange::TEMPLATE_SWITCH => $keep(['config', 'content']),
             // US-backup-engine-pre-change-snapshot (mod 20261106T131917): exactly the groups the import writes.
             PreChange::DATA_IMPORT => $keep(array_values(array_filter((array) ($change->scope['groups'] ?? []), 'is_string'))),
+            // US-personal-data-retention-order-anonymise: the data a retention item is about to change.
+            PreChange::PERSONAL_DATA_RETENTION => $keep(array_values(array_filter((array) ($change->scope['groups'] ?? []), 'is_string'))),
             default => null,
         };
     }
@@ -155,7 +157,7 @@ final class PreChangeGuard
             $parts[] = $clean((string) ($change->scope['type'] ?? '')) . '/' . $clean((string) $change->scope['key']);
         }
         // WHY: imports of different data within the reuse window must not share one snapshot.
-        if ($change->operation === PreChange::DATA_IMPORT) {
+        if (in_array($change->operation, [PreChange::DATA_IMPORT, PreChange::PERSONAL_DATA_RETENTION], true)) {
             $groups = array_values(array_filter((array) ($change->scope['groups'] ?? []), 'is_string'));
             sort($groups);
             $parts[] = implode('+', array_map($clean, $groups)) ?: '-';

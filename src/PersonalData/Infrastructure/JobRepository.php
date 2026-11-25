@@ -25,9 +25,11 @@ final class JobRepository
     public const FAILED = 'failed';
     public const ACTIVE = [self::QUEUED, self::RUNNING];
     public const KIND_EXPORT = 'export';
+    /** Records past their retention period being anonymised (personal-data-retention). */
+    public const KIND_RETENTION = 'retention';
 
     /**
-     * @param string               $kind     erase | reapply
+     * @param string               $kind     erase | reapply | export | retention
      * @param string               $origin
      * @param string|null          $customerId
      * @param string|null          $actorGuard
@@ -158,6 +160,38 @@ final class JobRepository
     public function hasActiveReapply(string $erasureId): bool
     {
         return $this->table()->where('kind', 'reapply')->where('erasure_id', $erasureId)->whereIn('status', self::ACTIVE)->exists();
+    }
+
+    /**
+     * @param string $kind
+     * @return string|null Id of an unfinished job of this kind (any subject).
+     */
+    public function activeOfKind(string $kind): ?string
+    {
+        $id = $this->table()->where('kind', $kind)->whereIn('status', self::ACTIVE)->orderBy('created_at')->value('id');
+
+        return $id === null ? null : (string) $id;
+    }
+
+    /**
+     * @param string $kind
+     * @return object|null The most recent job of this kind (any status).
+     */
+    public function latestOfKind(string $kind): ?object
+    {
+        return $this->table()->where('kind', $kind)->orderByDesc('created_at')->orderByDesc('id')->first();
+    }
+
+    /**
+     * A failed job is given its attempts again (the owner fixed the cause and asked to run again).
+     *
+     * @param string $id
+     * @return void
+     */
+    public function retry(string $id): void
+    {
+        $this->table()->where('id', $id)->where('status', self::FAILED)
+            ->update(['status' => self::QUEUED, 'attempts' => 0, 'error' => null, 'lease_owner' => null, 'lease_until' => null, 'updated_at' => now()]);
     }
 
     /**

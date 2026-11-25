@@ -3,6 +3,7 @@
 namespace GP247\Core\PersonalData\Application\Requests;
 
 use GP247\Core\PersonalData\Application\ErasureService;
+use GP247\Core\PersonalData\Application\Retention\RetentionSweeper;
 use GP247\Core\PersonalData\Infrastructure\PersonalDataSchema;
 use GP247\Core\PersonalData\Infrastructure\Requests\RequestLog;
 use GP247\Core\PersonalData\Infrastructure\Requests\RequestRepository;
@@ -12,11 +13,11 @@ use Illuminate\Support\Facades\DB;
 /**
  * Requests whose wait is over run without cron: after any web request (terminating hook), at
  * most once a minute for the whole site, one due request is started, guest requests never
- * verified are cancelled, the shop is reminded once of requests due soon, and old history and
- * packages are pruned. Errors are reported by class and never break the request that carried the tick.
+ * verified are cancelled, the shop is reminded once of requests due soon, old history and
+ * packages are pruned, and one slice of data past its retention period is cleaned. Errors are reported by class and never break the request that carried the tick.
  *
  * @aidlc-unit personal-data-requests
- * @aidlc-story US-personal-data-requests-admin-create, US-personal-data-requests-audit-log, US-personal-data-requests-admin-notify, US-customer-privacy-guest-request
+ * @aidlc-story US-personal-data-requests-admin-create, US-personal-data-requests-audit-log, US-personal-data-requests-admin-notify, US-customer-privacy-guest-request, US-personal-data-retention-lazy-run
  * @aidlc-adr personal-data-requests_lazy-scheduling
  */
 final class RequestScheduler
@@ -71,8 +72,28 @@ final class RequestScheduler
             // WHY here: packages downloaded or past their 24 hours leave the server without cron.
             app(\GP247\Core\PersonalData\Application\Export\ExportService::class)->prune();
         }
+        $this->sweepRetention();
 
         return app(PrivacyRequests::class)->startDue();
+    }
+
+    /**
+     * One slice of data past its retention period (US-personal-data-retention-lazy-run).
+     *
+     * @return void
+     */
+    private function sweepRetention(): void
+    {
+        try {
+            if (RetentionSweeper::ready()) {
+                app(RetentionSweeper::class)->tick();
+            }
+        } catch (\Throwable $e) {
+            // WHY caught here: retention must never stop the requests' own steps that follow.
+            if (function_exists('gp247_report')) {
+                gp247_report('Personal data retention tick failed: ' . $e::class);
+            }
+        }
     }
 
     /**

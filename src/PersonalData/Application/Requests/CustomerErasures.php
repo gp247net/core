@@ -16,9 +16,12 @@ use Illuminate\Support\Facades\Cache;
  * site so they can change their mind — from their account or with the link in the email — then
  * runs like any erasure (held while an order is still open). With a wait of 0 days it runs at once.
  *
- * @aidlc-unit personal-data-requests
- * @aidlc-story US-customer-privacy-self-delete, US-customer-privacy-api
- * @aidlc-adr personal-data-requests_request-model, customer-privacy_self-service-surfaces
+ * An account unused for the retention period gets the same kind of request (source "retention"),
+ * waiting 30 days; signing in again calls it off.
+ *
+ * @aidlc-unit personal-data-requests, personal-data-retention
+ * @aidlc-story US-customer-privacy-self-delete, US-customer-privacy-api, US-personal-data-retention-inactive-accounts
+ * @aidlc-adr personal-data-requests_request-model, customer-privacy_self-service-surfaces, personal-data-retention_inactive-accounts
  */
 final class CustomerErasures
 {
@@ -77,6 +80,83 @@ final class CustomerErasures
         }
 
         return ['state' => 'scheduled', 'status' => RequestStatus::Waiting->value, 'request_id' => $id, 'runs_at' => $runsAt->toDateTimeString()];
+    }
+
+    /**
+     * An account unused for the retention period: a request that waits until $runsAt, the customer
+     * told by email (verified address only) and the notice written in the request history.
+     *
+     * @param string             $customerId
+     * @param string             $storeId
+     * @param \DateTimeInterface $runsAt
+     * @param int                $days Days without activity that led to it (for the history).
+     * @return bool Whether a request was created (false when one is already open).
+     * @throws \RuntimeException When the site is busy (the next slice tries again).
+     */
+    public function scheduleForRetention(string $customerId, string $storeId, \DateTimeInterface $runsAt, int $days): bool
+    {
+        $system = ['type' => RequestLog::ACTOR_SYSTEM];
+        try {
+            $id = Cache::lock('gp247:pd-request:' . $customerId, self::LOCK_SECONDS)->block(self::LOCK_WAIT_SECONDS, function () use ($customerId, $storeId, $runsAt) {
+                if ($this->requests->openFor($customerId, RequestKind::Erase->value) !== null) {
+                    return null;
+                }
+
+                return $this->requests->create([
+                    'kind' => RequestKind::Erase->value,
+                    'source' => RequestSource::Retention->value,
+                    'status' => RequestStatus::Waiting->value,
+                    'customer_id' => $customerId,
+                    'store_id' => $storeId,
+                    'received_at' => now(),
+                    'due_at' => \Illuminate\Support\Carbon::instance($runsAt)->addDays(PrivacySettings::overdueDays()),
+                    'wait_until' => $runsAt,
+                ]);
+            });
+        } catch (LockTimeoutException $e) {
+            throw new \RuntimeException('Busy, try again.', 0, $e);
+        }
+        if ($id === null) {
+            return false;
+        }
+        $this->log->append($id, 'received', $system, null, ['kind' => 'erase', 'source' => RequestSource::Retention->value, 'inactive_days' => $days]);
+        $customer = PersonalDataRegistry::findCustomer($customerId);
+        $emailed = false;
+        // WHY only a verified address: the notice must reach the account holder, not whoever typed the address.
+        if ($customer !== null && ($customer['verified'] ?? false) === true && !empty($customer['email'])) {
+            $email = (string) $customer['email'];
+            // WHY method_exists: the storefront package may predate this notice (no such message then).
+            $emailed = PrivacyNotices::send(function ($mail) use ($email, $id, $runsAt) {
+                if (!method_exists($mail, 'inactiveAccount')) {
+                    throw new \LogicException('No message for unused accounts');
+                }
+                $mail->inactiveAccount($email, $id, $runsAt);
+            }, $storeId);
+        }
+        $this->log->append($id, 'retention_notice', $system, null, ['emailed' => $emailed]);
+
+        return true;
+    }
+
+    /**
+     * The customer signed in again: a waiting erasure created because the account was unused is called off.
+     *
+     * @param string $customerId
+     * @return bool Whether one was called off.
+     */
+    public function cancelRetention(string $customerId): bool
+    {
+        $open = $this->pendingFor($customerId);
+        if ($open === null || (string) $open->source !== RequestSource::Retention->value) {
+            return false;
+        }
+        try {
+            $this->privacy->cancel((string) $open->id, ['type' => RequestLog::ACTOR_CUSTOMER, 'id' => $customerId], 'active_again');
+        } catch (\DomainException $e) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

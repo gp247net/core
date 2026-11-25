@@ -3,6 +3,7 @@
 namespace GP247\Core\PersonalData\Infrastructure\Requests;
 
 use GP247\Core\PersonalData\Application\Requests\PrivacySettings;
+use GP247\Core\PersonalData\Application\Retention\RetentionPolicies;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -11,8 +12,10 @@ use Illuminate\Database\ConnectionInterface;
  * get them without a step of their own. The permission is given to no role: only
  * Administrators can use the screen until the owner assigns it to a role.
  *
- * @aidlc-unit personal-data-requests
- * @aidlc-story US-personal-data-requests-install-lifecycle, US-personal-data-requests-permission
+ * The "Data retention" screen gets its menu item and the defaults of every declared retention item.
+ *
+ * @aidlc-unit personal-data-requests, personal-data-retention
+ * @aidlc-story US-personal-data-requests-install-lifecycle, US-personal-data-requests-permission, US-personal-data-retention-policies
  * @aidlc-adr personal-data-requests_access-and-settings
  */
 final class PersonalDataInstaller
@@ -22,6 +25,7 @@ final class PersonalDataInstaller
     public const MENU_URI = 'admin::personal_data_requests';
     public const SCREEN_PATH = 'personal_data_requests';
     public const SETTINGS_PATH = 'personal_data_settings';
+    public const RETENTION_MENU_URI = 'admin::personal_data_retention';
     private const PARENT_KEY = 'ADMIN_SECURITY';
 
     /**
@@ -36,6 +40,8 @@ final class PersonalDataInstaller
         if ($schema->hasTable($p . 'admin_config')) {
             // WHY insertOrIgnore: unique (key, store_id) keeps what the owner already chose.
             $db->table($p . 'admin_config')->insertOrIgnore(PrivacySettings::defaultRows());
+            // Retention items declared by the packages booted now; an item without a row uses its default anyway.
+            $db->table($p . 'admin_config')->insertOrIgnore(RetentionPolicies::defaultRows());
         }
         if ($schema->hasTable($p . 'admin_permission')) {
             // WHY: the first version covered the screen only, not the package download under it.
@@ -58,6 +64,18 @@ final class PersonalDataInstaller
                 'title' => 'admin.menu_titles.personal_data_requests',
                 'icon' => 'fas fa-user-shield',
                 'uri' => self::MENU_URI,
+                'key' => null,
+                'type' => 0,
+            ]);
+        }
+        if ($schema->hasTable($p . 'admin_menu') && !$db->table($p . 'admin_menu')->where('uri', self::RETENTION_MENU_URI)->exists()) {
+            // WHY no permission row: the screen is for Administrators only (administratorOnly()).
+            $db->table($p . 'admin_menu')->insert([
+                'parent_id' => (int) $db->table($p . 'admin_menu')->where('key', self::PARENT_KEY)->value('id'),
+                'sort' => 4,
+                'title' => 'admin.menu_titles.personal_data_retention',
+                'icon' => 'fas fa-hourglass-half',
+                'uri' => self::RETENTION_MENU_URI,
                 'key' => null,
                 'type' => 0,
             ]);

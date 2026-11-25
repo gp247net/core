@@ -19,9 +19,9 @@ final class PrivacyNotices
      * @param Closure(PrivacyMailer): void $send
      * @param string|null                  $storeId Store of the request: links use its domain, not the
      *                                              domain of the page being served when the email goes out.
-     * @return void
+     * @return bool Whether the message was handed over without an error.
      */
-    public static function send(Closure $send, ?string $storeId = null): void
+    public static function send(Closure $send, ?string $storeId = null): bool
     {
         $previous = config('app.storeId');
         if ($storeId !== null && $storeId !== '') {
@@ -29,10 +29,14 @@ final class PrivacyNotices
         }
         try {
             $send(app(PrivacyMailer::class));
+
+            return true;
         } catch (\Throwable $e) {
             if (function_exists('gp247_report')) {
                 gp247_report('Personal data request email not sent: ' . $e::class);
             }
+
+            return false;
         } finally {
             config(['app.storeId' => $previous]);
         }

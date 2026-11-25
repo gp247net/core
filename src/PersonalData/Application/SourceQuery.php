@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Builds the query that selects the rows of one declared source belonging to one subject.
- * Every identifier comes from a validated declaration; every value is bound.
+ * Every identifier comes from a validated declaration; every value is bound. For a group of
+ * records, the named source is selected by key and other sources only through a parent link.
  *
  * @aidlc-unit personal-data-registry
  * @aidlc-story US-personal-data-registry-subject-lookup
@@ -73,6 +74,12 @@ final class SourceQuery
             ($source->filter())($query);
         }
         $matched = false;
+        if ($subject->records !== null && $subject->records['table'] === $source->table) {
+            // WHY: a group of records selects its own rows by key; the sources under it follow through their parent link.
+            $query->whereIn($source->key, $subject->records['ids']);
+
+            return $query;
+        }
         $query->where(function (Builder $w) use ($source, $subject, $depth, &$matched) {
             foreach ($source->links() as $link) {
                 $matched = self::applyLink($w, $link, $subject, $depth) || $matched;

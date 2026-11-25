@@ -120,6 +120,14 @@ final class PrivacyRequests
             throw new \DomainException('This request cannot run from ' . $from->value);
         }
         RequestTransitions::assertAllowed($from, RequestStatus::Processing);
+        // WHY: the account was only judged unused; the customer may have used it during the notice
+        // in a way that does not sign in again (the app refreshing its session, an old app token).
+        if ((string) $request->source === RequestSource::Retention->value && !empty($request->customer_id)
+            && \GP247\Core\PersonalData\Application\Retention\InactiveAccounts::activeSince((string) $request->customer_id, now()->parse((string) $request->received_at))) {
+            $this->workflow->transition($request, RequestStatus::Cancelled, $actor, 'active_again');
+
+            return ['status' => RequestStatus::Cancelled->value];
+        }
         $subject = $this->subjectOf($request);
         $matchEmails = $this->matchesEmails($request);
         $blockers = $this->erasures->blockers($subject, $matchEmails);
@@ -437,7 +445,7 @@ final class PrivacyRequests
         if ($source === RequestSource::Guest->value) {
             return $subject->emails[0] ?? null;
         }
-        if (!$matchEmails || !in_array($source, [RequestSource::Customer->value, RequestSource::Api->value], true) || empty($request->customer_id)) {
+        if (!$matchEmails || !in_array($source, [RequestSource::Customer->value, RequestSource::Api->value, RequestSource::Retention->value], true) || empty($request->customer_id)) {
             return null;
         }
         $email = PersonalDataRegistry::findCustomer((string) $request->customer_id)['email'] ?? null;
@@ -453,7 +461,8 @@ final class PrivacyRequests
      */
     private function matchesEmails(object $request): bool
     {
-        if (!in_array((string) $request->source, [RequestSource::Customer->value, RequestSource::Api->value], true) || empty($request->customer_id)) {
+        // WHY retention too: nobody proved the address, so it counts only when verified, as for the customer's own request.
+        if (!in_array((string) $request->source, [RequestSource::Customer->value, RequestSource::Api->value, RequestSource::Retention->value], true) || empty($request->customer_id)) {
             return true;
         }
         $customer = PersonalDataRegistry::findCustomer((string) $request->customer_id);
@@ -470,6 +479,7 @@ final class PrivacyRequests
         return match ((string) $request->source) {
             RequestSource::Customer->value, RequestSource::Api->value => 'customer',
             RequestSource::Guest->value => 'guest',
+            RequestSource::Retention->value => 'retention',
             default => 'admin',
         };
     }

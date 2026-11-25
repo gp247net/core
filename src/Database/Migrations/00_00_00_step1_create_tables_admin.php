@@ -93,6 +93,8 @@ return new class extends Migration
             $table->text('input');
             $table->index('user_id');
             $table->timestamps();
+            // WHY: the log's retention deletes its oldest rows by this column (US-personal-data-retention-admin-log).
+            $table->index('created_at');
         });
 
         $schema->create(GP247_DB_PREFIX . 'admin_config', function (Blueprint $table) {

@@ -4,6 +4,7 @@ namespace GP247\Core\PersonalData\Infrastructure;
 
 use GP247\Core\PersonalData\Application\PersonalDataRegistry;
 use GP247\Core\PersonalData\Domain\PersonalDataSource;
+use GP247\Core\PersonalData\Domain\Retention\RetentionItem;
 use GP247\Core\PersonalData\Domain\SubjectLink;
 
 /**
@@ -14,7 +15,7 @@ use GP247\Core\PersonalData\Domain\SubjectLink;
  * Customer API tokens and sessions are declared by gp247/shop, which knows the customer model.
  *
  * @aidlc-unit personal-data-registry
- * @aidlc-story US-customer-privacy-declare-shop-data
+ * @aidlc-story US-customer-privacy-declare-shop-data, US-personal-data-retention-admin-log
  * @aidlc-adr personal-data-registry_source-declaration
  */
 final class CoreSources
@@ -51,5 +52,10 @@ final class CoreSources
         foreach (self::NOT_CUSTOMER_DATA as $table => $reason) {
             PersonalDataRegistry::notCustomerData($table, $reason);
         }
+        // The administrators' log keeps customer data it quoted: cleaned by age, never edited (US-personal-data-retention-admin-log).
+        PersonalDataRegistry::retention(
+            RetentionItem::rows('core.admin_log', 'admin_log')->days(365, 90, 3650)
+                ->describe('admin.personal_data.retention.item.admin_log', 'gp247/core', 80)
+        );
     }
 }

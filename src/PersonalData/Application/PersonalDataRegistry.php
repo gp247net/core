@@ -4,6 +4,7 @@ namespace GP247\Core\PersonalData\Application;
 
 use GP247\Core\PersonalData\Domain\ErasureBlocker;
 use GP247\Core\PersonalData\Domain\PersonalDataSource;
+use GP247\Core\PersonalData\Domain\Retention\RetentionItem;
 
 /**
  * Every table holding customers' personal data, declared by the package or extension that owns
@@ -13,6 +14,9 @@ use GP247\Core\PersonalData\Domain\PersonalDataSource;
  *
  * A later code declaration of the same table replaces the earlier one (registry convention);
  * a manifest never replaces a code declaration.
+ *
+ * Packages also declare how long some data is kept (retention items: carts, reset codes,
+ * messages, logs, old orders, unused accounts), next to the sources they apply to.
  *
  * @aidlc-unit personal-data-registry
  * @aidlc-story US-personal-data-registry-declare-sources
@@ -30,6 +34,8 @@ final class PersonalDataRegistry
     private static array $notCustomerData = [];
     /** @var (\Closure(string): (array{id: string, email: string|null, name: string|null, store_id: string|null}|null))|null */
     private static ?\Closure $customerResolver = null;
+    /** @var array<string, RetentionItem> */
+    private static array $retention = [];
 
     /**
      * @param PersonalDataSource $source
@@ -125,6 +131,41 @@ final class PersonalDataRegistry
     }
 
     /**
+     * @param RetentionItem $item
+     * @return void
+     * @throws \InvalidArgumentException When the declaration is incomplete (shown to the developer).
+     *
+     * @aidlc-unit personal-data-retention
+     * @aidlc-story US-personal-data-retention-policies
+     * @aidlc-adr personal-data-retention_retention-registry
+     */
+    public static function retention(RetentionItem $item): void
+    {
+        $item->assertComplete();
+        self::$retention[$item->key] = $item;
+    }
+
+    /**
+     * @return list<RetentionItem> In screen order.
+     */
+    public static function retentionItems(): array
+    {
+        $list = array_values(self::$retention);
+        usort($list, fn (RetentionItem $a, RetentionItem $b) => [$a->sortOrder(), $a->key] <=> [$b->sortOrder(), $b->key]);
+
+        return $list;
+    }
+
+    /**
+     * @param string $key
+     * @return RetentionItem|null
+     */
+    public static function retentionItem(string $key): ?RetentionItem
+    {
+        return self::$retention[$key] ?? null;
+    }
+
+    /**
      * @return list<ErasureBlocker>
      */
     public static function blockers(): array
@@ -142,6 +183,7 @@ final class PersonalDataRegistry
         self::$manifestSources = null;
         self::$notCustomerData = [];
         self::$customerResolver = null;
+        self::$retention = [];
     }
 
     /**

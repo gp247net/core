@@ -28,6 +28,12 @@ final class PreChange
     public const DATA_IMPORT = 'data.import';
 
     /**
+     * A retention item that removes business data is turned on or its period shortened (old orders
+     * anonymised, unused accounts erased). Scope: ['groups' => list<string> data groups it changes, 'item' => string].
+     */
+    public const PERSONAL_DATA_RETENTION = 'personal_data.retention';
+
+    /**
      * @param string               $operation One of the constants above (registrants may meet others later).
      * @param array<string, mixed> $scope     What the change touches (e.g. ['type' => 'Plugins', 'key' => 'Foo']).
      * @param string|null          $from      Version / value before the change, when known.

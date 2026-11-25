@@ -180,7 +180,7 @@ class PermissionMiddleware
      * @return array<int, string> Request paths without leading slash, e.g. "gp247_admin/system_alerts".
      *
      * @aidlc-unit admin-shell
-     * @aidlc-story US-admin-shell-system-alerts-page, US-admin-shell-login-failure-list, US-backup-admin-permissions
+     * @aidlc-story US-admin-shell-system-alerts-page, US-admin-shell-login-failure-list, US-backup-admin-permissions, US-personal-data-retention-policies
      * @aidlc-adr admin-shell_system-alerts-page, admin-shell_login-failure-log
      */
     public function administratorOnly(): array
@@ -194,6 +194,8 @@ class PermissionMiddleware
             GP247_ADMIN_PREFIX . '/security_headers',
             // Personal data settings: one policy for the whole site (US-personal-data-requests-settings).
             GP247_ADMIN_PREFIX . '/personal_data_settings',
+            // Data retention: one policy for the whole site that deletes data (US-personal-data-retention-policies).
+            GP247_ADMIN_PREFIX . '/personal_data_retention',
         ];
     }
 }

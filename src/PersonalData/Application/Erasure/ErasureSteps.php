@@ -33,6 +33,9 @@ use GP247\Core\PersonalData\Infrastructure\JobRepository;
  *  0b. spawn   — one job per entry with a customer id or a found email (none when one already
  *      runs for that entry), which then collects and erases like an erasure.
  *
+ * A group of records past its retention period (old orders) runs the same collect and erase
+ * steps; it is not a person's erasure, so it leaves no ledger entry and tells no one.
+ *
  * The cursor is plain data (saved encrypted by the job repository).
  *
  * @aidlc-unit personal-data-registry
@@ -87,6 +90,29 @@ final class ErasureSteps
             'known' => [],
             'counts' => [],
         ];
+    }
+
+    /**
+     * @param DataSubject $subject A group of records (DataSubject::records()).
+     * @return array<string, mixed> Cursor of the anonymisation of records past their retention period.
+     * @throws \InvalidArgumentException When the subject is not a group of records.
+     *
+     * @aidlc-unit personal-data-retention
+     * @aidlc-story US-personal-data-retention-order-anonymise
+     * @aidlc-adr personal-data-retention_record-anonymise
+     */
+    public static function startRecords(DataSubject $subject): array
+    {
+        if ($subject->records === null) {
+            throw new \InvalidArgumentException('Not a group of records');
+        }
+        $cursor = self::start($subject, '');
+
+        return array_merge($cursor, [
+            'subject' => ['records' => $subject->records],
+            'erasure' => null,
+            'records' => true,
+        ]);
     }
 
     /**
@@ -283,8 +309,9 @@ final class ErasureSteps
         [$cursor, $source] = $this->current($cursor);
         if ($source === null) {
             // WHY not on reapply: the entry records the erasure that was asked for; applying it
-            // again after a restore changes neither when nor how much was asked.
-            if (empty($cursor['reapply'])) {
+            // again after a restore changes neither when nor how much was asked. Not for records
+            // past their retention period either: nobody asked, no person's erasure to record.
+            if (empty($cursor['reapply']) && empty($cursor['records'])) {
                 $this->ledger->complete((string) $cursor['erasure'], (array) $cursor['counts']);
                 // Tells the request this erasure was run for that it is done (personal-data-requests).
                 // WHY caught: the data is erased and the ledger completed — a listener failing must
@@ -375,6 +402,9 @@ final class ErasureSteps
     private function subject(array $cursor): DataSubject
     {
         $data = (array) ($cursor['subject'] ?? []);
+        if (isset($data['records']['table'], $data['records']['ids'])) {
+            return DataSubject::records((string) $data['records']['table'], (array) $data['records']['ids']);
+        }
         $emails = array_map('strval', (array) ($data['emails'] ?? []));
         if (($data['customer'] ?? null) !== null) {
             return DataSubject::customer((string) $data['customer'], $emails);

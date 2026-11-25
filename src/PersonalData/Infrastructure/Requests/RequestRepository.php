@@ -2,6 +2,8 @@
 
 namespace GP247\Core\PersonalData\Infrastructure\Requests;
 
+use GP247\Core\PersonalData\Domain\Requests\RequestKind;
+
 use GP247\Core\PersonalData\Domain\Requests\RequestSource;
 use GP247\Core\PersonalData\Domain\Requests\RequestStatus;
 use GP247\Core\PersonalData\Infrastructure\PersonalDataSchema;
@@ -96,6 +98,20 @@ final class RequestRepository
     {
         return $this->table()->where('customer_id', $customerId)->where('kind', $kind)
             ->whereIn('status', RequestStatus::openValues())->orderBy('received_at')->first();
+    }
+
+    /**
+     * @param string             $customerId
+     * @param \DateTimeInterface $since
+     * @return bool Whether an erasure created because the account looked unused was called off (by the
+     *              customer's link or an administrator) since the date — the customer chose to keep it.
+     */
+    public function retentionKeptSince(string $customerId, \DateTimeInterface $since): bool
+    {
+        return $this->table()->where('customer_id', $customerId)->where('kind', RequestKind::Erase->value)
+            ->where('source', RequestSource::Retention->value)
+            ->whereIn('status', [RequestStatus::Cancelled->value, RequestStatus::Rejected->value])
+            ->where('closed_at', '>=', $since)->exists();
     }
 
     /**

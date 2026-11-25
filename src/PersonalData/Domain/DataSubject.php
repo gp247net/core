@@ -7,18 +7,48 @@ namespace GP247\Core\PersonalData\Domain;
  * every email known for it) or a guest known only by email. Emails are normalised (trimmed,
  * lower case) so the same address always matches and hashes the same way.
  *
- * @aidlc-unit personal-data-registry
- * @aidlc-story US-personal-data-registry-subject-lookup
- * @aidlc-adr personal-data-registry_erasure-job
+ * A third kind is a group of records (old orders past their retention period): the records of
+ * one declared source by key, with the sources under them, whoever placed them.
+ *
+ * @aidlc-unit personal-data-registry, personal-data-retention
+ * @aidlc-story US-personal-data-registry-subject-lookup, US-personal-data-retention-order-anonymise
+ * @aidlc-adr personal-data-registry_erasure-job, personal-data-retention_record-anonymise
  */
 final class DataSubject
 {
+    /** Most records in one group (one erasure job). */
+    public const MAX_RECORDS = 500;
+
     /**
-     * @param string|null  $customerId
-     * @param list<string> $emails Normalised, unique, non-empty.
+     * @param string|null                                    $customerId
+     * @param list<string>                                   $emails  Normalised, unique, non-empty.
+     * @param array{table: string, ids: list<string>}|null $records A group of records instead of a person.
      */
-    private function __construct(public readonly ?string $customerId, public readonly array $emails)
+    private function __construct(public readonly ?string $customerId, public readonly array $emails, public readonly ?array $records = null)
     {
+    }
+
+    /**
+     * @param string               $table Logical name of a declared source.
+     * @param list<string|int>     $ids   Keys of its records.
+     * @return self
+     * @throws \InvalidArgumentException When the group is empty, too large or the table is not a plain name.
+     */
+    public static function records(string $table, array $ids): self
+    {
+        SubjectLink::assertIdentifier($table);
+        $keys = [];
+        foreach ($ids as $id) {
+            $value = trim((string) $id);
+            if ($value !== '') {
+                $keys[$value] = true;
+            }
+        }
+        if ($keys === [] || count($keys) > self::MAX_RECORDS) {
+            throw new \InvalidArgumentException('A group of records needs 1 to ' . self::MAX_RECORDS . ' records');
+        }
+
+        return new self(null, [], ['table' => $table, 'ids' => array_map('strval', array_keys($keys))]);
     }
 
     /**
@@ -58,7 +88,7 @@ final class DataSubject
      */
     public function withEmails(array $emails): self
     {
-        return new self($this->customerId, self::normaliseAll(array_merge($this->emails, $emails)));
+        return new self($this->customerId, self::normaliseAll(array_merge($this->emails, $emails)), $this->records);
     }
 
     /**
@@ -66,7 +96,15 @@ final class DataSubject
      */
     public function isGuest(): bool
     {
-        return $this->customerId === null;
+        return $this->customerId === null && $this->records === null;
+    }
+
+    /**
+     * @return bool Whether the subject is a group of records rather than a person.
+     */
+    public function isRecords(): bool
+    {
+        return $this->records !== null;
     }
 
     /**
