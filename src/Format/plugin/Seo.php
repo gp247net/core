@@ -3,8 +3,7 @@
 namespace App\GP247\Plugins\Extension_Key;
 
 /**
- * Sitemap URL provider for this plugin (US-PLG-007, ADR
- * seo_plugin-sitemap-extension in the s-cart `aidlc-docs` repo). Registered
+ * Sitemap URL provider for this plugin. Registered
  * by `Provider.php` into `config('gp247-config.front.seo_sitemap_providers')`
  * so `gp247/front`'s `SeoController` includes this plugin's public pages in
  * `sitemap.xml` without `gp247/front` hardcoding this plugin's name.
