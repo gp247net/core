@@ -408,15 +408,57 @@ class PrivacyRequestList extends GP247AdminComponent implements HidesFromOperati
             $this->applyKeyword($query);
         }
 
+        $rows = $query?->orderByDesc('received_at')->paginate(20);
+
         return view('gp247-admin::personal_data.requests', [
             'ready' => $ready,
-            'rows' => $query?->orderByDesc('received_at')->paginate(20),
+            'rows' => $rows,
+            'customers' => $rows === null ? [] : $this->customerLabels($rows->items()),
             'statuses' => array_map(fn (RequestStatus $s) => $s->value, RequestStatus::cases()),
             'detail' => $ready && $this->selectedId !== null ? $this->detail($this->selectedId) : null,
             'undeclared' => $ready && $this->showUndeclared ? app(UndeclaredSources::class)->find() : [],
             'channels' => RequestSource::ADMIN_CHANNELS,
             'stepUpMinutes' => intdiv(ErasureStepUp::SECONDS, 60),
+            'eventLabel' => static function (string $event): string {
+                $key = str_starts_with($event, 'status:') ? 'admin.personal_data.requests.status.' . substr($event, 7) : 'admin.personal_data.requests.event.' . $event;
+                $text = (string) gp247_language_render($key);
+
+                // WHY the code as a fallback: an extension may write events of its own.
+                return $text === $key ? $event : $text;
+            },
+            'reasonLabel' => static function (string $reason): string {
+                // WHY only plain codes: a reason an administrator typed (a refusal) is shown as written.
+                if (preg_match('/^[a-z_]+$/', $reason) !== 1) {
+                    return $reason;
+                }
+                $key = 'admin.personal_data.requests.reason.' . $reason;
+                $text = (string) gp247_language_render($key);
+
+                return $text === $key ? $reason : $text;
+            },
         ])->layout('gp247-admin::layouts.admin', ['title' => gp247_language_render('admin.personal_data.requests.title')]);
+    }
+
+    /**
+     * @param list<object> $rows Requests of the page.
+     * @return array<string, array{name: string|null, email: string|null}|null> Customer id => who it is (null: no longer exists).
+     */
+    private function customerLabels(array $rows): array
+    {
+        $ids = [];
+        foreach ($rows as $row) {
+            if ($row->customer_id !== null) {
+                $ids[] = (string) $row->customer_id;
+            }
+        }
+        // WHY in one go: the list is drawn again after every filter or click.
+        $found = PersonalDataRegistry::findCustomers($ids);
+        $out = [];
+        foreach (array_unique($ids) as $id) {
+            $out[$id] = isset($found[$id]) ? ['name' => $found[$id]['name'] ?? null, 'email' => $found[$id]['email'] ?? null] : null;
+        }
+
+        return $out;
     }
 
     /**

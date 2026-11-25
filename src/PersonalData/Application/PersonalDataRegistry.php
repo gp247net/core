@@ -34,6 +34,8 @@ final class PersonalDataRegistry
     private static array $notCustomerData = [];
     /** @var (\Closure(string): (array{id: string, email: string|null, name: string|null, store_id: string|null}|null))|null */
     private static ?\Closure $customerResolver = null;
+    /** @var (\Closure(list<string>): array<string, array{id: string, email: string|null, name: string|null, store_id: string|null}>)|null */
+    private static ?\Closure $customersResolver = null;
     /** @var array<string, RetentionItem> */
     private static array $retention = [];
 
@@ -115,6 +117,44 @@ final class PersonalDataRegistry
     }
 
     /**
+     * Optional: the package owning the customer model finds many customers by id in one query
+     * (lists that show who each request is about).
+     *
+     * @param \Closure(list<string>): array<string, array{id: string, email: string|null, name: string|null, store_id: string|null}> $resolver
+     * @return void
+     */
+    public static function customersResolver(\Closure $resolver): void
+    {
+        self::$customersResolver = $resolver;
+    }
+
+    /**
+     * @param list<string> $ids Customer ids.
+     * @return array<string, array{id: string, email: string|null, name: string|null, store_id: string|null}> Id => customer, for the ids that exist.
+     */
+    public static function findCustomers(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(fn ($id) => trim((string) $id), $ids), fn ($id) => $id !== '')));
+        if ($ids === []) {
+            return [];
+        }
+        if (self::$customersResolver !== null) {
+            $found = (self::$customersResolver)($ids);
+
+            return is_array($found) ? $found : [];
+        }
+        $out = [];
+        foreach ($ids as $id) {
+            $one = self::findCustomer($id);
+            if ($one !== null) {
+                $out[$id] = $one;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * @param string $idOrEmail
      * @return array{id: string, email: string|null, name: string|null, store_id: string|null, verified?: bool}|null The customer, or null
      *         when none matches or no package resolves customers.
@@ -183,6 +223,7 @@ final class PersonalDataRegistry
         self::$manifestSources = null;
         self::$notCustomerData = [];
         self::$customerResolver = null;
+        self::$customersResolver = null;
         self::$retention = [];
     }
 

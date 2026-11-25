@@ -8,10 +8,12 @@
     @aidlc-story US-personal-data-requests-screen, US-personal-data-requests-admin-create, US-personal-data-registry-undeclared-detection
     @aidlc-adr personal-data-requests_request-model
 
-    Variables: $ready (bool), $rows (paginator|null), $statuses, $detail (array|null), $undeclared, $channels, $stepUpMinutes.
+    Variables: $ready (bool), $rows (paginator|null), $customers (customer id => {name, email}|null), $statuses, $detail (array|null),
+    $undeclared, $channels, $stepUpMinutes, $eventLabel / $reasonLabel (closures: history code => words).
 --}}
 @php($inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100')
 @php($color = fn ($status) => match ($status) { 'completed' => 'green', 'failed' => 'red', 'on_hold', 'pending_approval' => 'amber', 'rejected', 'cancelled' => 'gray', default => 'blue' })
+@php($when = fn ($at) => $at ? substr((string) $at, 0, 16) : '—')
 <div class="space-y-6" data-testid="personal-data-requests-page">
     @unless ($ready)
         <x-gp247::alert type="warning">{{ gp247_language_render('admin.personal_data.not_ready') }}</x-gp247::alert>
@@ -89,14 +91,25 @@
                     </tr>
                 </x-slot:head>
                 @foreach ($rows as $row)
+                    @php($who = $row->customer_id !== null ? ($customers[(string) $row->customer_id] ?? null) : null)
                     <tr class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50" wire:key="pdr-{{ $row->id }}" wire:click="select('{{ $row->id }}')" data-testid="personal-data-requests-row">
-                        <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $row->id }}</td>
-                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.personal_data.requests.kind.' . $row->kind) }}</td>
-                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.personal_data.requests.source.' . $row->source) }}</td>
-                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{{ $row->customer_id !== null ? '#' . $row->customer_id : '—' }}</td>
-                        <td class="px-4 py-3"><x-gp247::badge :color="$color($row->status)">{{ gp247_language_render('admin.personal_data.requests.status.' . $row->status) }}</x-gp247::badge></td>
-                        <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $row->received_at }}</td>
-                        <td class="whitespace-nowrap px-4 py-3 text-xs {{ !in_array($row->status, ['completed', 'rejected', 'cancelled'], true) && $row->due_at < now() ? 'text-red-600' : 'text-gray-500 dark:text-gray-400' }}">{{ $row->due_at }}</td>
+                        {{-- WHY the end of the id: ULIDs share their first characters (time); the detail shows it whole. --}}
+                        <td class="whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400" title="{{ $row->id }}">…{{ substr((string) $row->id, -8) }}</td>
+                        <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.personal_data.requests.kind.' . $row->kind) }}</td>
+                        <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.personal_data.requests.source.' . $row->source) }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200" data-testid="personal-data-requests-row-customer">
+                            @if ($row->customer_id === null)
+                                <span class="text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.personal_data.requests.source.guest') }}</span>
+                            @elseif ($who === null)
+                                <span class="text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.personal_data.deleted_marker') }}</span>
+                            @else
+                                <span class="block font-medium text-gray-900 dark:text-white">{{ $who['name'] ?: '—' }}</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">{{ $who['email'] }}</span>
+                            @endif
+                        </td>
+                        <td class="whitespace-nowrap px-4 py-3"><x-gp247::badge :color="$color($row->status)">{{ gp247_language_render('admin.personal_data.requests.status.' . $row->status) }}</x-gp247::badge></td>
+                        <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $when($row->received_at) }}</td>
+                        <td class="whitespace-nowrap px-4 py-3 text-xs {{ !in_array($row->status, ['completed', 'rejected', 'cancelled'], true) && $row->due_at < now() ? 'text-red-600' : 'text-gray-500 dark:text-gray-400' }}">{{ $when($row->due_at) }}</td>
                     </tr>
                 @endforeach
             </x-gp247::table>
@@ -110,7 +123,7 @@
                 <div class="space-y-4 text-sm text-gray-700 dark:text-gray-200">
                     <p>
                         <x-gp247::badge :color="$color($req->status)">{{ gp247_language_render('admin.personal_data.requests.status.' . $req->status) }}</x-gp247::badge>
-                        @if ($req->wait_until && $req->status === 'waiting') · {{ gp247_language_render('admin.personal_data.requests.runs_at', ['at' => $req->wait_until]) }} @endif
+                        @if ($req->wait_until && $req->status === 'waiting') · {{ gp247_language_render('admin.personal_data.requests.runs_at', ['at' => $when($req->wait_until)]) }} @endif
                     </p>
                     @if ($detail['customer'])
                         <p>{{ $detail['customer']['email'] ?: ('#' . $detail['customer']['id']) }} @if ($detail['customer']['name']) — {{ $detail['customer']['name'] }} @endif</p>
@@ -155,7 +168,7 @@
                         <p class="mb-2 font-medium">{{ gp247_language_render('admin.personal_data.requests.history') }}</p>
                         <ul class="space-y-1 text-xs text-gray-500 dark:text-gray-400" data-testid="personal-data-requests-history">
                             @foreach ($detail['log'] as $entry)
-                                <li>{{ $entry->created_at }} · {{ $entry->event }} · {{ $entry->actor_type }}@if ($entry->actor_id) #{{ $entry->actor_id }}@endif @if ($entry->reason) · {{ $entry->reason }}@endif</li>
+                                <li>{{ $when($entry->created_at) }} · <span class="font-medium text-gray-700 dark:text-gray-200">{{ $eventLabel((string) $entry->event) }}</span> · {{ gp247_language_render('admin.personal_data.requests.actor.' . $entry->actor_type) }}@if ($entry->actor_type === 'admin' && $entry->actor_id) #{{ $entry->actor_id }}@endif @if ($entry->reason) · {{ $reasonLabel((string) $entry->reason) }}@endif</li>
                             @endforeach
                         </ul>
                     </div>

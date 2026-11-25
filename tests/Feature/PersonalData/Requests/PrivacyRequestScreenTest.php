@@ -180,4 +180,37 @@ class PrivacyRequestScreenTest extends TestCase
             }
         }
     }
+
+    public function test_the_list_shows_who_each_request_is_about_with_one_lookup_and_the_history_in_words(): void
+    {
+        $ids = $this->seedCustomerWithOrders();
+        $this->resolveTestCustomers([$ids['customer'] => '1']);
+        $lookups = 0;
+        \GP247\Core\PersonalData\Application\PersonalDataRegistry::customersResolver(function (array $list) use (&$lookups): array {
+            $lookups++;
+
+            return ['c-0001' => ['id' => 'c-0001', 'email' => 'an.nguyen@example.com', 'name' => 'Nguyen Van An', 'store_id' => '1']];
+        });
+        $db = \Illuminate\Support\Facades\DB::connection(GP247_DB_CONNECTION);
+        foreach (\GP247\Core\PersonalData\Infrastructure\PersonalDataLanguage::rows() as $row) {
+            if ($row['location'] === 'en' && !$db->table(GP247_DB_PREFIX . 'languages')->where('code', $row['code'])->where('location', 'en')->exists()) {
+                $db->table(GP247_DB_PREFIX . 'languages')->insert($row);
+            }
+        }
+        // WHY: the language rows are memoised per process; earlier tests may have read them already.
+        (new \ReflectionProperty(\GP247\Core\Models\Languages::class, 'getList'))->setValue(null, []);
+        $this->signInAdministrator();
+        app()->setLocale('en');
+        $request = app(\GP247\Core\PersonalData\Application\Requests\CustomerErasures::class)
+            ->request('c-0001', '1', \GP247\Core\PersonalData\Domain\Requests\RequestSource::Customer, ['type' => 'customer', 'id' => 'c-0001']);
+        app(PrivacyRequests::class)->cancel($request['request_id'], ['type' => 'customer', 'id' => 'c-0001'], 'changed_mind');
+
+        $screen = Livewire::test(PrivacyRequestList::class);
+
+        $screen->assertSeeHtml('data-testid="personal-data-requests-row-customer"')->assertSee('Nguyen Van An')->assertSee('an.nguyen@example.com');
+        $this->assertSame(1, $lookups, 'one lookup for the whole page');
+        $screen->call('select', $request['request_id']);
+        $this->assertStringNotContainsString('status:cancelled', $screen->html());
+        $this->assertStringNotContainsString('changed_mind', $screen->html());
+    }
 }

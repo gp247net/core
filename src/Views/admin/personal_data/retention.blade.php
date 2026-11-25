@@ -65,7 +65,7 @@
                             @endif
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.personal_data.retention.action.' . $row['action']) }} · {{ $row['owner'] }}</p>
                             @if ($row['waiting'] && $row['first_allowed_at'])
-                                <p class="text-xs text-gray-500 dark:text-gray-400" data-testid="personal-data-retention-first">{{ gp247_language_render('admin.personal_data.retention.first_clean', ['at' => $row['first_allowed_at']]) }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400" data-testid="personal-data-retention-first">{{ gp247_language_render('admin.personal_data.retention.first_clean', ['at' => substr((string) $row['first_allowed_at'], 0, 10)]) }}</p>
                             @endif
                             @if ($row['last_error'])
                                 <p class="text-xs text-red-600" data-testid="personal-data-retention-error">{{ gp247_language_render('admin.personal_data.retention.error', ['error' => class_basename($row['last_error'])]) }}</p>
@@ -82,10 +82,10 @@
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.personal_data.retention.range', ['min' => $row['min'], 'max' => $row['max']]) }}</p>
                             @endif
                         </td>
-                        <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $row['last_run_at'] ?? '—' }}</td>
+                        <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $row['last_run_at'] ? substr((string) $row['last_run_at'], 0, 16) : '—' }}</td>
                         <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $row['last_rows'] }} / {{ $row['total_rows'] }}</td>
                         <td class="px-4 py-3">
-                            <div class="flex flex-wrap gap-2">
+                            <div class="flex gap-2 whitespace-nowrap">
                                 <x-gp247::button size="sm" variant="primary" wire:click="save('{{ $row['key'] }}')" data-testid="personal-data-retention-save">{{ gp247_language_render('admin.personal_data.retention.save') }}</x-gp247::button>
                                 <x-gp247::button size="sm" variant="secondary" wire:click="runNow('{{ $row['key'] }}')" data-testid="personal-data-retention-run">{{ gp247_language_render('admin.personal_data.retention.run_now') }}</x-gp247::button>
                             </div>
