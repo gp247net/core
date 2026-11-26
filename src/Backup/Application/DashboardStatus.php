@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * What the backup screen says about protection right now: the last verified archive, how old it
  * is, the warnings a non-technical owner needs to act on, and the job in progress (no secret of
- * its cursor ever leaves this class — only a phase and a percentage).
+ * its cursor ever leaves this class — only steps, counters and a percentage, see JobProgress).
  *
  * @aidlc-unit backup-admin
  * @aidlc-story US-backup-admin-dashboard
@@ -157,27 +157,39 @@ final class DashboardStatus
         return max(1, (int) config('gp247-config.backup.stale_hours', 48));
     }
 
+    /** A job that has not moved for this long is shown as waiting / stalled, with what to do. */
+    public const IDLE_SECONDS = 180;
+
     /**
-     * @return array{id: int, type: string, archive_id: string|null, status: string, phase: string, percent: int|null}|null
+     * The job in progress, for the progress panel: its steps, the step under way, an overall
+     * percentage, "done of total" when the step counts something, how long it has run and how
+     * long since it last moved. Nothing of its cursor but counters leaves this class.
+     *
+     * @param CarbonInterface|null $now
+     * @return array{id: int, type: string, archive_id: string|null, status: string, phase: string, percent: int|null, steps: list<array{key: string, state: string}>, current: string, done: int|null, total: int|null, unit: string|null, elapsed: int, idle: int, stalled: bool}|null
+     *
+     * @aidlc-story US-backup-admin-dashboard
      */
-    public function activeJob(): ?array
+    public function activeJob(?CarbonInterface $now = null): ?array
     {
         $job = $this->jobs->nextActive();
         if ($job === null) {
             return null;
         }
+        $now ??= now();
         $phase = '';
-        $percent = null;
+        $progress = JobProgress::describe((string) $job->type, []);
         try {
             $cursor = $this->jobs->cursor($job);
             $phase = is_string($cursor['phase'] ?? null) ? $cursor['phase'] : '';
-            $tables = $cursor['tables'] ?? null;
-            if (is_array($tables) && $tables !== [] && is_int($cursor['ti'] ?? null)) {
-                $percent = (int) min(99, floor(100 * $cursor['ti'] / count($tables)));
-            }
+            $source = is_string($cursor['source'] ?? null) && is_file($cursor['source']) ? (int) filesize($cursor['source']) : null;
+            $progress = JobProgress::describe((string) $job->type, $cursor, $source);
         } catch (\Throwable $e) {
             // WHY: an unreadable cursor only loses the progress display, never the screen.
         }
+        $created = $job->created_at ? Carbon::parse($job->created_at) : $now;
+        $updated = $job->updated_at ? Carbon::parse($job->updated_at) : $created;
+        $idle = max(0, $now->getTimestamp() - $updated->getTimestamp());
 
         return [
             'id' => (int) $job->id,
@@ -185,7 +197,69 @@ final class DashboardStatus
             'archive_id' => $job->archive_id === null ? null : (string) $job->archive_id,
             'status' => (string) $job->status,
             'phase' => preg_replace('/[^a-z_]/', '', $phase) ?? '',
-            'percent' => $percent,
+            'percent' => $progress['percent'],
+            'steps' => $progress['steps'],
+            'current' => $progress['current'],
+            'done' => $progress['done'],
+            'total' => $progress['total'],
+            'unit' => $progress['unit'],
+            'elapsed' => max(0, $now->getTimestamp() - $created->getTimestamp()),
+            'idle' => $idle,
+            'stalled' => $idle >= self::IDLE_SECONDS,
+        ];
+    }
+
+    /**
+     * The last job of these kinds that ended within $seconds, while none is running: the result
+     * panel (done / failed / stopped) the person sees after watching the progress.
+     *
+     * @param list<string>         $types   Job types (Archive::JOB_*).
+     * @param int                  $seconds How long a result stays on screen.
+     * @param CarbonInterface|null $now
+     * @return array{id: int, type: string, archive_id: string|null, status: string, error: string|null, archive_status: string|null, size: int|null, took: int, ended_at: string}|null
+     *
+     * @aidlc-story US-backup-admin-dashboard
+     */
+    public function recentResult(array $types, int $seconds = 1800, ?CarbonInterface $now = null): ?array
+    {
+        $now ??= now();
+        $db = DB::connection(GP247_DB_CONNECTION);
+        $job = $db->table(GP247_DB_PREFIX . 'backup_job')
+            ->whereIn('type', $types)
+            ->whereIn('status', [Archive::JOB_DONE, Archive::JOB_FAILED, Archive::JOB_CANCELLED])
+            ->where('updated_at', '>=', $now->copy()->subSeconds($seconds))
+            ->orderByDesc('id')->first();
+        if ($job === null) {
+            return null;
+        }
+        $archive = $job->archive_id === null ? null
+            : $db->table(GP247_DB_PREFIX . 'backup_archive')->where('id', $job->archive_id)->first(['status', 'size']);
+        $created = Carbon::parse($job->created_at);
+        $type = (string) $job->type;
+        // WHY: every new backup is checked by a job of its own right after it; for the person both
+        // are one "backup", so the result names the backup and counts the time from its start.
+        if ($type === Archive::JOB_VERIFY && $job->archive_id !== null && $job->status === Archive::JOB_DONE) {
+            $made = $db->table(GP247_DB_PREFIX . 'backup_job')->where('type', Archive::JOB_BACKUP)
+                ->where('archive_id', $job->archive_id)->where('status', Archive::JOB_DONE)->where('id', '<', $job->id)
+                ->orderByDesc('id')->first(['created_at']);
+            if ($made !== null) {
+                $type = Archive::JOB_BACKUP;
+                $created = Carbon::parse($made->created_at);
+            }
+        }
+        $ended = Carbon::parse($job->updated_at);
+
+        return [
+            'id' => (int) $job->id,
+            'type' => $type,
+            'archive_id' => $job->archive_id === null ? null : (string) $job->archive_id,
+            'status' => (string) $job->status,
+            // WHY only a snake_case code: the stored message may hold a path or a table name.
+            'error' => $job->error !== null && preg_match('/[a-z]+(?:_[a-z]+)+/', (string) $job->error, $code) === 1 ? $code[0] : null,
+            'archive_status' => $archive === null ? null : (string) $archive->status,
+            'size' => $archive === null ? null : (int) $archive->size,
+            'took' => max(0, $ended->getTimestamp() - $created->getTimestamp()),
+            'ended_at' => $ended->toDateTimeString(),
         ];
     }
 }

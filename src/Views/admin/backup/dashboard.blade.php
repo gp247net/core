@@ -12,7 +12,8 @@
     $groups (key => DataGroup), $fileGroups (list), $otherTables (int, tables only a full backup holds),
     $can (create/download/restore/settings), $staleHours,
     $stepUpNeedsCode, $tickUrl, $postIncident (open checklist|null — BK-5),
-    $dialogArchive (row of the archive the delete / check-again dialog acts on|null), $dialogError (string|null).
+    $dialogArchive (row of the archive the delete / check-again dialog acts on|null), $dialogError (string|null),
+    $result (DashboardStatus::recentResult()|null — how the last backup / check / copy off-site ended).
 --}}
 @php($inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100')
 @php($job = $status['job'])
@@ -124,15 +125,17 @@
                 </div>
             </div>
             @if ($job)
-                <div class="mt-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700" data-testid="backup-job">
-                    <p class="text-sm text-gray-700 dark:text-gray-200">
-                        {{ gp247_language_render('admin.backup.job.' . $job['type']) }}
-                        @if ($job['percent'] !== null) · {{ $job['percent'] }}% @endif
-                        @if ($job['phase'] !== '') · {{ $job['phase'] }} @endif
-                    </p>
-                    @if ($can['create'] && $job['type'] === 'backup' && $job['archive_id'])
-                        <x-gp247::button variant="danger" size="sm" class="mt-2" wire:click="cancelBackup('{{ $job['archive_id'] }}')" data-testid="backup-job-cancel">{{ gp247_language_render('admin.backup.job.cancel') }}</x-gp247::button>
-                    @endif
+                <div class="mt-4">
+                    @include('gp247-admin::backup.partials.job-progress', [
+                        'job' => $job,
+                        'testid' => 'backup-job',
+                        'cancel' => $can['create'] && $job['type'] === 'backup' && $job['archive_id'] ? "cancelBackup('" . $job['archive_id'] . "')" : null,
+                        'cancelTestid' => 'backup-job-cancel',
+                    ])
+                </div>
+            @elseif ($result && $result['id'] !== $dismissedResult)
+                <div class="mt-4">
+                    @include('gp247-admin::backup.partials.job-result', ['result' => $result, 'testid' => 'backup-job-result', 'dismiss' => 'dismissResult(' . $result['id'] . ')'])
                 </div>
             @endif
             @include('gp247-admin::backup.partials.runner', ['tickUrl' => $tickUrl, 'active' => $can['create'] && $job && $job['type'] !== 'restore'])

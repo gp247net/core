@@ -43,14 +43,13 @@
     @endif
 
     @if ($job && in_array($job['type'], ['restore', 'import'], true))
-        <x-gp247::card :title="gp247_language_render('admin.backup.job.' . $job['type'])" data-testid="backup-restore-job">
-            <p class="text-sm text-gray-700 dark:text-gray-200">
-                @if ($job['percent'] !== null){{ $job['percent'] }}% · @endif{{ $job['phase'] }}
-            </p>
-            @if ($job['type'] === 'restore')
-                <x-gp247::button size="sm" variant="secondary" class="mt-2" wire:click="cancelRestore" data-testid="backup-restore-cancel">{{ gp247_language_render('admin.backup.job.cancel') }}</x-gp247::button>
-            @endif
-        </x-gp247::card>
+        @include('gp247-admin::backup.partials.job-progress', [
+            'job' => $job,
+            'testid' => 'backup-restore-job',
+            // WHY only these phases: past them the tables are swapped and stopping would leave the site half restored.
+            'cancel' => $job['type'] === 'restore' && in_array($job['phase'], \GP247\Core\Backup\Application\RestoreStep::CANCELLABLE_PHASES, true) ? 'cancelRestore' : null,
+            'cancelTestid' => 'backup-restore-cancel',
+        ])
     @endif
     @include('gp247-admin::backup.partials.runner', ['tickUrl' => $tickUrl, 'active' => $job && in_array($job['type'], ['restore', 'import'], true)])
     @if ($lastImport && $lastImport['status'] === 'done' && !$lastImport['restored'] && $archives->contains('id', $lastImport['archive_id']))

@@ -76,6 +76,9 @@ class BackupDashboard extends Component
     /** Result of a row action (delete, check again), shown next to the list where it was asked. */
     public ?string $listNotice = null;
 
+    /** Id of the job whose result panel the person closed. */
+    public ?int $dismissedResult = null;
+
     /**
      * @return void
      * @throws AuthorizationException When the admin holds no backup right.
@@ -304,6 +307,19 @@ class BackupDashboard extends Component
     }
 
     /**
+     * Close the result panel of a finished job (it would otherwise stay for a while).
+     *
+     * @param int $jobId
+     * @return void
+     *
+     * @aidlc-story US-backup-admin-dashboard
+     */
+    public function dismissResult(int $jobId): void
+    {
+        $this->dismissedResult = $jobId;
+    }
+
+    /**
      * Close the delete / check-again dialog without doing anything (Cancel, ×, Escape, backdrop).
      * Opening one also starts from a clean state: no typed text, no old message.
      *
@@ -427,6 +443,7 @@ class BackupDashboard extends Component
             'postIncident' => PostIncidentChecklist::pending(),
             'stepUpNeedsCode' => $this->stepUpOpen && $this->stepUpNeedsCode(),
             'tickUrl' => gp247_route_admin('admin.backup.tick'),
+            'result' => $setUp ? (new DashboardStatus)->recentResult([Archive::JOB_BACKUP, Archive::JOB_VERIFY, Archive::JOB_UPLOAD]) : null,
             'dialogArchive' => $dialogId === null ? null : DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'backup_archive')->where('id', $dialogId)->first(),
             // WHY: a refusal while a dialog is open is shown inside it; the notice at the top is out of sight.
             'dialogError' => $dialogId !== null && $this->notice !== null && $this->noticeType === 'error' ? $this->notice : null,
