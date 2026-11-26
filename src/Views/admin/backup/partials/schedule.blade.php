@@ -6,15 +6,13 @@
     @aidlc-story US-backup-admin-schedule
     @aidlc-adr backup-admin_browser-beacon-scheduling
 
-    Variables: $modes, $cycles, $kinds (lists), $setUp (bool), $cronLine (string), $cronCommand (string), $cronMissed (bool),
-    $summary (array{text: string, tone: string} — the line shown while the section is folded).
+    Variables: $modes, $cycles, $kinds (lists), $setUp (bool), $cronLine (string), $cronCommand (string), $cronMissed (bool).
 --}}
 @php($inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100')
 <div data-testid="backup-schedule">
     @component('gp247-admin::backup.partials.settings-section', [
         'key' => 'schedule', 'testid' => 'backup-schedule-section', 'title' => gp247_language_render('admin.backup.schedule.title'),
-        'summary' => $summary['text'], 'tone' => $summary['tone'],
-        'open' => $errors->any() || ($notice && $noticeType === 'error'),
+        'description' => gp247_language_render('admin.backup.settings.desc.schedule'),
         'notice' => $notice, 'noticeType' => $noticeType, 'noticeTestid' => 'backup-schedule-notice',
         'note' => !$setUp && $mode !== 'off' ? gp247_language_render('admin.backup.schedule.not_set_up') : null,
     ])

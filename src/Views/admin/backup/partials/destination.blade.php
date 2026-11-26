@@ -7,16 +7,13 @@
     @aidlc-adr backup-storage_optional-adapters
 
     Variables: $types (array<string, DestinationType>), $definition (?DestinationType), $current (?array),
-    $storedSecrets (list<string>), $shown (?ConnectionReport), $retention (?array), $stepUpNeedsCode (bool),
-    $summary (array{text: string, tone: string}), $openOnLoad (bool).
+    $storedSecrets (list<string>), $shown (?ConnectionReport), $retention (?array), $stepUpNeedsCode (bool).
 --}}
 @php($inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100')
 <div data-testid="backup-destination">
     @component('gp247-admin::backup.partials.settings-section', [
         'key' => 'destination', 'testid' => 'backup-destination-section', 'title' => gp247_language_render('admin.backup.offsite.title'),
-        'summary' => $summary['text'], 'tone' => $summary['tone'],
-        // A connection test result or a host key to accept is read in the open section.
-        'open' => $errors->any() || $openOnLoad,
+        'description' => null,
         'notice' => $notice, 'noticeType' => $noticeType, 'noticeTestid' => 'backup-destination-notice', 'note' => null,
     ])
         <div class="space-y-4">

@@ -126,9 +126,7 @@ class BackupDestinationSettings extends Component
         $definition = $this->definition();
         $moved = $before !== null && ($before['type'] !== $this->type || $definition === null || !$definition->sameIdentity($before['fields'], $this->fields));
         $this->notice($moved ? 'admin.backup.offsite.moved' : 'admin.backup.offsite.saved', $moved ? 'warning' : 'success');
-        if (!$moved) {
-            $this->dispatch('gp247-backup-section-done', section: 'destination');
-        }
+        $this->dispatch('gp247-backup-section-done', section: 'destination');
     }
 
     /**
@@ -194,6 +192,7 @@ class BackupDestinationSettings extends Component
         $this->testStored($offsite);
         $this->loadStored();
         $this->notice('admin.backup.offsite.host_key_accepted');
+        $this->dispatch('gp247-backup-section-done', section: 'destination');
     }
 
     /**
@@ -211,6 +210,7 @@ class BackupDestinationSettings extends Component
         BackupAudit::record('destination_remove', BackupAudit::OK);
         $this->reset(['type', 'fields', 'secretInputs', 'report', 'seenFingerprint']);
         $this->notice('admin.backup.offsite.removed');
+        $this->dispatch('gp247-backup-section-done', section: 'destination');
     }
 
     /**
@@ -232,34 +232,33 @@ class BackupDestinationSettings extends Component
             'shown' => $this->report !== null ? ConnectionReport::fromArray($this->report) : $stored,
             'retention' => $offsite->config()->retentionOutcome(),
             'stepUpNeedsCode' => $this->stepUpOpen && $this->stepUpNeedsCode(),
-            'summary' => $this->summary($current, $stored),
-            'openOnLoad' => $this->report !== null || ($this->notice !== null && $this->noticeType !== 'success'),
         ]);
     }
 
     /**
-     * The "External destination" line as saved: none, or its type and how the last connection
-     * check went.
+     * The short "External destination" line of the settings menu, as saved: none (amber), or its
+     * type, amber when the last connection check failed.
      *
-     * @param array<string, mixed>|null $current
-     * @param ConnectionReport|null     $stored
-     * @return array{text: string, tone: string}
+     * @return array{summary: string, tone: string}
      *
      * @aidlc-unit backup-storage
      * @aidlc-story US-backup-storage-s3-compatible
      */
-    private function summary(?array $current, ?ConnectionReport $stored): array
+    public static function navSummary(): array
     {
+        $config = (new OffsiteService)->config();
+        $current = $config->current();
         if ($current === null) {
-            return ['text' => gp247_language_render('admin.backup.settings.summary.offsite_none'), 'tone' => 'warning'];
+            return ['summary' => gp247_language_render('admin.backup.settings.summary.offsite_unset'), 'tone' => 'warning'];
         }
         $type = (new DestinationRegistry)->types()[(string) ($current['type'] ?? '')] ?? null;
         $name = $type === null ? (string) ($current['type'] ?? '') : gp247_language_render($type->label);
+        $stored = $config->report();
         if ($stored !== null && !$stored->ok()) {
-            return ['text' => $name . ' · ' . gp247_language_render('admin.backup.settings.summary.offsite_failed'), 'tone' => 'warning'];
+            return ['summary' => $name . ' · ' . gp247_language_render('admin.backup.settings.summary.offsite_failed'), 'tone' => 'warning'];
         }
 
-        return ['text' => $name . ($stored !== null ? ' · ' . gp247_language_render('admin.backup.settings.summary.offsite_ok') : ''), 'tone' => 'ok'];
+        return ['summary' => $name, 'tone' => 'ok'];
     }
 
     /**

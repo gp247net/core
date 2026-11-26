@@ -20,6 +20,7 @@ use GP247\Core\Backup\Livewire\Concerns\RendersNotices;
 use GP247\Core\Models\AdminConfig;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -212,7 +213,7 @@ class BackupSettings extends Component
 
         return view('gp247-admin::backup.settings', [
             'setUp' => (new KeyService)->isSetUp(),
-            'generalSummary' => $this->generalSummary(),
+            'nav' => $this->nav(),
             'stepUpNeedsCode' => $this->stepUpOpen && $this->stepUpNeedsCode(),
         ])->layout('gp247-admin::layouts.admin', [
             'title' => gp247_language_render('admin.backup.settings.title'),
@@ -220,26 +221,44 @@ class BackupSettings extends Component
     }
 
     /**
-     * The "General" line as saved (not as being typed): on or off, archives kept, storage folder.
+     * A section saved in its own component (schedule, external destination): render again so the
+     * menu shows the new line.
      *
-     * @return array{text: string, tone: string}
+     * @return void
      *
      * @aidlc-story US-backup-admin-dashboard
      */
-    private function generalSummary(): array
+    #[On('gp247-backup-section-done')]
+    public function sectionSaved(): void
+    {
+    }
+
+    /**
+     * The menu of the settings page: each section with a short line of what is saved now.
+     *
+     * @return list<array{key: string, title: string, summary: string, tone: string}>
+     *
+     * @aidlc-story US-backup-admin-dashboard
+     */
+    private function nav(): array
     {
         $settings = RetentionService::settings();
-        $path = (string) AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)->where('key', LocalVault::CONFIG_PATH)->value('value');
         $on = BackupFeature::enabled();
-
-        return [
-            'text' => implode(' · ', [
-                gp247_language_render($on ? 'admin.backup.settings.summary.on' : 'admin.backup.settings.summary.off'),
-                gp247_language_render('admin.backup.settings.summary.keep', ['keep' => $settings['keep'], 'pre' => $settings['keep_pre_change']]),
-                $path === '' ? gp247_language_render('admin.backup.settings.summary.vault_default') : $path,
-            ]),
-            'tone' => $on ? 'ok' : 'warning',
+        $schedule = BackupScheduleSettings::navSummary();
+        $destination = BackupDestinationSettings::navSummary();
+        $nav = [
+            ['key' => 'general', 'title' => gp247_language_render('admin.backup.settings.general'), 'tone' => $on ? 'ok' : 'warning',
+                'summary' => $on
+                    ? gp247_language_render('admin.backup.settings.summary.on') . ' · ' . gp247_language_render('admin.backup.settings.summary.keep_short', ['keep' => $settings['keep'], 'pre' => $settings['keep_pre_change']])
+                    : gp247_language_render('admin.backup.settings.summary.off')],
+            ['key' => 'schedule', 'title' => gp247_language_render('admin.backup.schedule.title')] + $schedule,
+            ['key' => 'destination', 'title' => gp247_language_render('admin.backup.offsite.title')] + $destination,
         ];
+        if ((new KeyService)->isSetUp()) {
+            $nav[] = ['key' => 'security', 'title' => gp247_language_render('admin.backup.settings.security'), 'summary' => gp247_language_render('admin.backup.settings.summary.set'), 'tone' => 'ok'];
+        }
+
+        return $nav;
     }
 
     /**

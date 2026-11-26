@@ -66,30 +66,26 @@ class BackupScheduleSettings extends Component
     }
 
     /**
-     * The "Schedule" line as saved: how backups start, how often, what they hold.
+     * The short "Schedule" line of the settings menu, as saved: how often (and at what hour with
+     * cron); amber when scheduled backups are off or cron has not run lately.
      *
-     * @param bool $cronMissed
-     * @return array{text: string, tone: string}
+     * @return array{summary: string, tone: string}
      *
      * @aidlc-story US-backup-admin-schedule
      */
-    private function summary(bool $cronMissed): array
+    public static function navSummary(): array
     {
         $saved = ScheduleSettings::read();
         if ($saved['mode'] === ScheduleSettings::MODE_OFF) {
-            return ['text' => gp247_language_render('admin.backup.schedule.mode.' . $saved['mode']), 'tone' => 'warning'];
+            return ['summary' => gp247_language_render('admin.backup.schedule.mode.' . $saved['mode']), 'tone' => 'warning'];
         }
-        $parts = [
-            gp247_language_render('admin.backup.schedule.mode.' . $saved['mode']),
-            gp247_language_render('admin.backup.schedule.every', ['hours' => $saved['hours']])
-                . ($saved['mode'] === ScheduleSettings::MODE_CRON ? ' · ' . $saved['at'] : ''),
-            gp247_language_render('admin.backup.schedule.kind.' . $saved['kind']),
-        ];
-        if ($cronMissed) {
-            $parts[] = gp247_language_render('admin.backup.settings.summary.cron_missed');
+        $text = gp247_language_render('admin.backup.schedule.every', ['hours' => $saved['hours']])
+            . ($saved['mode'] === ScheduleSettings::MODE_CRON ? ' · ' . $saved['at'] : '');
+        if ((new ScheduleClock)->cronMissed()) {
+            return ['summary' => $text . ' · ' . gp247_language_render('admin.backup.settings.summary.cron_missed'), 'tone' => 'warning'];
         }
 
-        return ['text' => implode(' · ', $parts), 'tone' => $cronMissed ? 'warning' : 'ok'];
+        return ['summary' => $text, 'tone' => 'ok'];
     }
 
     /**
@@ -108,7 +104,6 @@ class BackupScheduleSettings extends Component
             'cronLine' => '* * * * * cd ' . base_path() . ' && ' . PHP_BINARY . ' artisan schedule:run >> /dev/null 2>&1',
             'cronCommand' => ScheduleRegistrar::COMMAND,
             'cronMissed' => $cronMissed,
-            'summary' => $this->summary($cronMissed),
         ]);
     }
 }
