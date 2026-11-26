@@ -53,7 +53,21 @@
         </x-gp247::card>
     @endif
     @include('gp247-admin::backup.partials.runner', ['tickUrl' => $tickUrl, 'active' => $job && in_array($job['type'], ['restore', 'import'], true)])
-    @if ($lastImport && $lastImport['status'] !== 'running')
+    @if ($lastImport && $lastImport['status'] === 'done' && !$lastImport['restored'] && $archives->contains('id', $lastImport['archive_id']))
+        {{-- Bringing a file in only adds it to the list: say so, and offer the next step, until a
+             restore from it has started (US-backup-restore-import-archive). --}}
+        <x-gp247::alert type="info" data-testid="backup-restore-last-import">
+            {{ gp247_language_render('admin.backup.import.done_next', ['archive' => (string) $lastImport['archive_id']]) }}
+            @if (($lastImport['origin'] ?? null) === 'unverified') · {{ gp247_language_render('admin.backup.origin.unverified_short') }} @endif
+            @if ($archiveId !== $lastImport['archive_id'])
+                <div class="mt-2">
+                    <x-gp247::button size="sm" wire:click="$set('archiveId', '{{ $lastImport['archive_id'] }}')"
+                        x-on:click="$nextTick(() => document.querySelector('[data-testid=backup-restore-archive]')?.scrollIntoView({ block: 'center' }))"
+                        data-testid="backup-restore-from-import">{{ gp247_language_render('admin.backup.import.restore_this') }}</x-gp247::button>
+                </div>
+            @endif
+        </x-gp247::alert>
+    @elseif ($lastImport && $lastImport['status'] !== 'running')
         <p class="text-sm {{ $lastImport['status'] === 'done' ? 'text-gray-600 dark:text-gray-300' : 'text-red-600' }}" data-testid="backup-restore-last-import">
             {{ gp247_language_render('admin.backup.import.last_' . ($lastImport['status'] === 'done' ? 'done' : 'failed'), ['archive' => (string) ($lastImport['archive_id'] ?? ''), 'reason' => (string) ($lastImport['error'] ?? '')]) }}
             @if (($lastImport['origin'] ?? null) === 'unverified') · {{ gp247_language_render('admin.backup.origin.unverified_short') }} @endif
@@ -69,8 +83,20 @@
                 <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.backup.restore.archive') }}</label>
                 <select wire:model.live="archiveId" class="{{ $inputCls }}" data-testid="backup-restore-archive">
                     <option value="">—</option>
+                    {{-- WHY reason, origin and code: a scheduled backup made right after a file was
+                         brought in lists first with the same date and kind, and was picked by mistake. --}}
                     @foreach ($archives as $archive)
-                        <option value="{{ $archive->id }}">{{ $archive->created_at }} · {{ gp247_language_render('admin.backup.kind.' . $archive->kind) }}</option>
+                        @php($reasonCode = explode(':', (string) $archive->reason)[0])
+                        @php($reasonKey = $reasonCode === 'import' ? 'admin.backup.kind.imported' : 'admin.backup.reason.' . $reasonCode)
+                        @php($reasonText = gp247_language_render($reasonKey))
+                        @php($optionText = implode(' · ', array_filter([
+                            (string) $archive->created_at,
+                            gp247_language_render('admin.backup.kind.' . $archive->kind),
+                            $reasonText !== $reasonKey ? $reasonText : null,
+                            $archive->origin === 'unverified' ? gp247_language_render('admin.backup.origin.unverified_short') : null,
+                            substr((string) $archive->id, -6),
+                        ])))
+                        <option value="{{ $archive->id }}">{{ $optionText }}</option>
                     @endforeach
                 </select>
             </div>

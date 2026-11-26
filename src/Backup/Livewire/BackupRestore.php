@@ -511,15 +511,26 @@ class BackupRestore extends Component
     }
 
     /**
-     * @return array{status: string, archive_id: string|null, origin: string|null, error: string|null}|null
-     *         Latest import (upload or command line), for the result line.
+     * Latest import (upload or command line), for the result line. `restored` tells whether a
+     * restore from that archive started after it: until then the screen says that bringing a file
+     * in changed nothing on the site and offers to restore from it.
+     *
+     * @return array{status: string, archive_id: string|null, origin: string|null, error: string|null, restored: bool}|null
+     *
+     * @aidlc-story US-backup-restore-import-archive
      */
     private function lastImport(): ?array
     {
-        $id = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'backup_job')
-            ->where('type', Archive::JOB_IMPORT)->orderByDesc('id')->value('id');
+        $jobs = DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'backup_job');
+        $id = (clone $jobs)->where('type', Archive::JOB_IMPORT)->orderByDesc('id')->value('id');
+        if ($id === null) {
+            return null;
+        }
+        $result = (new ImportService)->result((int) $id);
+        $result['restored'] = $result['archive_id'] !== null && (clone $jobs)->where('type', Archive::JOB_RESTORE)
+            ->where('archive_id', $result['archive_id'])->where('id', '>', (int) $id)->exists();
 
-        return $id === null ? null : (new ImportService)->result((int) $id);
+        return $result;
     }
 
     /**
