@@ -50,6 +50,9 @@ class BackupSettings extends Component
     /** Recovery key shown once after a change; cleared when the box is closed. */
     public ?string $shownRecoverySecret = null;
 
+    /** Section the current notice belongs to ('general' | 'security'), shown inside it. */
+    public ?string $noticeSection = null;
+
     /**
      * @return void
      * @throws AuthorizationException
@@ -93,7 +96,9 @@ class BackupSettings extends Component
         BackupFeature::setEnabled($this->enabled);
         BackupInstaller::setMenuVisible(DB::connection(GP247_DB_CONNECTION), $this->enabled);
         BackupAudit::record('settings', BackupAudit::OK, ['status' => $this->enabled ? 'on' : 'off']);
+        $this->noticeSection = 'general';
         $this->notice('admin.backup.settings.saved');
+        $this->dispatch('gp247-backup-section-done', section: 'general');
     }
 
     /**
@@ -127,6 +132,7 @@ class BackupSettings extends Component
 
             return;
         } catch (BackupKeyError $e) {
+            $this->noticeSection = 'security';
             $this->refused('key_change', 'key_error');
 
             return;
@@ -182,6 +188,7 @@ class BackupSettings extends Component
             return false;
         }
         $this->currentPassword = '';
+        $this->noticeSection = 'security';
         $this->refused($action, SecretAttemptLimiter::REASON);
 
         return true;
@@ -205,10 +212,34 @@ class BackupSettings extends Component
 
         return view('gp247-admin::backup.settings', [
             'setUp' => (new KeyService)->isSetUp(),
+            'generalSummary' => $this->generalSummary(),
             'stepUpNeedsCode' => $this->stepUpOpen && $this->stepUpNeedsCode(),
         ])->layout('gp247-admin::layouts.admin', [
             'title' => gp247_language_render('admin.backup.settings.title'),
         ]);
+    }
+
+    /**
+     * The "General" line as saved (not as being typed): on or off, archives kept, storage folder.
+     *
+     * @return array{text: string, tone: string}
+     *
+     * @aidlc-story US-backup-admin-dashboard
+     */
+    private function generalSummary(): array
+    {
+        $settings = RetentionService::settings();
+        $path = (string) AdminConfig::where('store_id', GP247_STORE_ID_GLOBAL)->where('key', LocalVault::CONFIG_PATH)->value('value');
+        $on = BackupFeature::enabled();
+
+        return [
+            'text' => implode(' · ', [
+                gp247_language_render($on ? 'admin.backup.settings.summary.on' : 'admin.backup.settings.summary.off'),
+                gp247_language_render('admin.backup.settings.summary.keep', ['keep' => $settings['keep'], 'pre' => $settings['keep_pre_change']]),
+                $path === '' ? gp247_language_render('admin.backup.settings.summary.vault_default') : $path,
+            ]),
+            'tone' => $on ? 'ok' : 'warning',
+        ];
     }
 
     /**

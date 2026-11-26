@@ -62,6 +62,34 @@ class BackupScheduleSettings extends Component
         ScheduleClock::forget();
         BackupAudit::record('schedule', BackupAudit::OK, ['status' => $this->mode, 'kind' => $this->kind]);
         $this->notice('admin.backup.schedule.saved');
+        $this->dispatch('gp247-backup-section-done', section: 'schedule');
+    }
+
+    /**
+     * The "Schedule" line as saved: how backups start, how often, what they hold.
+     *
+     * @param bool $cronMissed
+     * @return array{text: string, tone: string}
+     *
+     * @aidlc-story US-backup-admin-schedule
+     */
+    private function summary(bool $cronMissed): array
+    {
+        $saved = ScheduleSettings::read();
+        if ($saved['mode'] === ScheduleSettings::MODE_OFF) {
+            return ['text' => gp247_language_render('admin.backup.schedule.mode.' . $saved['mode']), 'tone' => 'warning'];
+        }
+        $parts = [
+            gp247_language_render('admin.backup.schedule.mode.' . $saved['mode']),
+            gp247_language_render('admin.backup.schedule.every', ['hours' => $saved['hours']])
+                . ($saved['mode'] === ScheduleSettings::MODE_CRON ? ' · ' . $saved['at'] : ''),
+            gp247_language_render('admin.backup.schedule.kind.' . $saved['kind']),
+        ];
+        if ($cronMissed) {
+            $parts[] = gp247_language_render('admin.backup.settings.summary.cron_missed');
+        }
+
+        return ['text' => implode(' · ', $parts), 'tone' => $cronMissed ? 'warning' : 'ok'];
     }
 
     /**
@@ -70,6 +98,7 @@ class BackupScheduleSettings extends Component
     public function render(): View
     {
         BackupAccess::authorize(BackupAccess::SETTINGS, 'settings');
+        $cronMissed = (new ScheduleClock)->cronMissed();
 
         return view('gp247-admin::backup.partials.schedule', [
             'modes' => ScheduleSettings::MODES,
@@ -78,7 +107,8 @@ class BackupScheduleSettings extends Component
             'setUp' => app(KeyService::class)->isSetUp(),
             'cronLine' => '* * * * * cd ' . base_path() . ' && ' . PHP_BINARY . ' artisan schedule:run >> /dev/null 2>&1',
             'cronCommand' => ScheduleRegistrar::COMMAND,
-            'cronMissed' => (new ScheduleClock)->cronMissed(),
+            'cronMissed' => $cronMissed,
+            'summary' => $this->summary($cronMissed),
         ]);
     }
 }
