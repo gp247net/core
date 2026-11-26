@@ -11,12 +11,13 @@
     Variables: $enabled, $setUp (bool), $status (DashboardStatus::summary()), $rpo (ScheduleClock::rpo()), $archives (paginator|null),
     $groups (key => DataGroup), $fileGroups (list), $otherTables (int, tables only a full backup holds),
     $can (create/download/restore/settings), $staleHours,
-    $stepUpNeedsCode, $tickUrl, $postIncident (open checklist|null — BK-5).
+    $stepUpNeedsCode, $tickUrl, $postIncident (open checklist|null — BK-5),
+    $dialogArchive (row of the archive the delete / check-again dialog acts on|null), $dialogError (string|null).
 --}}
 @php($inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100')
 @php($job = $status['job'])
 <div class="space-y-6" data-testid="backup-dashboard-page">
-    @if ($notice)
+    @if ($notice && !$dialogError)
         <x-gp247::alert :type="$noticeType" data-testid="backup-dashboard-notice">{{ $notice }}</x-gp247::alert>
     @endif
 
@@ -196,6 +197,10 @@
 
         {{-- Archive list --}}
         <x-gp247::card :title="gp247_language_render('admin.backup.list.title')" data-testid="backup-archives">
+            @if ($listNotice)
+                {{-- WHY here too: the row actions are often used far below the notice at the top. --}}
+                <x-gp247::alert type="success" class="mb-4" data-testid="backup-archives-notice">{{ $listNotice }}</x-gp247::alert>
+            @endif
             <x-gp247::table :empty="$archives->isEmpty() ? gp247_language_render('admin.backup.list.empty') : null">
                 <x-slot:head>
                     <tr>
@@ -205,7 +210,13 @@
                     </tr>
                 </x-slot:head>
                 @foreach ($archives as $archive)
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50" wire:key="backup-archive-{{ $archive->id }}" data-testid="backup-archive-row">
+                    {{-- The row a dialog acts on stands out while the dialog is open. --}}
+                    <tr @class([
+                            'bg-red-50 dark:bg-red-900/20' => $deleteArchiveId === $archive->id,
+                            'bg-blue-50 dark:bg-blue-900/20' => $verifyArchiveId === $archive->id,
+                            'hover:bg-gray-50 dark:hover:bg-gray-700/50' => $deleteArchiveId !== $archive->id && $verifyArchiveId !== $archive->id,
+                        ]) wire:key="backup-archive-{{ $archive->id }}" data-testid="backup-archive-row"
+                        @if ($deleteArchiveId === $archive->id || $verifyArchiveId === $archive->id) data-selected="1" @endif>
                         <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                             {{ $archive->created_at }}
                             @if ($archive->pinned)
@@ -214,7 +225,9 @@
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">
                             {{ gp247_language_render('admin.backup.kind.' . $archive->kind) }}
-                            <span class="block text-xs text-gray-400">{{ gp247_language_render('admin.backup.reason.' . explode(':', (string) $archive->reason)[0]) }}</span>
+                            {{-- An imported archive has no "reason" text of its own: it reads "Imported". --}}
+                            @php($reasonCode = explode(':', (string) $archive->reason)[0])
+                            <span class="block text-xs text-gray-400">{{ gp247_language_render($reasonCode === 'import' ? 'admin.backup.kind.imported' : 'admin.backup.reason.' . $reasonCode) }}</span>
                         </td>
                         <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ \GP247\Core\Backup\Livewire\GroupText::scopeNames((array) (json_decode((string) $archive->scope, true) ?: []), $groups) ?: ($archive->kind === 'full' ? gp247_language_render('admin.backup.list.scope_all') : '—') }}</td>
                         <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ number_format(((int) $archive->size) / 1048576, 1) }} MB</td>
@@ -249,37 +262,42 @@
             <div class="mt-4">{{ $archives->links('gp247-admin::partials.pagination') }}</div>
         </x-gp247::card>
 
-        {{-- Check again --}}
+        {{-- Check again / Delete: dialogs over the page, naming the archive (US-backup-admin-dashboard). --}}
         @if ($verifyArchiveId)
-            <x-gp247::card :title="gp247_language_render('admin.backup.verify.title')" data-testid="backup-verify">
-                <form wire:submit="runVerify" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            @component('gp247-admin::backup.partials.archive-dialog', ['testid' => 'backup-verify', 'title' => gp247_language_render('admin.backup.verify.title'), 'archive' => $dialogArchive, 'groups' => $groups, 'error' => $dialogError, 'stepUpOpen' => $stepUpOpen])
+                <form wire:submit="runVerify" class="space-y-4">
                     <x-gp247::input type="password" name="verifySecret" wire:model="verifySecret" autocomplete="off"
                         :label="gp247_language_render($verifyWithRecovery ? 'admin.backup.secret.recovery' : 'admin.backup.secret.password')" data-testid="backup-verify-secret" />
                     <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                         <x-gp247::checkbox wire:model.live="verifyWithRecovery" data-testid="backup-verify-use-recovery" />
                         {{ gp247_language_render('admin.backup.secret.use_recovery') }}
                     </label>
-                    <div class="flex gap-2" style="grid-column: 1 / -1">
-                        <x-gp247::button type="submit" data-testid="backup-verify-submit">{{ gp247_language_render('admin.backup.verify.submit') }}</x-gp247::button>
-                        <x-gp247::button variant="secondary" wire:click="$set('verifyArchiveId', null)">{{ gp247_language_render('admin.backup.cancel') }}</x-gp247::button>
+                    <div class="flex justify-end gap-2">
+                        <x-gp247::button type="button" variant="secondary" wire:click="closeArchiveDialog">{{ gp247_language_render('admin.backup.cancel') }}</x-gp247::button>
+                        <x-gp247::button type="submit" wire:loading.attr="disabled" wire:target="runVerify" data-testid="backup-verify-submit">
+                            <span wire:loading.remove wire:target="runVerify">{{ gp247_language_render('admin.backup.verify.submit') }}</span>
+                            <span wire:loading wire:target="runVerify">{{ gp247_language_render('admin.backup.working') }}</span>
+                        </x-gp247::button>
                     </div>
                 </form>
-            </x-gp247::card>
+            @endcomponent
         @endif
 
-        {{-- Delete --}}
         @if ($deleteArchiveId)
-            <x-gp247::card :title="gp247_language_render('admin.backup.delete.title')" data-testid="backup-delete">
-                <form wire:submit="runDelete" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <p class="text-sm text-gray-600 dark:text-gray-300" style="grid-column: 1 / -1">{{ gp247_language_render('admin.backup.delete.help', ['code' => substr($deleteArchiveId, -6)]) }}</p>
+            @component('gp247-admin::backup.partials.archive-dialog', ['testid' => 'backup-delete', 'title' => gp247_language_render('admin.backup.delete.title'), 'archive' => $dialogArchive, 'groups' => $groups, 'error' => $dialogError, 'stepUpOpen' => $stepUpOpen])
+                <form wire:submit="runDelete" class="space-y-4">
+                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ gp247_language_render('admin.backup.delete.help', ['code' => substr($deleteArchiveId, -6)]) }}</p>
                     <x-gp247::input type="text" name="deleteConfirm" wire:model="deleteConfirm" autocomplete="off"
                         :label="gp247_language_render('admin.backup.delete.confirm')" :error="$errors->first('deleteConfirm')" data-testid="backup-delete-confirm" />
-                    <div class="flex items-end gap-2">
-                        <x-gp247::button type="submit" variant="danger" data-testid="backup-delete-submit">{{ gp247_language_render('admin.backup.list.delete') }}</x-gp247::button>
-                        <x-gp247::button variant="secondary" wire:click="$set('deleteArchiveId', null)">{{ gp247_language_render('admin.backup.cancel') }}</x-gp247::button>
+                    <div class="flex justify-end gap-2">
+                        <x-gp247::button type="button" variant="secondary" wire:click="closeArchiveDialog">{{ gp247_language_render('admin.backup.cancel') }}</x-gp247::button>
+                        <x-gp247::button type="submit" variant="danger" wire:loading.attr="disabled" wire:target="runDelete" data-testid="backup-delete-submit">
+                            <span wire:loading.remove wire:target="runDelete">{{ gp247_language_render('admin.backup.list.delete') }}</span>
+                            <span wire:loading wire:target="runDelete">{{ gp247_language_render('admin.backup.working') }}</span>
+                        </x-gp247::button>
                     </div>
                 </form>
-            </x-gp247::card>
+            @endcomponent
         @endif
     @endif
 

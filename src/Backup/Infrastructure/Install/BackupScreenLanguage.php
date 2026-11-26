@@ -28,6 +28,7 @@ final class BackupScreenLanguage
         return [
             'admin.backup.title' => ['Backup & restore', 'Sao lưu & phục hồi', 'バックアップと復元'],
             'admin.backup.subtitle' => ['How well this site is protected, and what to do next.', 'Site đang được bảo vệ tới đâu và nên làm gì tiếp.', 'サイトの保護状況と次にすべきこと。'],
+            'admin.backup.working' => ['Working…', 'Đang xử lý…', '処理中…'],
             'admin.backup.cancel' => ['Cancel', 'Huỷ', 'キャンセル'],
             'admin.backup.setup.title' => ['Set up backups', 'Thiết lập sao lưu', 'バックアップの設定'],
             'admin.backup.setup.intro' => ['Every backup is encrypted. Choose a backup password (at least :min characters). Backups are made without it; it is needed to open one (download, restore).', 'Mọi bản sao lưu đều được mã hoá. Hãy đặt mật khẩu sao lưu (ít nhất :min ký tự). Tạo bản không cần mật khẩu này; mở một bản (phục hồi) thì cần.', 'すべてのバックアップは暗号化されます。バックアップ用パスワード（:min 文字以上）を設定してください。作成時は不要、復元など開くときに必要です。'],

@@ -73,6 +73,9 @@ class BackupDashboard extends Component
     public ?string $deleteArchiveId = null;
     public string $deleteConfirm = '';
 
+    /** Result of a row action (delete, check again), shown next to the list where it was asked. */
+    public ?string $listNotice = null;
+
     /**
      * @return void
      * @throws AuthorizationException When the admin holds no backup right.
@@ -187,8 +190,8 @@ class BackupDashboard extends Component
     public function openVerify(string $archiveId): void
     {
         BackupAccess::authorize(BackupAccess::CREATE, 'verify', ['archive_id' => $archiveId]);
+        $this->closeArchiveDialog();
         $this->verifyArchiveId = $archiveId;
-        $this->verifySecret = '';
     }
 
     /**
@@ -235,9 +238,9 @@ class BackupDashboard extends Component
             return;
         }
         SecretAttemptLimiter::clear($adminId);
-        $this->verifyArchiveId = null;
+        $this->closeArchiveDialog();
         BackupAudit::record('verify', BackupAudit::OK, ['archive_id' => $archiveId, 'job_id' => $jobId]);
-        $this->notice('admin.backup.verify.started');
+        $this->listNotice = gp247_language_render('admin.backup.verify.started');
         $this->dispatch('gp247-backup-run');
     }
 
@@ -296,8 +299,27 @@ class BackupDashboard extends Component
     public function openDelete(string $archiveId): void
     {
         BackupAccess::authorize(BackupAccess::CREATE, 'delete', ['archive_id' => $archiveId]);
+        $this->closeArchiveDialog();
         $this->deleteArchiveId = $archiveId;
+    }
+
+    /**
+     * Close the delete / check-again dialog without doing anything (Cancel, ×, Escape, backdrop).
+     * Opening one also starts from a clean state: no typed text, no old message.
+     *
+     * @return void
+     *
+     * @aidlc-story US-backup-admin-dashboard
+     */
+    public function closeArchiveDialog(): void
+    {
+        $this->verifyArchiveId = null;
+        $this->verifySecret = '';
+        $this->deleteArchiveId = null;
         $this->deleteConfirm = '';
+        $this->listNotice = null;
+        $this->notice = null;
+        $this->resetErrorBag();
     }
 
     /**
@@ -326,10 +348,9 @@ class BackupDashboard extends Component
 
             return;
         }
-        $this->deleteArchiveId = null;
-        $this->deleteConfirm = '';
+        $this->closeArchiveDialog();
         BackupAudit::record('delete', BackupAudit::OK, ['archive_id' => $archiveId]);
-        $this->notice('admin.backup.delete.done');
+        $this->listNotice = gp247_language_render('admin.backup.delete.done');
     }
 
     /**
@@ -384,6 +405,7 @@ class BackupDashboard extends Component
         $this->authorizeScreen();
         $setUp = (new KeyService)->isSetUp();
         $registry = new DataGroupRegistry;
+        $dialogId = $this->deleteArchiveId ?? $this->verifyArchiveId;
 
         return view('gp247-admin::backup.dashboard', [
             'enabled' => BackupFeature::enabled(),
@@ -405,6 +427,9 @@ class BackupDashboard extends Component
             'postIncident' => PostIncidentChecklist::pending(),
             'stepUpNeedsCode' => $this->stepUpOpen && $this->stepUpNeedsCode(),
             'tickUrl' => gp247_route_admin('admin.backup.tick'),
+            'dialogArchive' => $dialogId === null ? null : DB::connection(GP247_DB_CONNECTION)->table(GP247_DB_PREFIX . 'backup_archive')->where('id', $dialogId)->first(),
+            // WHY: a refusal while a dialog is open is shown inside it; the notice at the top is out of sight.
+            'dialogError' => $dialogId !== null && $this->notice !== null && $this->noticeType === 'error' ? $this->notice : null,
         ])->layout('gp247-admin::layouts.admin', [
             'title' => gp247_language_render('admin.backup.title'),
         ]);
