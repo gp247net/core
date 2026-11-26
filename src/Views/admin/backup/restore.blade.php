@@ -130,7 +130,8 @@
             @endif
 
             <x-gp247::input type="password" name="restoreSecret" wire:model="restoreSecret" autocomplete="off"
-                :label="gp247_language_render($restoreWithRecovery ? 'admin.backup.secret.recovery' : 'admin.backup.secret.password')" data-testid="backup-restore-secret" />
+                :label="gp247_language_render($restoreWithRecovery ? 'admin.backup.secret.recovery' : 'admin.backup.secret.password')"
+                :help="gp247_language_render('admin.backup.restore.secret_help')" data-testid="backup-restore-secret" />
             <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                 <x-gp247::checkbox wire:model.live="restoreWithRecovery" data-testid="backup-restore-use-recovery" />
                 {{ gp247_language_render('admin.backup.secret.use_recovery') }}
@@ -263,15 +264,21 @@
     @endif
 
     {{-- Bring in a .gp247bak file (US-backup-restore-import-archive): sent in small pieces, then
-         opened with the password / recovery key typed above — of the site that made it. --}}
+         opened with the password / recovery key of the site that made it. The card carries its own
+         secret field: the restore card's field is for archives already in the list, and the two
+         passwords often differ. The file input and the button stay out of Livewire's re-render
+         (wire:ignore) so the chosen file and the progress survive it. --}}
     <x-gp247::card :title="gp247_language_render('admin.backup.import.title')" :subtitle="gp247_language_render('admin.backup.import.subtitle', ['max' => (string) intdiv($uploadMaxBytes, 1048576)])" data-testid="backup-restore-upload">
-        <div wire:ignore
+        <div
             x-data="{
                 file: null, sent: 0, total: 0, busy: false, error: '',
+                {{-- WHY constant: a change of this attribute on re-render would start the Alpine
+                     state again and forget the chosen file; the field is empty on every page load. --}}
+                hasSecret: false,
                 max: @js($uploadMaxBytes),
                 csrf: @js(csrf_token()),
                 async upload() {
-                    if (!this.file || this.busy) return;
+                    if (!this.file || !this.hasSecret || this.busy) return;
                     this.error = '';
                     if (this.file.size > this.max) { this.error = 'upload_too_large'; return; }
                     this.busy = true;
@@ -288,15 +295,31 @@
                             if (!r.ok) { this.error = d.error || 'upload_failed'; break; }
                             this.sent = d.received; retries = 0;
                         }
-                        if (this.sent === this.total && !this.error) { await $wire.importUpload(plan.id); }
+                        if (this.sent === this.total && !this.error) {
+                            await $wire.importUpload(plan.id);
+                            // WHY: the server drops the typed secret after every try; match it here.
+                            this.hasSecret = false;
+                        }
                     } catch (e) { this.error = 'upload_failed'; }
                     this.busy = false;
                 }
             }" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <p class="text-sm text-gray-600 dark:text-gray-300" style="grid-column: 1 / -1">{{ gp247_language_render('admin.backup.import.help') }}</p>
-            <input type="file" accept=".gp247bak" x-on:change="file = $event.target.files[0] || null" class="{{ $inputCls }}" data-testid="backup-restore-upload-file" />
-            <div class="flex items-center gap-2">
-                <x-gp247::button x-on:click="upload()" x-bind:disabled="!file || busy" :disabled="!$enabled" data-testid="backup-restore-upload-start">{{ gp247_language_render('admin.backup.import.start') }}</x-gp247::button>
+            <p class="text-sm text-gray-600 dark:text-gray-300" style="grid-column: 1 / -1">{{ gp247_language_render('admin.backup.import.help_steps') }}</p>
+            <div wire:ignore class="space-y-1" style="grid-column: 1 / -1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200" for="backup-import-file">{{ gp247_language_render('admin.backup.import.file') }}</label>
+                <input id="backup-import-file" type="file" accept=".gp247bak" x-on:change="file = $event.target.files[0] || null" class="{{ $inputCls }}" data-testid="backup-restore-upload-file" />
+            </div>
+            <x-gp247::input type="password" name="importSecret" id="backup-import-secret" wire:model="importSecret" autocomplete="off"
+                x-on:input="hasSecret = $event.target.value !== ''"
+                :label="gp247_language_render($importWithRecovery ? 'admin.backup.import.secret_recovery' : 'admin.backup.import.secret_password')" data-testid="backup-restore-upload-secret" />
+            <div class="flex items-end">
+                <label class="inline-flex items-center gap-2 py-2 text-sm text-gray-700 dark:text-gray-200">
+                    <x-gp247::checkbox wire:model.live="importWithRecovery" data-testid="backup-restore-upload-use-recovery" />
+                    {{ gp247_language_render('admin.backup.secret.use_recovery') }}
+                </label>
+            </div>
+            <div wire:ignore class="flex items-center gap-2" style="grid-column: 1 / -1">
+                <x-gp247::button x-on:click="upload()" x-bind:disabled="!file || !hasSecret || busy" :disabled="!$enabled" data-testid="backup-restore-upload-start">{{ gp247_language_render('admin.backup.import.start') }}</x-gp247::button>
                 <span class="text-xs text-gray-500 dark:text-gray-400" x-show="busy" x-text="total ? Math.floor(100 * sent / total) + '%' : ''" data-testid="backup-restore-upload-progress"></span>
             </div>
             <p class="text-sm text-red-600" x-show="error" x-text="@js(gp247_language_render('admin.backup.import.upload_failed')) + ' (' + error + ')'" data-testid="backup-restore-upload-error" style="grid-column: 1 / -1"></p>
@@ -304,13 +327,25 @@
     </x-gp247::card>
 
     {{-- BK-6: archives at the external destination (US-backup-storage-fetch-remote). Listing needs no
-         backup password; bringing one back uses the password / recovery key typed above. --}}
+         backup password; bringing one back uses the password / recovery key typed on this card. --}}
     <x-gp247::card :title="gp247_language_render('admin.backup.remote.title')" :subtitle="gp247_language_render('admin.backup.remote.help')" data-testid="backup-restore-remote">
         @if (!$offsiteConfigured)
             <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-remote-not-configured">{{ gp247_language_render('admin.backup.remote.not_configured') }}</p>
         @else
             <div class="space-y-4">
                 <x-gp247::button variant="secondary" wire:click="listRemote" :disabled="!$enabled" data-testid="backup-remote-list">{{ gp247_language_render('admin.backup.remote.list') }}</x-gp247::button>
+                @if (is_array($remoteArchives) && $remoteArchives !== [])
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <x-gp247::input type="password" name="remoteSecret" id="backup-remote-secret" wire:model="remoteSecret" autocomplete="off"
+                            :label="gp247_language_render($remoteWithRecovery ? 'admin.backup.remote.secret_recovery' : 'admin.backup.remote.secret_password')" data-testid="backup-remote-secret" />
+                        <div class="flex items-end">
+                            <label class="inline-flex items-center gap-2 py-2 text-sm text-gray-700 dark:text-gray-200">
+                                <x-gp247::checkbox wire:model.live="remoteWithRecovery" data-testid="backup-remote-use-recovery" />
+                                {{ gp247_language_render('admin.backup.secret.use_recovery') }}
+                            </label>
+                        </div>
+                    </div>
+                @endif
                 @if (is_array($remoteArchives))
                     @if ($remoteArchives === [])
                         <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-remote-empty">{{ gp247_language_render('admin.backup.remote.empty') }}</p>

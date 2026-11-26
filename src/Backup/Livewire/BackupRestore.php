@@ -71,6 +71,12 @@ class BackupRestore extends Component
 
     public string $restoreSecret = '';
     public bool $restoreWithRecovery = false;
+    /** Password / recovery key of the site that made the file being uploaded: its own field on the upload card. */
+    public string $importSecret = '';
+    public bool $importWithRecovery = false;
+    /** Password / recovery key for bringing an archive back from the external destination: its own field on that card. */
+    public string $remoteSecret = '';
+    public bool $remoteWithRecovery = false;
     public string $confirmText = '';
     /** The person confirmed restoring an archive whose origin cannot be verified. */
     public bool $acceptUnverified = false;
@@ -117,12 +123,12 @@ class BackupRestore extends Component
         if (!$this->requireStepUp('preview')) {
             return;
         }
-        if ($this->secretThrottled('restore_preview')) {
+        if ($this->secretMissing('restore_preview', $this->restoreSecret) || $this->secretThrottled('restore_preview')) {
             return;
         }
         try {
             $plan = $this->plan(forPreview: true);
-            $preview = $this->service()->preview($plan, $this->secret(), $this->operator(), $this->options());
+            $preview = $this->service()->preview($plan, $this->secretOf($this->restoreSecret, $this->restoreWithRecovery), $this->operator(), $this->options());
             SecretAttemptLimiter::clear((string) admin()->user()->id);
         } catch (RestoreRefused $e) {
             $this->refused('restore_preview', $e->reason, ['archive_id' => $this->archiveId, 'level' => $this->level]);
@@ -168,11 +174,11 @@ class BackupRestore extends Component
             return;
         }
         $admin = admin()->user();
-        if ($this->secretThrottled('restore')) {
+        if ($this->secretMissing('restore', $this->restoreSecret) || $this->secretThrottled('restore')) {
             return;
         }
         try {
-            $started = $this->service()->start($this->plan(), $this->secret(), [
+            $started = $this->service()->start($this->plan(), $this->secretOf($this->restoreSecret, $this->restoreWithRecovery), [
                 'operator' => $this->operator(),
                 'created_by' => (string) $admin->username,
             ] + $this->options());
@@ -222,6 +228,11 @@ class BackupRestore extends Component
         if (!$this->requireStepUp('prepareUpload', [$size])) {
             return null;
         }
+        // WHY before the upload: without the secret the import can only fail, after the whole file
+        // (up to the upload ceiling) has been sent.
+        if ($this->secretMissing('upload', $this->importSecret)) {
+            return null;
+        }
         try {
             $id = (new UploadSession)->begin($size, (string) admin()->user()->id, (string) session()->getId());
         } catch (RestoreRefused $e) {
@@ -235,8 +246,9 @@ class BackupRestore extends Component
     }
 
     /**
-     * The upload is complete: open it with the password / recovery key typed above (of the site
-     * that made it) and start the import job (unpack, signature or "unverified", full check).
+     * The upload is complete: open it with the password / recovery key typed on the upload card (of
+     * the site that made it) and start the import job (unpack, signature or "unverified", full check).
+     * The typed secret is dropped after every try.
      *
      * @param string $uploadId
      * @return void
@@ -251,12 +263,14 @@ class BackupRestore extends Component
         }
         $uploads = new UploadSession;
         $adminId = (string) admin()->user()->id;
-        if ($this->secretThrottled('import')) {
+        if ($this->secretMissing('import', $this->importSecret) || $this->secretThrottled('import')) {
             return;
         }
+        $secret = $this->secretOf($this->importSecret, $this->importWithRecovery);
+        $this->importSecret = '';
         try {
             $path = $uploads->complete($uploadId, $adminId);
-            $started = (new ImportService)->start($path, true, $this->secret(), ['created_by' => (string) admin()->user()->username]);
+            $started = (new ImportService)->start($path, true, $secret, ['created_by' => (string) admin()->user()->username]);
             SecretAttemptLimiter::clear($adminId);
         } catch (RestoreRefused $e) {
             // A wrong / busy moment keeps the upload for another try; a file that can never be
@@ -279,7 +293,6 @@ class BackupRestore extends Component
             return;
         }
         $uploads->forget($uploadId);
-        $this->restoreSecret = '';
         $this->jobId = (int) $started['job_id'];
         BackupAudit::record('import_start', BackupAudit::OK, ['archive_id' => $started['archive_id'], 'job_id' => $this->jobId]);
         $this->notice('admin.backup.import.started');
@@ -312,7 +325,7 @@ class BackupRestore extends Component
 
     /**
      * Bring one archive back from the external destination with the password / recovery key typed
-     * above; it is copied in slices, then checked like any import before it can be restored.
+     * on that card; it is copied in slices, then checked like any import before it can be restored.
      *
      * @param string $archiveId
      * @return void
@@ -326,11 +339,11 @@ class BackupRestore extends Component
         if (!$this->requireStepUp('fetchRemote', [$archiveId])) {
             return;
         }
-        if ($this->secretThrottled('fetch')) {
+        if ($this->secretMissing('fetch', $this->remoteSecret) || $this->secretThrottled('fetch')) {
             return;
         }
         try {
-            $started = (new ImportService)->startFromRemote($archiveId, $this->secret(), ['created_by' => (string) admin()->user()->username]);
+            $started = (new ImportService)->startFromRemote($archiveId, $this->secretOf($this->remoteSecret, $this->remoteWithRecovery), ['created_by' => (string) admin()->user()->username]);
             SecretAttemptLimiter::clear((string) admin()->user()->id);
         } catch (RestoreRefused $e) {
             $this->refused('fetch', $e->reason, ['archive_id' => $archiveId]);
@@ -351,7 +364,7 @@ class BackupRestore extends Component
 
             return;
         } finally {
-            $this->restoreSecret = '';
+            $this->remoteSecret = '';
         }
         $this->jobId = (int) $started['job_id'];
         BackupAudit::record('fetch_start', BackupAudit::OK, ['archive_id' => $archiveId, 'job_id' => $this->jobId]);
@@ -459,6 +472,26 @@ class BackupRestore extends Component
     }
 
     /**
+     * An empty secret field is refused with its own message: it is not a wrong password, so it is
+     * neither reported as one nor counted against the attempt limit.
+     *
+     * @param string $action Audit action.
+     * @param string $value  What the field of that card holds.
+     * @return bool The backup password / recovery key field is empty: refused.
+     *
+     * @aidlc-story US-backup-restore-import-archive
+     */
+    private function secretMissing(string $action, #[\SensitiveParameter] string $value): bool
+    {
+        if ($value !== '') {
+            return false;
+        }
+        $this->refused($action, 'secret_required', ['archive_id' => $this->archiveId]);
+
+        return true;
+    }
+
+    /**
      * @param string $action Audit action.
      * @return bool Too many wrong backup passwords lately: refused (and the typed secret dropped).
      *
@@ -470,6 +503,8 @@ class BackupRestore extends Component
             return false;
         }
         $this->restoreSecret = '';
+        $this->importSecret = '';
+        $this->remoteSecret = '';
         $this->refused($action, SecretAttemptLimiter::REASON, ['archive_id' => $this->archiveId]);
 
         return true;
@@ -512,11 +547,13 @@ class BackupRestore extends Component
     }
 
     /**
+     * @param string $value    What the person typed.
+     * @param bool   $recovery The "use the recovery key instead" box of the same card is ticked.
      * @return BackupSecret
      */
-    private function secret(): BackupSecret
+    private function secretOf(#[\SensitiveParameter] string $value, bool $recovery): BackupSecret
     {
-        return $this->restoreWithRecovery ? BackupSecret::recovery($this->restoreSecret) : BackupSecret::password($this->restoreSecret);
+        return $recovery ? BackupSecret::recovery($value) : BackupSecret::password($value);
     }
 
     /**

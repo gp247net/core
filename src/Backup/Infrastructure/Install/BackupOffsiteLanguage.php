@@ -162,6 +162,8 @@ final class BackupOffsiteLanguage
             $p . 'remote.list' => ['Look at the destination', 'Xem ở đích ngoài', '保存先を確認'],
             $p . 'remote.empty' => ['No backup of this site at the destination.', 'Không có bản nào của site này ở đích ngoài.', '保存先にこのサイトのバックアップはありません。'],
             $p . 'remote.fetch' => ['Bring back', 'Kéo về', '取り戻す'],
+            $p . 'remote.secret_password' => ['Backup password of the site that made these backups', 'Mật khẩu sao lưu của site đã tạo các bản này', 'これらのバックアップを作成したサイトのバックアップ用パスワード'],
+            $p . 'remote.secret_recovery' => ['Recovery key of the site that made these backups', 'Recovery key của site đã tạo các bản này', 'これらのバックアップを作成したサイトのリカバリーキー'],
             $p . 'remote.incomplete' => ['incomplete', 'chưa hoàn chỉnh', '不完全'],
             $p . 'remote.in_catalogue' => ['already here', 'đã có ở site', 'サイトにあり'],
             $p . 'remote.started' => ['Bringing the backup back; it is checked before it can be used.', 'Đang kéo bản về; bản sẽ được kiểm trước khi dùng.', 'バックアップを取り戻しています。使用前に検証されます。'],
