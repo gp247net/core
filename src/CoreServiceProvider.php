@@ -233,6 +233,9 @@ class CoreServiceProvider extends ServiceProvider
             'gp247-backup',
             classNamespace: 'GP247\\Core\\Backup\\Livewire',
         );
+        // Livewire's script source maps answer 404 outside debug mode (US-security-headers-no-source-maps).
+        // WHY booted: Livewire registers its own map routes while booting; registering later replaces them.
+        $this->app->booted(fn () => \GP247\Core\SecurityHeaders\Http\LivewireSourceMapController::register());
 
         // Core's own "System alerts" checks go through the same registry packages and
         // plugins use (US-admin-shell-alert-check-registry). Order = display order of
