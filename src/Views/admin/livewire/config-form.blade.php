@@ -182,7 +182,7 @@
                                     'key' => $config->key,
                                     'type' => $type,
                                     'options' => $options[$config->key] ?? [],
-                                    'placeholder' => $secretState ? gp247_language_quickly('admin.config.secret_keep_placeholder', 'Leave blank to keep the saved value') : '',
+                                    'placeholder' => $secretState ? gp247_language_quickly('admin.config.secret_keep_placeholder', 'Leave blank to keep the saved value') : $this->placeholderOf($config->key),
                                 ])
                                 {{-- A screen that refuses a value (e.g. Password policy) reports it on the field. --}}
                                 @error('values.' . $config->key)
@@ -196,7 +196,23 @@
                                             <i class="fas fa-lock"></i>
                                             {{ $secretState ? gp247_language_quickly('admin.config.secret_saved', 'Saved — hidden, leave blank to keep') : gp247_language_quickly('admin.config.secret_not_set', 'Not set') }}
                                         </span>
+                                        {{-- A blank secret on Save keeps the stored one, so removing it is a separate, confirmed action (ConfigForm::clearSecret()). --}}
+                                        @if ($secretState && !$subStoreScope)
+                                            <button type="button" wire:click="clearSecret(@js($config->key))"
+                                                wire:confirm="{{ gp247_language_quickly('admin.config.secret_clear_confirm', 'Remove the saved value? This cannot be undone.') }}"
+                                                data-testid="config-form-secret-clear-{{ $config->key }}"
+                                                class="inline-flex items-center gap-1 text-xs text-red-500 hover:underline">
+                                                <i class="fas fa-times"></i>
+                                                {{ gp247_language_quickly('admin.config.secret_clear', 'Remove saved value') }}
+                                            </button>
+                                        @endif
                                     </div>
+                                @endif
+                                {{-- What the value is for and an example (ConfigForm::fieldNotes()); classes reuse the section hint (prebuilt admin.css). --}}
+                                @if ($this->noteOf($config->key) !== '')
+                                    {{-- overflow-wrap:anywhere (inline: not in the prebuilt admin.css) breaks only long
+                                         unbroken strings such as example URLs; break-all would split ordinary words too. --}}
+                                    <p data-testid="config-form-note-{{ $config->key }}" class="mt-1 text-xs text-gray-400 dark:text-gray-500" style="overflow-wrap:anywhere">{{ $this->noteOf($config->key) }}</p>
                                 @endif
                             @endif
                             @if ($subStoreScope)

@@ -209,7 +209,7 @@ class DataDefaultSeeder extends Seeder
         $dataAdminConfig = [
             ['group' => 'global','code' => 'webhook_config','key' => 'LOG_SLACK_WEBHOOK_URL','value' => '','sort' => '0','detail' => 'admin.config.LOG_SLACK_WEBHOOK_URL','store_id' => 0],
             ['group' => 'global','code' => 'webhook_config','key' => 'GOOGLE_CHAT_WEBHOOK_URL','value' => '','sort' => '0','detail' => 'admin.config.GOOGLE_CHAT_WEBHOOK_URL','store_id' => 0],
-            ['group' => 'global','code' => 'webhook_config','key' => 'CHATWORK_CHAT_WEBHOOK_URL','value' => '','sort' => '0','detail' => 'admin.config.CHATWORK_CHAT_WEBHOOK_URL','store_id' => 0],
+            ['group' => 'global','code' => 'webhook_config','key' => 'THIRD_PARTY_WEBHOOK_URL','value' => '','sort' => '0','detail' => 'admin.config.THIRD_PARTY_WEBHOOK_URL','store_id' => 0],
             ['group' => 'global','code' => 'api_config','key' => 'api_connection_required','value' => '0','sort' => '1','detail' => 'api_connection.api_connection_required','store_id' => 0],
             // REST API switches (US-CMP-api-admin-switch): a fresh install serves v2 only; upgraded sites keep v1 on (upgrade migration).
             ['group' => 'global','code' => 'api_config','key' => 'api_enabled','value' => '1','sort' => '2','detail' => 'admin.api_connection.switch_all','store_id' => 0],

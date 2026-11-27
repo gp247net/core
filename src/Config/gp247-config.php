@@ -214,6 +214,18 @@ return [
         'schedule_queue_worker' => env('GP247_SCHEDULE_QUEUE_WORK', true),
     ],
 
+    // Error reports sent out by gp247_report() to the fields of the admin "Webhook" screen
+    // (Slack, Google Chat, third-party webhook taking {"text": "..."}). webhook_url is the
+    // .env fallback of the third-party field (Slack falls back to LOG_SLACK_WEBHOOK_URL in
+    // config/logging.php): a URL kept in .env still works when the database is down.
+    'report' => [
+        'webhook_url'      => env('GP247_REPORT_WEBHOOK_URL', ''),
+        'timeout'          => env('GP247_REPORT_TIMEOUT', 3),       // seconds per channel per send
+        'throttle_seconds' => env('GP247_REPORT_THROTTLE', 60),     // the same report goes out once per window
+        'max_per_minute'   => 30,                                   // all reports, all channels
+        'max_length'       => 4000,                                 // characters of text sent
+    ],
+
     // Login attempt limits, "attempts,minutes", shared by the admin web login form, the admin API
     // login and the customer API login (GP247\Core\Support\LoginThrottle).
     // account: attempts per (account + client IP); ip: attempts per client IP across all accounts.

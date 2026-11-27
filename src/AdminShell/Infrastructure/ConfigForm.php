@@ -255,6 +255,51 @@ abstract class ConfigForm extends GP247AdminComponent
     }
 
     /**
+     * Per-key note shown under the field — what the value is for, where to find it, an example.
+     *
+     * @return array<string, string>
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-UI-005
+     */
+    protected function fieldNotes(): array
+    {
+        return [];
+    }
+
+    /**
+     * @param string $key Config key.
+     * @return string The note under the field, or '' when none.
+     */
+    public function noteOf(string $key): string
+    {
+        return (string) ($this->fieldNotes()[$key] ?? '');
+    }
+
+    /**
+     * Per-key placeholder shown in the empty input — an example of the expected value. A secret
+     * that is already stored shows the "leave blank to keep" placeholder instead.
+     *
+     * @return array<string, string>
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-UI-005
+     */
+    protected function fieldPlaceholders(): array
+    {
+        return [];
+    }
+
+    /**
+     * @param string $key Config key.
+     * @return string The example placeholder for the key, or '' when none.
+     */
+    public function placeholderOf(string $key): string
+    {
+        return (string) ($this->fieldPlaceholders()[$key] ?? '');
+    }
+
+    /**
      * Optional grouping of the keys into titled blocks, in display order.
      *
      * Each entry: `id` (slug, used in data-testid), `title`, optional `hint` (one line
@@ -706,6 +751,40 @@ abstract class ConfigForm extends GP247AdminComponent
     public function secretStateOf(string $key): ?bool
     {
         return array_key_exists($key, $this->secretSet) ? (bool) $this->secretSet[$key] : null;
+    }
+
+    /**
+     * Remove a stored secret (a blank secret field on Save means "keep", so clearing needs its
+     * own action). Only a secret key of this screen that is not locked, at the base scope — a
+     * sub-store override is dropped with resetToGlobal() instead. Anything else is ignored.
+     *
+     * @param string $key Config key.
+     * @return void
+     * @throws \GP247\Core\AdminShell\Domain\AuthorizationException When denied.
+     *
+     * @aidlc-unit admin-shell-rbac
+     * @aidlc-story US-AUI-config-form-secret-write-only, US-CMP-report-channels-env
+     */
+    public function clearSecret(string $key): void
+    {
+        $this->authorizeAction('update');
+
+        $screenKeys = $this->keys() !== [] ? $this->keys() : array_keys($this->values);
+        if (!in_array($key, $screenKeys, true) || $this->isSubStoreScope() || $this->lockOf($key) !== null
+            || $this->isBooleanType($key) || !$this->isSecretKey($key, $this->configs())) {
+            return;
+        }
+
+        AdminConfig::where('group', $this->group())
+            ->where('key', $key)
+            ->where('store_id', (string) $this->scopeStoreId())
+            ->update(['value' => '']);
+        AdminConfig::forgetMemo();
+
+        $this->values[$key] = '';
+        $this->secretSet[$key] = false;
+        $this->resetErrorBag('values.' . $key);
+        $this->notify('success', gp247_language_render('admin.setting_saved'));
     }
 
     /**

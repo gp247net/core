@@ -3,6 +3,7 @@
 namespace GP247\Core\Tests\Feature\AdminShell;
 
 use GP247\Core\AdminShell\Http\Livewire\GlobalConfigForm;
+use GP247\Core\Api\Sync\OutboundUrlGuard;
 use GP247\Core\Models\AdminConfig;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Livewire\Livewire;
@@ -11,7 +12,8 @@ use GP247\Core\Tests\TestCase;
 
 /**
  * E2E for the ConfigForm base via the Global config screen (ADR-001/005): loads
- * the admin_config "global" group, edits a value, persists; Layer-2 gated.
+ * the admin_config "global" group, edits a value, persists; Layer-2 gated. The
+ * webhook URLs on this screen are secrets: loaded empty, stored encrypted.
  *
  * @aidlc-unit admin-shell-rbac
  * @aidlc-story US-UI-005
@@ -33,8 +35,12 @@ class GlobalConfigFormTest extends TestCase
     {
         $this->asUser(slugs: ['admin_config']);
 
+        AdminConfig::where('key', self::KEY)->where('store_id', $this->storeId())->update(['value' => 'https://hooks.example.com/stored']);
+        AdminConfig::forgetMemo();
+
+        // WHY empty: a webhook URL is a secret — the screen never sends a stored one back to the browser.
         Livewire::test(GlobalConfigForm::class)
-            ->assertSet('values.' . self::KEY, AdminConfig::where('key', self::KEY)->where('store_id', $this->storeId())->value('value'));
+            ->assertSet('values.' . self::KEY, '');
     }
 
     public function test_excludes_cache_and_password_keys(): void
@@ -53,14 +59,19 @@ class GlobalConfigFormTest extends TestCase
     {
         $this->asUser(slugs: ['admin_config']);
 
-        // Live edit: setting the value triggers the updatedValues hook (no submit).
-        Livewire::test(GlobalConfigForm::class)
-            ->set('values.' . self::KEY, 'https://hooks.example.com/zz')->call('save');
+        // WHY: no DNS in tests — the URL check on save resolves the host to a public address.
+        OutboundUrlGuard::resolveUsing(fn () => ['93.184.216.34']);
+        try {
+            Livewire::test(GlobalConfigForm::class)
+                ->set('values.' . self::KEY, 'https://hooks.example.com/zz')->call('save');
+        } finally {
+            OutboundUrlGuard::resolveUsing(null);
+        }
 
-        $this->assertSame(
-            'https://hooks.example.com/zz',
-            AdminConfig::where('key', self::KEY)->where('store_id', $this->storeId())->value('value'),
-        );
+        // WHY raw: the model accessor decrypts, the stored column must not hold the URL as typed.
+        $stored = (string) AdminConfig::where('key', self::KEY)->where('store_id', $this->storeId())->first()->getRawOriginal('value');
+        $this->assertNotSame('https://hooks.example.com/zz', $stored, 'stored encrypted, not as typed');
+        $this->assertSame('https://hooks.example.com/zz', gp247_secret_decrypt($stored));
     }
 
     public function test_live_update_denied_for_view_all(): void

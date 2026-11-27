@@ -225,18 +225,32 @@ if (!function_exists('gp247_report_context') && !in_array('gp247_report_context'
 }
 
 if (!function_exists('gp247_report') && !in_array('gp247_report', config('gp247_functions_except', []))) {
-    /*
-    Handle report
+    /**
+     * Report an error: always to the local `daily` log; with channel "slack" (the default)
+     * also to the outside channels set in .env — Slack and the {"text"} webhook — through
+     * ReportNotifier (time-bounded, throttled, never throws). Other Laravel log channels
+     * named in $channel get the report as before; null sends nothing outside.
+     *
+     * @param mixed                $msg         Text, Throwable, or array/object (JSON-encoded).
+     * @param string|string[]|null $channel     "slack" = outside channels; other names = Laravel log channels.
+     * @param string|null          $fingerprint Identity of the report for throttling; defaults to the message.
+     * @return void
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-report-channels-env, US-CMP-report-site-context
+     * @aidlc-adr compat-foundation_report-channels-env
      */
-    function gp247_report($msg = "", $channel = 'slack')
+    function gp247_report($msg = "", $channel = 'slack', ?string $fingerprint = null)
     {
-        if (is_array($msg) || is_object($msg)) {
+        if ($msg instanceof \Throwable) {
+            // WHY: json_encode() of an exception is "{}" — it has no public properties.
+            $msg = get_class($msg).': '.$msg->getMessage().' in '.$msg->getFile().':'.$msg->getLine();
+        } elseif (is_array($msg) || is_object($msg)) {
             $msg = json_encode($msg);
-        } elseif(is_string($msg)) {
-            $msg = $msg;
-        } else {
+        } elseif (!is_string($msg)) {
             $msg = 'Type of msg is not supported';
         }
+        $fingerprint ??= (string) $msg;
 
         // Site context right after the timestamp line (kept first for log readers), see
         // ADR compat-foundation_report-site-context.
@@ -251,25 +265,19 @@ if (!function_exists('gp247_report') && !in_array('gp247_report', config('gp247_
         if (!is_array($channel)) {
             $channel = [];
         }
-        
-        if (count($channel)) {
-            foreach ($channel as $key => $item) {
-                if (in_array($item, array_keys(config('logging.channels')))) {
-                    if ($item ==='slack') {
-                        if (config('logging.channels.slack.url')) {
-                            try {
-                                \Log::channel('slack')->emergency($msg);
-                            } catch (\Throwable $e) {
-                                $msg .= $e->getFile().'- Line: '.$e->getLine().PHP_EOL.$e->getMessage().PHP_EOL;
-                            }
-                        }
-                    } else {
-                        try {
-                            \Log::channel($item)->emergency($msg);
-                        } catch (\Throwable $e) {
-                            $msg .= $e->getFile().'- Line: '.$e->getLine().PHP_EOL.$e->getMessage().PHP_EOL;
-                        }
-                    }
+
+        foreach ($channel as $item) {
+            if ($item === 'slack') {
+                try {
+                    \GP247\Core\Support\Report\ReportNotifier::send($msg, $fingerprint);
+                } catch (\Throwable $e) {
+                    $msg .= $e->getFile().'- Line: '.$e->getLine().PHP_EOL.$e->getMessage().PHP_EOL;
+                }
+            } elseif (is_string($item) && in_array($item, array_keys((array) config('logging.channels')), true)) {
+                try {
+                    \Log::channel($item)->emergency($msg);
+                } catch (\Throwable $e) {
+                    $msg .= $e->getFile().'- Line: '.$e->getLine().PHP_EOL.$e->getMessage().PHP_EOL;
                 }
             }
         }
@@ -279,8 +287,16 @@ if (!function_exists('gp247_report') && !in_array('gp247_report', config('gp247_
 
 
 if (!function_exists('gp247_handle_exception') && !in_array('gp247_handle_exception', config('gp247_functions_except', []))) {
-    /*
-    Process msg exception
+    /**
+     * Report an unhandled exception with the visitor IP and URL. The throttle identity is the
+     * exception class, file and line — the text itself changes with every visitor.
+     *
+     * @param \Throwable           $exception
+     * @param string|string[]|null $channel   See gp247_report().
+     * @return void
+     *
+     * @aidlc-unit compat-foundation
+     * @aidlc-story US-CMP-report-channels-env
      */
     function gp247_handle_exception(\Throwable $exception, $channel = 'slack')
     {
@@ -293,7 +309,7 @@ if (!function_exists('gp247_handle_exception') && !in_array('gp247_handle_except
         $msg .= "```IP:```".$ip.PHP_EOL;
         $msg .= "*File* `".$exception->getFile()."`, *Line:* ".$exception->getLine().", *Code:* ".$exception->getCode().PHP_EOL.'URL= '.url()->current();
         if (function_exists('gp247_report') && $msg) {
-            gp247_report(msg:$msg, channel:$channel);
+            gp247_report(msg:$msg, channel:$channel, fingerprint: get_class($exception).'|'.$exception->getFile().'|'.$exception->getLine());
         }
     }
 }
