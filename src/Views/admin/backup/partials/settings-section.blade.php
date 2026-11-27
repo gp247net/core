@@ -14,7 +14,7 @@
 --}}
 <section data-testid="{{ $testid }}" x-show="tab === @js($key)" x-cloak>
     <div class="border-b border-gray-200 pb-4 dark:border-gray-700">
-        <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100">{!! $title !!}</h3>
+        <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100">{{ $title }}</h3>
         @if ($description)
             <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ $description }}</p>
         @endif

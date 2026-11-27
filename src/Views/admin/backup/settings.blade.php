@@ -41,7 +41,7 @@
                     x-bind:aria-current="tab === @js($item['key']) ? 'true' : 'false'">
                     <span class="flex items-center justify-between gap-2 text-sm font-medium"
                         x-bind:class="tab === @js($item['key']) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-200'">
-                        {!! $item['title'] !!}
+                        {{ $item['title'] }}
                         @if ($item['tone'] === 'warning')<span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>@endif
                     </span>
                     <span @class(['mt-0.5 block text-xs', 'text-amber-700' => $item['tone'] === 'warning', 'text-gray-500 dark:text-gray-400' => $item['tone'] !== 'warning'])
