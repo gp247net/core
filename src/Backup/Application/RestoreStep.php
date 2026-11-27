@@ -584,6 +584,8 @@ final class RestoreStep
             'level' => (string) ($cursor['plan']['level'] ?? ''),
             'tables' => array_column((array) ($cursor['tables'] ?? []), 'real'),
             'swapped_at' => $cursor['swapped_at'] ?? now()->toIso8601String(),
+            // Rows of each table right after the swap: what an undo preview counts deletions from.
+            'row_counts' => array_map('intval', (array) ($cursor['expected'] ?? [])),
             'undo_until' => now()->addHours(max(1, (int) config('gp247-config.backup.restore_undo_hours', 24)))->toIso8601String(),
         ];
     }

@@ -6,6 +6,8 @@ use GP247\Core\Backup\Application\BackupAudit;
 use GP247\Core\Backup\Application\FileRestoreService;
 use GP247\Core\Backup\Application\KeyService;
 use GP247\Core\Backup\Application\RestoreService;
+use GP247\Core\Support\PreChange\PreChange;
+use GP247\Core\Support\PreChange\PreChangeGate;
 use GP247\Core\Backup\Console\Concerns\BackupCommandSupport;
 use GP247\Core\Backup\Domain\BackupSecret;
 use GP247\Core\Backup\Domain\FileRestorePolicy;
@@ -51,7 +53,8 @@ class BackupRestore extends GP247Command
         {--accept-unverified : Restore an archive whose origin cannot be verified}
         {--accept-column-loss : Restore although columns of the archive no longer exist on the site (their data is lost)}
         {--confirm= : The archive id again (required without interaction)}
-        {--undo : Put back the tables the last restore replaced}
+        {--undo : Put back the tables the last restore replaced (shows what would be dropped and saves those tables first)}
+        {--without-pre-change : With --undo: do not make the "before a change" backup of the tables first}
         {--secret-stdin : Read the backup password (or recovery key) from one line of standard input}
         {--recovery-key : The secret given is the recovery key}
         {--json}';
@@ -353,28 +356,78 @@ class BackupRestore extends GP247Command
     }
 
     /**
+     * Undo the last restore (US-backup-restore-undo-preview): show what it would drop, ask for the
+     * code (interactive) or take --confirm=undo (as before), save the tables in a "before a change"
+     * backup unless --without-pre-change, then put them back.
+     *
      * @return int
+     *
+     * @aidlc-story US-backup-restore-undo-preview, US-backup-restore-cli-restore
      */
     private function undo(): int
     {
-        if (!$this->interactive() && $this->option('confirm') !== 'undo') {
-            return $this->respondFailure(RestoreRefused::CONFIRMATION_REQUIRED, 'Not undone: confirm with --confirm=undo.');
+        $service = new RestoreService;
+        try {
+            $preview = $service->undoPreview();
+        } catch (\Throwable $e) {
+            return $this->refusal($e);
         }
-        if ($this->interactive() && !$this->confirm('Put back the tables the last restore replaced?', false)) {
-            return $this->respondFailure(RestoreRefused::CONFIRMATION_REQUIRED, 'Not undone.');
+        if (!$this->isJson()) {
+            $this->undoPreviewLines($preview);
+        }
+        if (!$this->interactive() && $this->option('confirm') !== 'undo') {
+            return $this->respondFailure(RestoreRefused::CONFIRMATION_REQUIRED, 'Not undone: confirm with --confirm=undo.', ['preview' => $preview]);
+        }
+        if ($this->interactive() && strtoupper(trim((string) $this->ask('Type ' . $preview['code'] . ' to put these tables back'))) !== $preview['code']) {
+            return $this->respondFailure(RestoreRefused::CONFIRMATION_REQUIRED, 'Not undone: the code does not match.', ['preview' => $preview]);
+        }
+        $withSnapshot = !(bool) $this->option('without-pre-change');
+        if ($withSnapshot) {
+            $outcome = (new PreChangeGate)->run(new PreChange(PreChange::RESTORE_UNDO, ['tables' => array_column($preview['tables'], 'table'), 'restore' => (int) $preview['job_id']]));
+            foreach ($outcome->notices() as $notice) {
+                $this->addWarning($notice);
+            }
+            if (!$outcome->proceed()) {
+                $message = 'Not undone: the backup of these tables could not be made (' . implode('; ', $outcome->reasons()) . ').';
+                if (!($this->interactive() && $this->confirm($message . ' Undo without it?', false))) {
+                    return $this->respondFailure('pre_change_stopped', $message, ['preview' => $preview, 'pre_change' => $outcome->toArray()]);
+                }
+                $withSnapshot = false;
+            }
         }
         try {
-            $service = new RestoreService;
             $result = $service->undo();
         } catch (\Throwable $e) {
             return $this->refusal($e);
         }
-        BackupAudit::record('restore_undo', BackupAudit::OK, ['tables' => count($result['tables'])]);
+        BackupAudit::record('restore_undo', BackupAudit::OK, ['tables' => count($result['tables']), 'status' => $withSnapshot ? 'with_snapshot' : 'without_snapshot']);
         if (!$this->isJson()) {
             $this->info('Put back ' . count($result['tables']) . ' table(s).');
             $this->personalDataLines((array) ($service->last() ?? []));
         }
 
-        return $this->respondSuccess($result);
+        return $this->respondSuccess($result + ['preview' => $preview]);
+    }
+
+    /**
+     * @param array<string, mixed> $preview RestoreService::undoPreview().
+     * @return void
+     */
+    private function undoPreviewLines(array $preview): void
+    {
+        $this->line('Undo puts back ' . count($preview['tables']) . ' table(s) as they were right before the restore (' . $preview['swapped_at'] . '); what was written to them since is dropped.');
+        $rows = [];
+        foreach ($preview['tables'] as $table) {
+            if ($table['measured'] && !$table['added'] && !$table['changed'] && !$table['deleted']) {
+                continue;
+            }
+            $rows[] = [$table['table'], $table['added'] ?? '-', $table['changed'] ?? '-', $table['deleted'] ?? '-', $table['rows_now'] . ($table['measured'] ? '' : ' (not measured)')];
+        }
+        if ($rows !== []) {
+            $this->table(['Table', 'Added since', 'Changed since', 'Deleted since', 'Rows now'], $rows);
+        }
+        foreach ($preview['referencing'] as $ref) {
+            $this->warn(sprintf('%s.%s %s %s: %d row(s) added or changed since the restore.', $ref['table'], $ref['column'], $ref['certain'] ? 'points to' : 'may point to', $ref['points_to'], $ref['rows']));
+        }
     }
 }

@@ -27,6 +27,8 @@ use GP247\Core\Backup\Livewire\Concerns\RendersNotices;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Http\MaintenanceModeBypassCookie;
 use Illuminate\Support\Facades\Cookie;
+use GP247\Core\Support\PreChange\PreChange;
+use GP247\Core\Support\PreChange\PreChangeGate;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -88,6 +90,17 @@ class BackupRestore extends Component
     /** Fingerprint of the plan the preview in the session belongs to. */
     public ?string $previewFor = null;
     public ?int $jobId = null;
+    /** @var array<string, mixed>|null What undoing the last restore would drop (counts only, no row data). */
+    #[Locked]
+    public ?array $undoPreview = null;
+    /** The code typed to confirm the undo. */
+    public string $undoConfirm = '';
+    /** @var list<string> Why the backup before the undo was not made (or a reminder). */
+    #[Locked]
+    public array $undoMessages = [];
+    /** The backup before the undo failed (not "still being made"): the person may go on without it. */
+    #[Locked]
+    public bool $undoCanSkip = false;
     /** @var list<array<string, mixed>>|null BK-6: archives found at the external destination (names, sizes, times only). */
     #[Locked]
     public ?array $remoteArchives = null;
@@ -373,14 +386,71 @@ class BackupRestore extends Component
     }
 
     /**
-     * Put back the tables the last restore replaced (while they are kept).
+     * Show what undoing the last restore would drop (US-backup-restore-undo-preview); nothing
+     * changes until the code is typed in confirmUndo().
      *
      * @return void
+     *
+     * @aidlc-story US-backup-restore-undo-preview
      */
     public function undo(): void
     {
         $this->authorizeRestore('undo');
         if (!$this->requireStepUp('undo')) {
+            return;
+        }
+        $this->resetUndo();
+        try {
+            $this->undoPreview = $this->service()->undoPreview();
+        } catch (RestoreRefused $e) {
+            $this->refused('undo', $e->reason);
+
+            return;
+        }
+        BackupAudit::record('undo_preview', BackupAudit::OK, ['tables' => array_column($this->undoPreview['tables'], 'table')]);
+    }
+
+    /**
+     * Undo after the preview and the typed code: the tables put back are saved first in a
+     * "before a change" backup (`restore.undo`), unless that failed and the person chose to go on.
+     *
+     * @param bool $withoutSnapshot Go on although the backup before the undo could not be made.
+     * @return void
+     *
+     * @aidlc-story US-backup-restore-undo-preview
+     */
+    public function confirmUndo(bool $withoutSnapshot = false): void
+    {
+        $this->authorizeRestore('undo');
+        if (!$this->requireStepUp('confirmUndo', [$withoutSnapshot])) {
+            return;
+        }
+        $preview = $this->undoPreview;
+        $point = $this->service()->undoPoint();
+        if ($preview === null || $point === null || (int) ($point['job_id'] ?? 0) !== (int) ($preview['job_id'] ?? -1)) {
+            // WHY: another restore (or undo) happened since the preview — what was shown is no longer true.
+            $this->resetUndo();
+            $this->notice('admin.backup.restore.undo_preview_first', 'error');
+
+            return;
+        }
+        $this->resetErrorBag('undoConfirm');
+        if (strtoupper(trim($this->undoConfirm)) !== (string) $preview['code']) {
+            $this->addError('undoConfirm', gp247_language_render('admin.backup.restore.confirm_wrong'));
+
+            return;
+        }
+        $tables = array_column($preview['tables'], 'table');
+        if (!$withoutSnapshot) {
+            $outcome = (new PreChangeGate)->run(new PreChange(PreChange::RESTORE_UNDO, ['tables' => $tables, 'restore' => (int) $preview['job_id']]));
+            $this->undoMessages = array_values(array_merge($outcome->reasons(), $outcome->notices()));
+            if (!$outcome->proceed()) {
+                // A backup still being made is finished by the beacon: try again, not "go on without".
+                $this->undoCanSkip = !collect($outcome->toArray())->contains(fn ($entry) => !empty($entry['pending_job']));
+
+                return;
+            }
+        } elseif (!$this->undoCanSkip) {
             return;
         }
         try {
@@ -390,9 +460,42 @@ class BackupRestore extends Component
 
             return;
         }
-        BackupAudit::record('undo', BackupAudit::OK, ['tables' => $undone['tables']]);
+        BackupAudit::record('undo', BackupAudit::OK, ['tables' => $undone['tables'], 'status' => $withoutSnapshot ? 'without_snapshot' : 'with_snapshot']);
         app(BackupNotifier::class)->restoreFinished(null, 'undone');
+        $this->resetUndo();
         $this->notice('admin.backup.restore.undone');
+    }
+
+    /**
+     * The backup before the undo could not be made and the person goes on without it.
+     *
+     * @return void
+     *
+     * @aidlc-story US-backup-restore-undo-preview
+     */
+    public function undoWithoutSnapshot(): void
+    {
+        $this->confirmUndo(true);
+    }
+
+    /**
+     * @return void
+     */
+    public function cancelUndo(): void
+    {
+        $this->resetUndo();
+    }
+
+    /**
+     * @return void
+     */
+    private function resetUndo(): void
+    {
+        $this->undoPreview = null;
+        $this->undoConfirm = '';
+        $this->undoMessages = [];
+        $this->undoCanSkip = false;
+        $this->resetErrorBag('undoConfirm');
     }
 
     /**
@@ -453,7 +556,7 @@ class BackupRestore extends Component
      */
     protected function stepUpActions(): array
     {
-        return ['preview', 'start', 'undo', 'prepareUpload', 'importUpload', 'fetchRemote'];
+        return ['preview', 'start', 'undo', 'confirmUndo', 'prepareUpload', 'importUpload', 'fetchRemote'];
     }
 
     /**

@@ -34,6 +34,13 @@ final class PreChange
     public const PERSONAL_DATA_RETENTION = 'personal_data.retention';
 
     /**
+     * The last restore is about to be undone: the tables it replaced go back to how they were, and
+     * whatever was written to them since is dropped. Scope: ['tables' => list<string> real table
+     * names, 'restore' => int job id of that restore].
+     */
+    public const RESTORE_UNDO = 'restore.undo';
+
+    /**
      * @param string               $operation One of the constants above (registrants may meet others later).
      * @param array<string, mixed> $scope     What the change touches (e.g. ['type' => 'Plugins', 'key' => 'Foo']).
      * @param string|null          $from      Version / value before the change, when known.

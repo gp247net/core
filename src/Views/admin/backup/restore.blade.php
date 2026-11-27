@@ -24,6 +24,69 @@
             <div class="mt-2"><x-gp247::button size="sm" variant="warning" wire:click="undo" data-testid="backup-restore-undo">{{ gp247_language_render('admin.backup.restore.undo') }}</x-gp247::button></div>
         </x-gp247::alert>
     @endif
+
+    {{-- What the undo would drop, before it runs (US-backup-restore-undo-preview): counts only. --}}
+    @if ($undoPreview)
+        @php($bare = fn (string $table) => GP247_DB_PREFIX !== '' && str_starts_with($table, GP247_DB_PREFIX) ? substr($table, strlen(GP247_DB_PREFIX)) : $table)
+        @php($changedTables = array_values(array_filter($undoPreview['tables'], fn ($t) => !$t['measured'] || $t['added'] || $t['changed'] || $t['deleted'])))
+        <x-gp247::card :title="gp247_language_render('admin.backup.restore.undo')" data-testid="backup-restore-undo-preview">
+            <div class="space-y-4">
+                <p class="text-sm text-gray-700 dark:text-gray-200">{{ gp247_language_render('admin.backup.restore.undo_intro', ['time' => $undoPreview['swapped_at'], 'tables' => count($undoPreview['tables'])]) }}</p>
+                @if ($changedTables !== [])
+                    <x-gp247::table>
+                        <x-slot:head>
+                            <tr>
+                                @foreach (['table', 'added', 'changed', 'deleted', 'now'] as $column)
+                                    <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.backup.restore.undo_col_' . $column) }}</th>
+                                @endforeach
+                            </tr>
+                        </x-slot:head>
+                        @foreach ($changedTables as $row)
+                            <tr data-testid="backup-restore-undo-row">
+                                <td class="px-4 py-2 font-mono text-xs text-gray-700 dark:text-gray-200">{{ $bare($row['table']) }}</td>
+                                @foreach (['added', 'changed', 'deleted'] as $count)
+                                    <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-200">{{ $row[$count] ?? '—' }}</td>
+                                @endforeach
+                                <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{{ $row['rows_now'] }} @if (!$row['measured']) · {{ gp247_language_render('admin.backup.restore.undo_not_measured') }} @endif</td>
+                            </tr>
+                        @endforeach
+                    </x-gp247::table>
+                @endif
+                @if (count($undoPreview['tables']) > count($changedTables))
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ gp247_language_render('admin.backup.restore.undo_unchanged', ['count' => count($undoPreview['tables']) - count($changedTables)]) }}</p>
+                @endif
+                @if ($undoPreview['referencing'] !== [])
+                    <div data-testid="backup-restore-undo-referencing">
+                        <p class="text-sm font-medium text-amber-700">{{ gp247_language_render('admin.backup.restore.undo_referencing') }}</p>
+                        <ul class="mt-1 space-y-1 text-sm text-gray-700 dark:text-gray-200">
+                            @foreach ($undoPreview['referencing'] as $ref)
+                                <li>{{ gp247_language_render($ref['certain'] ? 'admin.backup.restore.undo_points' : 'admin.backup.restore.undo_may_point', ['table' => $bare($ref['table']), 'column' => $ref['column'], 'target' => $bare($ref['points_to']), 'rows' => $ref['rows']]) }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+                @if ($undoMessages !== [])
+                    <x-gp247::alert type="warning" data-testid="backup-restore-undo-messages">
+                        @foreach ($undoMessages as $message)
+                            <div>{{ $message }}</div>
+                        @endforeach
+                    </x-gp247::alert>
+                @endif
+                <form wire:submit="confirmUndo" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <x-gp247::input type="text" name="undoConfirm" wire:model="undoConfirm" autocomplete="off"
+                        :label="gp247_language_render('admin.backup.restore.confirm')" :help="gp247_language_render('admin.backup.restore.undo_code', ['code' => $undoPreview['code']])"
+                        :error="$errors->first('undoConfirm')" data-testid="backup-restore-undo-confirm" />
+                    <div class="flex flex-wrap items-end gap-2">
+                        <x-gp247::button type="submit" variant="danger" wire:loading.attr="disabled" wire:target="confirmUndo" data-testid="backup-restore-undo-start">{{ gp247_language_render('admin.backup.restore.undo_start') }}</x-gp247::button>
+                        @if ($undoCanSkip)
+                            <x-gp247::button type="button" variant="secondary" wire:click="undoWithoutSnapshot" data-testid="backup-restore-undo-skip-snapshot">{{ gp247_language_render('admin.backup.restore.undo_skip') }}</x-gp247::button>
+                        @endif
+                        <x-gp247::button type="button" variant="secondary" wire:click="cancelUndo" data-testid="backup-restore-undo-cancel">{{ gp247_language_render('admin.backup.cancel') }}</x-gp247::button>
+                    </div>
+                </form>
+            </div>
+        </x-gp247::card>
+    @endif
     @if ($last)
         <p class="text-sm text-gray-600 dark:text-gray-300" data-testid="backup-restore-last">{{ gp247_language_render('admin.backup.restore.last', ['status' => gp247_language_render('admin.backup.restore.status_' . preg_replace('/[^a-z_]/', '', (string) ($last['status'] ?? ''))), 'archive' => (string) ($last['archive_id'] ?? '')]) }}</p>
         {{-- Erased customers (US-personal-data-registry-restore-reapply): erased again, or not added back. --}}

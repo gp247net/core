@@ -159,6 +159,34 @@ final class RestoreService
     }
 
     /**
+     * What undoing the last restore would drop, before it runs (US-backup-restore-undo-preview):
+     * the tables put back with the rows added / changed / deleted since the restore, the other
+     * tables pointing at them, and the code to type. Same conditions as undo(); changes nothing.
+     *
+     * @return array<string, mixed> UndoPreviewer::preview() plus `job_id` of that restore.
+     * @throws RestoreRefused (nothing_to_undo | undo_expired)
+     *
+     * @aidlc-story US-backup-restore-undo-preview
+     */
+    public function undoPreview(): array
+    {
+        $point = $this->ledger->undoPoint();
+        $tables = array_values(array_map('strval', (array) ($point['tables'] ?? [])));
+        if ($tables === []) {
+            throw new RestoreRefused(RestoreRefused::NOTHING_TO_UNDO);
+        }
+        if (!is_string($point['undo_until'] ?? null) || now()->gte($point['undo_until'])) {
+            throw new RestoreRefused(RestoreRefused::UNDO_EXPIRED);
+        }
+        $schema = new SchemaInspector(DB::connection(GP247_DB_CONNECTION));
+        if ((new TableSwapper($schema))->state($tables) !== 'swapped') {
+            throw new RestoreRefused(RestoreRefused::NOTHING_TO_UNDO, 'copies missing');
+        }
+
+        return (new UndoPreviewer($schema))->preview($point) + ['job_id' => (int) ($point['job_id'] ?? 0)];
+    }
+
+    /**
      * Put back the tables the last table-replacing restore replaced (its old copies), within the
      * undo window. The backup feature's rows of admin_config stay as they are NOW (a password
      * changed since the restore keeps working). A restore job is held as the lock meanwhile.

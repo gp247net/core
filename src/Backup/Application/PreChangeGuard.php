@@ -95,8 +95,38 @@ final class PreChangeGuard
             PreChange::DATA_IMPORT => $keep(array_values(array_filter((array) ($change->scope['groups'] ?? []), 'is_string'))),
             // US-personal-data-retention-order-anonymise: the data a retention item is about to change.
             PreChange::PERSONAL_DATA_RETENTION => $keep(array_values(array_filter((array) ($change->scope['groups'] ?? []), 'is_string'))),
+            // US-backup-restore-undo-preview (mod 20261126T233556): the tables an undo puts back.
+            PreChange::RESTORE_UNDO => $this->undoScope(array_values(array_filter((array) ($change->scope['tables'] ?? []), 'is_string'))),
             default => null,
         };
+    }
+
+    /**
+     * Every data group holding one of the tables an undo puts back; a table of no group adds the
+     * "Other" tables (as a full backup of the data would hold it).
+     *
+     * @param list<string> $tables Real table names.
+     * @return BackupScope
+     *
+     * @aidlc-story US-backup-restore-undo-preview
+     */
+    private function undoScope(array $tables): BackupScope
+    {
+        $registry = new DataGroupRegistry;
+        $groups = [];
+        $other = false;
+        foreach ($tables as $table) {
+            $bare = str_starts_with($table, GP247_DB_PREFIX) ? substr($table, strlen(GP247_DB_PREFIX)) : $table;
+            $group = $registry->groupOf($bare) ?? $registry->groupOf($table);
+            if ($group === null) {
+                $other = true;
+                continue;
+            }
+            $groups[$group] = true;
+        }
+        $groups = array_keys($groups);
+
+        return BackupScope::selective($groups ?: ($other ? [] : [BackupScope::DEFAULT_SNAPSHOT_GROUP]), [], $other);
     }
 
     /**
@@ -164,6 +194,10 @@ final class PreChangeGuard
             if (isset($change->scope['source'])) {
                 $parts[] = $clean((string) $change->scope['source']);
             }
+        }
+        // WHY the restore's job id: a backup made for undoing one restore is not one for another.
+        if ($change->operation === PreChange::RESTORE_UNDO) {
+            $parts[] = (string) (int) ($change->scope['restore'] ?? 0);
         }
         if ($change->from !== null || $change->to !== null) {
             $parts[] = $clean($change->from);
