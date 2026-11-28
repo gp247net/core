@@ -13,13 +13,13 @@ Cài đặt core (khi đã có laravel):
 
 > composer require gp247/core
 
-[Trang chủ](https://gp247.net) | [Tài liệu chính thức](https://github.com/gp247net/gp247-docs) | [Skill agent chính thức](https://github.com/gp247net/gp247-skills) | [Fanpage chính thức](https://www.facebook.com/GP247.official/)
+[Trang chủ](https://gp247.net) | [Tài liệu chính thức](https://github.com/gp247-official/gp247-docs) | [Skill agent chính thức](https://github.com/gp247-official/gp247-skills) | [Fanpage chính thức](https://www.facebook.com/GP247.official/)
 
-[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
+[![Tests](https://github.com/gp247-official/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247-official/core/actions/workflows/tests.yml)
 [![Tổng lượt tải](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![Phiên bản ổn định mới nhất](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![Giấy phép](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
-[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247net/core)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247-official/core)
 
 ## Giới thiệu về GP247
 GP247 là hệ sinh thái mã nguồn mở trên Laravel để xây dựng ứng dụng web cho doanh nghiệp.
@@ -79,7 +79,7 @@ GP247 3.x
 
 ## Hướng dẫn cài đặt nhanh
 
-> 📘 **Hướng dẫn cài đặt đầy đủ** — chọn bộ cài (S-Cart, GP247 CMS, chỉ core), hosting không có dòng lệnh, thêm front/shop vào site đang có, xử lý sự cố: [Cài đặt GP247 và S-Cart](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/install_vi.md).
+> 📘 **Hướng dẫn cài đặt đầy đủ** — chọn bộ cài (S-Cart, GP247 CMS, chỉ core), hosting không có dòng lệnh, thêm front/shop vào site đang có, xử lý sự cố: [Cài đặt GP247 và S-Cart](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/install_vi.md).
 
 - **Bước 1**: Chuẩn bị source Laravel
 
@@ -176,8 +176,8 @@ một thao tác bị từ chối).
 
 > 📖 **Tham chiếu dòng lệnh đầy đủ.** Các lệnh dưới đây chỉ là những lệnh thông
 > dụng nhất. Xem tất cả lệnh artisan của GP247 cùng tùy chọn và ví dụ trong tài
-> liệu chính thức: [Tiếng Việt](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction_vi.md)
-> · [English](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction.md).
+> liệu chính thức: [Tiếng Việt](https://github.com/gp247-official/gp247-docs/blob/main/cli/cli-introduction_vi.md)
+> · [English](https://github.com/gp247-official/gp247-docs/blob/main/cli/cli-introduction.md).
 
 **Để xem phiên bản GP247**
 
@@ -185,7 +185,7 @@ một thao tác bị từ chối).
 
 **Cập nhật gp247**
 
-> 📘 **Hướng dẫn đầy đủ:** [Cập nhật GP247 và S-Cart](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/update_vi.md) · site còn ở dòng 2.x: [Nâng cấp lên dòng 3.x](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/upgrade_vi.md).
+> 📘 **Hướng dẫn đầy đủ:** [Cập nhật GP247 và S-Cart](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/update_vi.md) · site còn ở dòng 2.x: [Nâng cấp lên dòng 3.x](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/upgrade_vi.md).
 
 Cập nhật gói bằng lệnh: 
 >`composer update gp247/core`
@@ -282,7 +282,7 @@ Hoặc publish từng tag thủ công bằng `vendor:publish --force`:
 
 Sử dụng các hằng số prefix và middleware `GP247_ADMIN_PREFIX`, `GP247_ADMIN_MIDDLEWARE` trong khai báo route.
 
-Tham khảo: https://github.com/gp247net/core/blob/master/src/routes.php
+Tham khảo: https://github.com/gp247-official/core/blob/master/src/routes.php
 
 ## Các biến môi trường trong file .env
 

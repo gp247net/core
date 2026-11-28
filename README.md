@@ -13,13 +13,13 @@ Install the core (Laravel already set up):
 
 > composer require gp247/core
 
-[Home page](https://gp247.net) | [Official documentation](https://github.com/gp247net/gp247-docs) | [Official agent skills](https://github.com/gp247net/gp247-skills) | [Official fanpage](https://www.facebook.com/GP247.official/)
+[Home page](https://gp247.net) | [Official documentation](https://github.com/gp247-official/gp247-docs) | [Official agent skills](https://github.com/gp247-official/gp247-skills) | [Official fanpage](https://www.facebook.com/GP247.official/)
 
-[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
+[![Tests](https://github.com/gp247-official/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247-official/core/actions/workflows/tests.yml)
 [![Total Downloads](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![Latest Stable Version](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![License](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
-[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247net/core)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247-official/core)
 
 ## About GP247
 GP247 is an open-source ecosystem on Laravel for building business web applications.
@@ -79,7 +79,7 @@ GP247 3.x
 
 ## Quick Installation Guide
 
-> 📘 **Full installation guide** — choosing a package set (S-Cart, GP247 CMS, core only), hosting without a command line, adding front/shop to an existing site, troubleshooting: [Installing GP247 and S-Cart](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/install.md).
+> 📘 **Full installation guide** — choosing a package set (S-Cart, GP247 CMS, core only), hosting without a command line, adding front/shop to an existing site, troubleshooting: [Installing GP247 and S-Cart](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/install.md).
 
 - **Step 1**: Prepare the Laravel source
 
@@ -178,8 +178,8 @@ chosen permissions and assert that an action is denied).
 
 > 📖 **Full command-line reference.** The commands below are the most common ones.
 > For every GP247 artisan command, its options and examples, see the official
-> reference: [English](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction.md)
-> · [Tiếng Việt](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction_vi.md).
+> reference: [English](https://github.com/gp247-official/gp247-docs/blob/main/cli/cli-introduction.md)
+> · [Tiếng Việt](https://github.com/gp247-official/gp247-docs/blob/main/cli/cli-introduction_vi.md).
 
 **To view GP247 version**
 
@@ -187,7 +187,7 @@ chosen permissions and assert that an action is denied).
 
 **Update gp247**
 
-> 📘 **Full guide:** [Updating GP247 and S-Cart](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/update.md) · site still on 2.x: [Upgrading to the 3.x line](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/upgrade.md).
+> 📘 **Full guide:** [Updating GP247 and S-Cart](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/update.md) · site still on 2.x: [Upgrading to the 3.x line](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/upgrade.md).
 
 Update the package using the command: 
 >`composer update gp247/core`
@@ -283,7 +283,7 @@ To create a zip file template:
 
 Use prefix and middleware constants `GP247_ADMIN_PREFIX`, `GP247_ADMIN_MIDDLEWARE` in route declaration.
 
-References: https://github.com/gp247net/core/blob/master/src/routes.php
+References: https://github.com/gp247-official/core/blob/master/src/routes.php
 
 
 

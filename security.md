@@ -10,7 +10,7 @@
 New features go into the newest line only. When a new line ships, the previous line gets critical bug fixes for 6 more
 months and security fixes until the time in the table — never past the security support of the Laravel version it runs on.
 
-Recommended versions and how to update: [S-Cart releases and security](https://github.com/gp247net/gp247-docs/blob/main/release/release.md).
+Recommended versions and how to update: [S-Cart releases and security](https://github.com/gp247-official/gp247-docs/blob/main/release/release.md).
 
 ## Reporting a Vulnerability
 

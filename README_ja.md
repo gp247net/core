@@ -13,13 +13,13 @@ core のインストール（Laravel が既にある場合）：
 
 > composer require gp247/core
 
-[ホーム](https://gp247.net) | [公式ドキュメント](https://github.com/gp247net/gp247-docs) | [公式エージェントスキル](https://github.com/gp247net/gp247-skills) | [公式ファンページ](https://www.facebook.com/GP247.official/)
+[ホーム](https://gp247.net) | [公式ドキュメント](https://github.com/gp247-official/gp247-docs) | [公式エージェントスキル](https://github.com/gp247-official/gp247-skills) | [公式ファンページ](https://www.facebook.com/GP247.official/)
 
-[![Tests](https://github.com/gp247net/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247net/core/actions/workflows/tests.yml)
+[![Tests](https://github.com/gp247-official/core/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/gp247-official/core/actions/workflows/tests.yml)
 [![総ダウンロード数](https://poser.pugx.org/gp247/core/d/total.svg)](https://packagist.org/packages/gp247/core)
 [![最新の安定版](https://poser.pugx.org/gp247/core/v/stable.svg)](https://packagist.org/packages/gp247/core)
 [![ライセンス](https://poser.pugx.org/gp247/core/license.svg)](https://packagist.org/packages/gp247/core)
-[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247net/core)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/gp247-official/core)
 
 ## GP247 について
 GP247 は、業務向け Web アプリケーションを構築するための Laravel ベースのオープンソース・エコシステムです。
@@ -79,7 +79,7 @@ GP247 3.x
 
 ## クイックインストールガイド
 
-> 📘 **インストールの詳しいガイド** — インストール構成の選び方（S-Cart、GP247 CMS、core のみ）、コマンドラインのないホスティング、既存サイトへの front/shop 追加、トラブルシューティング：[GP247 と S-Cart のインストール](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/install_ja.md)。
+> 📘 **インストールの詳しいガイド** — インストール構成の選び方（S-Cart、GP247 CMS、core のみ）、コマンドラインのないホスティング、既存サイトへの front/shop 追加、トラブルシューティング：[GP247 と S-Cart のインストール](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/install_ja.md)。
 
 - **ステップ 1**：Laravel のソースを用意します
 
@@ -178,7 +178,7 @@ GP247 3.x
 
 > 📖 **コマンドラインリファレンス（完全版）。** 以下は最もよく使うコマンドだけです。
 > GP247 のすべての artisan コマンドとそのオプション、使用例は、公式ドキュメントを
-> ご覧ください：[日本語](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction_ja.md) · [English](https://github.com/gp247net/gp247-docs/blob/main/cli/cli-introduction.md)。
+> ご覧ください：[日本語](https://github.com/gp247-official/gp247-docs/blob/main/cli/cli-introduction_ja.md) · [English](https://github.com/gp247-official/gp247-docs/blob/main/cli/cli-introduction.md)。
 
 **GP247 のバージョンを確認するには**
 
@@ -186,7 +186,7 @@ GP247 3.x
 
 **gp247 のアップデート**
 
-> 📘 **詳しいガイド：**[GP247 と S-Cart の更新](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/update_ja.md) · 2.x 系のサイト：[3.x 系へのアップグレード](https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/upgrade_ja.md)。
+> 📘 **詳しいガイド：**[GP247 と S-Cart の更新](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/update_ja.md) · 2.x 系のサイト：[3.x 系へのアップグレード](https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/upgrade_ja.md)。
 
 次のコマンドでパッケージをアップデートします：
 >`composer update gp247/core`
@@ -284,7 +284,7 @@ GP247 3.x
 
 ルート定義では、プレフィックスとミドルウェアの定数 `GP247_ADMIN_PREFIX`、`GP247_ADMIN_MIDDLEWARE` を使用してください。
 
-参考：https://github.com/gp247net/core/blob/master/src/routes.php
+参考：https://github.com/gp247-official/core/blob/master/src/routes.php
 
 ## .env ファイルの環境変数
 

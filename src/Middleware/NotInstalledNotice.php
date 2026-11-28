@@ -34,7 +34,7 @@ class NotInstalledNotice
     /** Seconds a client or crawler should wait before trying again. */
     private const RETRY_AFTER_SECONDS = 300;
 
-    private const GUIDE_URL = 'https://github.com/gp247net/gp247-docs/blob/main/install-upgrade/install.md';
+    private const GUIDE_URL = 'https://github.com/gp247-official/gp247-docs/blob/main/install-upgrade/install.md';
 
     private const MESSAGE = 'This site is not installed yet. Run php artisan gp247:install in the project folder.';
 
